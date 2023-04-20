@@ -1,2 +1,2 @@
-mod ir;
-mod builder;
+pub mod ir;
+pub mod builder;
