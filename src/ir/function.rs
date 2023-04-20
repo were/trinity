@@ -11,11 +11,11 @@ use super::{
 };
 
 pub struct Function {
-  pub(super) skey: Option<usize>,
-  pub(super) name: String,
-  pub(super) args: Vec<usize>,
-  pub(super) fty: FunctionType,
-  pub(super) blocks: Vec<usize>,
+  pub(crate) skey: Option<usize>,
+  pub(crate) name: String,
+  pub(crate) args: Vec<usize>,
+  pub(crate) fty: FunctionType,
+  pub(crate) blocks: Vec<usize>,
 }
 
 impl Function {

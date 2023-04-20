@@ -1,35 +1,34 @@
 use std::fmt;
-use std::rc::Rc;
 
 use slab::Slab;
+
 use super::block;
 use super::function;
 use super::value;
 use super::types;
 use super::instruction;
-use super::value::{
-  ValueRef, VKindCode, Argument
-};
-use super::types::{
-  Type, StructType, FunctionType
-};
-
-struct InsertPoint {
-  func_id: i32,
-  block_id: i32,
-  inst_id: i32,
-}
+use super::value::Argument;
+use super::types::StructType;
 
 pub struct Module {
+  /// The name of the module.
   mod_name: String,
+  /// The source code file name.
   src_name: String,
-  /// Manage all data structures in slab.
-  pub(super) func_buffer: Slab<function::Function>,
-  pub(super) struct_buffer: Slab<types::StructType>,
-  pub(super) block_buffer: Slab<block::Block>,
-  pub(super) inst_buffer: Slab<instruction::Instruction>,
-  pub(super) arg_buffer: Slab<value::Argument>,
-  insert_point: InsertPoint,
+  /// All the components of a module is managed by slabs.
+  /// All the functions in this module.
+  pub(crate) func_buffer: Slab<function::Function>,
+  /// This a redundant data structure to maintain the uniformity of the interfaces,
+  /// across all the levels of the IR. The keys to index the functions in the slab.
+  pub(crate) func_keys: Vec<usize>,
+  /// All the structs in this module.
+  pub(crate) struct_buffer: Slab<types::StructType>,
+  /// All the blocks in this module.
+  pub(crate) block_buffer: Slab<block::Block>,
+  /// All the instructions in this module.
+  pub(crate) inst_buffer: Slab<instruction::Instruction>,
+  /// All the function arguments in this module.
+  pub(crate) arg_buffer: Slab<value::Argument>,
 }
 
 impl<'ctx> Module {
@@ -40,11 +39,11 @@ impl<'ctx> Module {
       mod_name,
       src_name,
       func_buffer: Slab::new(),
+      func_keys: Vec::new(),
       struct_buffer: Slab::new(),
       block_buffer: Slab::new(),
       inst_buffer: Slab::new(),
       arg_buffer: Slab::new(),
-      insert_point: InsertPoint{func_id: -1, block_id: -1, inst_id: -1}
     }
   }
 
@@ -73,39 +72,18 @@ impl<'ctx> Module {
     None
   }
 
-  pub fn functions(&'ctx self) -> &'ctx Slab<function::Function> {
-    &self.func_buffer
+  /// The number of functions in the module.
+  pub fn get_num_functions(&self) -> usize {
+    self.func_buffer.len()
   }
 
-  pub fn functions_mut(&'ctx mut self) -> &'ctx mut Slab<function::Function> {
-    &mut self.func_buffer
+  /// Get the function by indices.
+  pub fn get_function(&'ctx self, idx: usize) -> &'ctx function::Function {
+    self.func_buffer.get(self.func_keys[idx]).unwrap()
   }
 
-  /// Get the function by name
-  pub fn get_function(&'ctx self, name: &String) -> Option<&'ctx function::Function> {
-    for (_, elem) in &self.func_buffer {
-      if elem.name == *name {
-        return Some(&elem);
-      }
-    }
-    None
-  }
-
-  /// Get the function by name
-  pub fn get_function_mut(&'ctx mut self, name: &String) -> Option<&'ctx mut function::Function> {
-    for (_, elem) in self.func_buffer.iter_mut() {
-      if elem.name == *name {
-        return Some(elem);
-      }
-    }
-    None
-  }
-
-  /// Set insert point
-  pub fn set_insert_block(&mut self, func_id: i32, block_id: i32) {
-    self.insert_point.func_id = func_id;
-    self.insert_point.block_id = block_id;
-    self.insert_point.inst_id = 0;
+  pub fn get_function_mut(&'ctx mut self, idx: usize) -> &'ctx mut function::Function {
+    &mut self.func_buffer[self.func_keys[idx]]
   }
 
 }

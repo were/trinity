@@ -106,8 +106,8 @@ impl fmt::Display for StructType {
 /// A function signature type
 #[derive(Clone)]
 pub struct FunctionType {
-  pub(super) args: Vec<Type>,
-  pub(super) ret_ty: Rc<Type>,
+  pub(crate) args: Vec<Type>,
+  pub(crate) ret_ty: Rc<Type>,
 }
 
 /// The base variant of a type

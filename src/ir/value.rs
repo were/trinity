@@ -27,10 +27,10 @@ macro_rules! value_impl_as_ref_and_mut {
 
 #[derive(Clone)]
 pub struct Argument {
-  pub(super) skey: Option<usize>,
-  pub(super) ty: Type,
-  pub(super) arg_idx: usize,
-  pub(super) parent: ValueRef
+  pub(crate) skey: Option<usize>,
+  pub(crate) ty: Type,
+  pub(crate) arg_idx: usize,
+  pub(crate) parent: ValueRef
 }
 
 #[derive(Clone)]
