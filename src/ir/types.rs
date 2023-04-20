@@ -83,6 +83,12 @@ impl StructType {
     self.attrs = elements.iter().map(|ty| Rc::new(ty.clone())).collect();
   }
 
+  pub fn as_ref(&self) -> StructTypeRef {
+    StructTypeRef {
+      name: self.name.clone(),
+    }
+  }
+
 }
 
 impl fmt::Display for StructType {
