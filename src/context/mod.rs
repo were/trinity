@@ -6,8 +6,7 @@ use component::{
   Component, ComponentToSelf, ComponentToSelfMut,
 };
 
-use crate::ir::types::{self, StructType};
-use crate::ir::types::{AsTypeRef, IntType, VoidType};
+use crate::ir::types::{self, AsTypeRef, IntType, VoidType};
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.

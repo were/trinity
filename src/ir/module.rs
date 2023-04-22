@@ -65,7 +65,7 @@ impl<'ctx> Module {
 
 }
 
-fn namify(name: &String) -> String {
+pub(crate) fn namify(name: &String) -> String {
   let mut res = String::new();
   name.chars().into_iter().for_each(|c| match c {
     'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => res.push(c),
@@ -85,28 +85,8 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
       let func = self.get_function(i);
+      write!(f, "{}", func.to_string(&self)).unwrap();
       // TODO(@were): More linkage policies
-      write!(f, "define dso_local {} @{}(", func.fty.ret_ty.to_string(&self.context), namify(&func.name)).unwrap();
-      for i in 0..func.get_num_args() {
-        if i != 0 {
-          write!(f, ", ").unwrap();
-        }
-        let arg_ref = func.get_arg(i);
-        let arg = arg_ref.as_ref::<Argument>(self).unwrap();
-        write!(f, "{}", arg.to_string(&self.context)).unwrap();
-      }
-      write!(f, ")").unwrap();
-      if func.blocks.len() != 0 {
-        write!(f, " {{\n").unwrap();
-        for i in 0..func.get_num_blocks() {
-          let block_ref = func.get_block(i);
-          let block = block_ref.as_ref::<block::Block>(self).unwrap();
-          write!(f, "{}:\n", block.name).unwrap();
-        }
-        write!(f, "}}").unwrap();
-      } else {
-        write!(f, ";").unwrap();
-      }
       write!(f, "\n\n").unwrap();
     }
     Ok(())

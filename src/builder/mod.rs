@@ -30,7 +30,7 @@ impl<'ctx> Builder {
   }
 
   /// Add a function to the module
-  pub fn add_function(&mut self, name: String, fty: FunctionType) -> ValueRef {
+  pub fn add_function(&mut self, name: String, fty: &FunctionType) -> ValueRef {
     let args = fty.args.iter().enumerate().map(|(i, ty)| {
       let arg = Argument {
         skey: None,
@@ -42,7 +42,7 @@ impl<'ctx> Builder {
     }).collect();
     let func = function::Function {
       skey: None,
-      name, args, fty,
+      name, args, fty: fty.as_type_ref(),
       blocks: Vec::new(),
     };
     let skey = self.context().add_component(func.into());
