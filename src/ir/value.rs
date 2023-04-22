@@ -1,3 +1,4 @@
+use crate::context::Context;
 use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
 
 use super::block::Block;
@@ -22,17 +23,17 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
-  pub fn as_ref<T: WithVKindCode + ComponentToSelf<T>>(&'ctx self, module: &'ctx Module) -> Option<&'ctx T> {
+  pub fn as_ref<T: WithVKindCode + ComponentToSelf<T>>(&'ctx self, context: &'ctx Context) -> Option<&'ctx T> {
     if self.v_kind == T::kind_code() {
-      Some(module.context.get_value_ref::<T>(self.skey))
+      Some(context.get_value_ref::<T>(self.skey))
     } else {
       None
     }
   }
 
-  pub fn as_mut<T: WithVKindCode + ComponentToSelfMut<T>>(&'ctx self, module: &'ctx mut Module) -> Option<&'ctx mut T> {
+  pub fn as_mut<T: WithVKindCode + ComponentToSelfMut<T>>(&'ctx self, context: &'ctx mut Context) -> Option<&'ctx mut T> {
     if self.v_kind == T::kind_code() {
-      Some(module.context.get_value_mut::<T>(self.skey))
+      Some(context.get_value_mut::<T>(self.skey))
     } else {
       None
     }

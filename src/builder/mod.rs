@@ -39,7 +39,7 @@ impl<'ctx> Builder {
     };
     // Add the function to module.
     let skey = self.context().add_component(func.into());
-    let args = fty_ref.as_ref::<FunctionType>(&self.module).unwrap().args.clone();
+    let args = fty_ref.as_ref::<FunctionType>(self.context()).unwrap().args.clone();
     self.module.functions.push(skey);
     let fidx = self.module.get_num_functions() - 1;
     // Generate the arguments.
@@ -78,7 +78,7 @@ impl<'ctx> Builder {
       insts: Vec::new(),
       parent: func_ref.clone(),
     }.into());
-    let func = func_ref.as_mut::<Function>(&mut self.module).unwrap();
+    let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.blocks.push(skey);
     let block = self.context().get_value_mut::<Block>(skey);
     block.skey = Some(skey);
@@ -104,8 +104,8 @@ impl<'ctx> Builder {
   /// Set the instruction as the insert point.
   pub fn set_insert_point(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.v_kind == VKindCode::Instruction, "Given value is not a instruction");
-    let inst = inst_ref.as_ref::<Instruction>(&self.module).unwrap();
-    let block = inst.parent.as_ref::<Block>(&self.module).unwrap();
+    let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
+    let block = inst.parent.as_ref::<Block>(&self.module.context).unwrap();
     let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
@@ -119,7 +119,7 @@ impl<'ctx> Builder {
       inst.parent = block_ref.clone();
       inst.as_ref()
     };
-    let block = block_ref.as_mut::<Block>(&mut self.module).unwrap();
+    let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
     if let Some(inst_idx) = self.inst_idx {
       block.insts.insert(inst_idx, skey);
     } else {

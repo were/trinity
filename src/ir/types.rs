@@ -93,7 +93,7 @@ pub struct StructType {
 impl StructType {
 
   pub fn print_decl(&self, ctx: &Context) -> String {
-    let attrs = self.attrs.iter().map(|attr| attr.to_string(&ctx)).collect::<Vec<_>>().join(", ");
+    let attrs = self.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ");
     format!("%{} = {{ {} }}", self.name, attrs)
   }
 
@@ -170,17 +170,17 @@ impl<'ctx> TypeRef {
     }
   }
 
-  pub fn as_ref<T: WithTypeKind + ComponentToSelf<T>>(&'ctx self, module: &'ctx Module) -> Option<&'ctx T> {
+  pub fn as_ref<T: WithTypeKind + ComponentToSelf<T>>(&'ctx self, ctx: &'ctx Context) -> Option<&'ctx T> {
     if self.type_kind == T::kind_code() {
-      Some(module.context.get_value_ref::<T>(self.skey))
+      Some(ctx.get_value_ref::<T>(self.skey))
     } else {
       None
     }
   }
 
-  pub fn as_mut<T: WithTypeKind + ComponentToSelfMut<T>>(&'ctx self, module: &'ctx mut Module) -> Option<&'ctx mut T> {
+  pub fn as_mut<T: WithTypeKind + ComponentToSelfMut<T>>(&'ctx self, ctx: &'ctx mut Context) -> Option<&'ctx mut T> {
     if self.type_kind == T::kind_code() {
-      Some(module.context.get_value_mut::<T>(self.skey))
+      Some(ctx.get_value_mut::<T>(self.skey))
     } else {
       None
     }

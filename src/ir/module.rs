@@ -83,7 +83,7 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
       let func = self.get_function(i);
-      write!(f, "{}", func.to_string(&self)).unwrap();
+      write!(f, "{}", func.to_string(&self.context)).unwrap();
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
     }
