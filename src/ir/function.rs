@@ -39,6 +39,10 @@ impl Function {
     return ValueRef{skey: self.blocks[i], v_kind: VKindCode::Block};
   }
 
+  pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
+    return self.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty.clone();
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
     let mut res = String::new();
     let fty = self.fty.as_ref::<FunctionType>(ctx).unwrap();
@@ -69,6 +73,10 @@ impl Function {
 }
 
 impl Argument {
+
+  pub fn get_parent(&self) -> ValueRef {
+    return ValueRef{ skey: self.parent, v_kind: VKindCode::Function };
+  }
 
   pub fn name(&self) -> String {
     format!("%arg.{}", self.arg_idx)

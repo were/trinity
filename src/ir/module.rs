@@ -13,10 +13,12 @@ pub struct Module {
   mod_name: String,
   /// The source code file name.
   src_name: String,
-  /// The function keys in the context slab.
+  /// The function keys in this module.
   pub(crate) functions: Vec<usize>,
-  /// The struct keys in the context slab.
-  pub(crate) structs: Vec<usize>
+  /// The struct keys in this module.
+  pub(crate) structs: Vec<usize>,
+  /// The global values in this module.
+  pub(crate) global_values: Vec<usize>,
 }
 
 impl<'ctx> Module {
@@ -29,6 +31,7 @@ impl<'ctx> Module {
       context: Context::new(),
       functions: Vec::new(),
       structs: Vec::new(),
+      global_values: Vec::new(),
     }
   }
 

@@ -1,8 +1,15 @@
 use std::fmt;
 
+pub mod arraytype;
+pub mod functype;
+
+pub use arraytype::{PointerType, ArrayType};
+pub use functype::FunctionType;
+
 use crate::context::Context;
 use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
-use super::consts::ConstScalar;
+
+use super::consts::{ConstScalar, ConstArray};
 use super::value::ValueRef;
 
 pub trait AsTypeRef {
@@ -12,6 +19,8 @@ pub trait AsTypeRef {
 pub trait WithTypeKind {
   fn kind_code() -> TypeKind;
 }
+
+// Register all the types here.
 
 macro_rules! impl_as_type_ref {
   ($type:tt) => {
@@ -33,6 +42,18 @@ impl_as_type_ref!(PointerType);
 impl_as_type_ref!(FunctionType);
 impl_as_type_ref!(IntType);
 impl_as_type_ref!(VoidType);
+impl_as_type_ref!(ArrayType);
+
+#[derive(Clone, PartialEq)]
+pub enum TypeKind {
+  IntType,
+  VoidType,
+  StructType,
+  PointerType,
+  FunctionType,
+  ArrayType
+}
+
 
 /// Very basic integer type
 #[derive(Clone)]
@@ -76,13 +97,6 @@ impl fmt::Display for VoidType {
 
 }
 
-/// Pointer type
-#[derive(Clone)]
-pub struct PointerType {
-  pub(crate) skey: Option<usize>,
-  scalar_ty: TypeRef,
-}
-
 /// Struct type
 pub struct StructType {
   pub(crate) skey: Option<usize>,
@@ -115,21 +129,6 @@ impl StructType {
 
 }
 
-impl PointerType {
-
-  pub fn to_string(&self, context: &Context) -> String {
-    format!("{}*", self.scalar_ty.to_string(context))
-  }
-
-}
-
-/// A function signature type
-pub struct FunctionType {
-  pub(crate) skey: Option<usize>,
-  pub(crate) args: Vec<TypeRef>,
-  pub(crate) ret_ty: TypeRef,
-}
-
 #[derive(Clone)]
 pub struct TypeRef {
   pub(crate) skey: usize,
@@ -158,6 +157,10 @@ impl<'ctx> TypeRef {
       },
       TypeKind::PointerType => {
         let ty = ctx.get_value_ref::<PointerType>(self.skey);
+        ty.to_string(ctx)
+      },
+      TypeKind::ArrayType => {
+        let ty = ctx.get_value_ref::<ArrayType>(self.skey);
         ty.to_string(ctx)
       },
       TypeKind::FunctionType => {
@@ -208,14 +211,26 @@ impl<'ctx> TypeRef {
     let skey = ctx.add_component(instance.into());
     ctx.get_value_ref::<ConstScalar>(skey).as_ref()
   }
-}
 
-#[derive(Clone, PartialEq)]
-pub enum TypeKind {
-  IntType,
-  VoidType,
-  StructType,
-  PointerType,
-  FunctionType,
+  pub fn array_type(&self, ctx: &mut Context, size: ValueRef) -> TypeRef {
+    let array_ty = ArrayType{skey: None, elem_ty: self.clone(), size};
+    let skey = ctx.add_component(array_ty.into());
+    let array_ty = ctx.get_value_ref::<ArrayType>(skey);
+    array_ty.as_type_ref()
+  }
+
+  pub fn const_array(&self, ctx: &mut Context, name: String, value: Vec<u8>) -> ValueRef {
+    assert!(self.type_kind == TypeKind::ArrayType);
+    let res = ConstArray {
+      skey: None,
+      name,
+      ty: self.ptr_type(ctx),
+      value
+    };
+    let skey = ctx.add_component(res.into());
+    let res = ctx.get_value_ref::<ConstArray>(skey);
+    res.as_ref()
+  }
+
 }
 

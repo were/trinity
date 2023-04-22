@@ -6,7 +6,7 @@ use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::module::Module;
 use super::types::TypeRef;
-use super::consts::ConstScalar;
+use super::consts::{ConstScalar, ConstArray};
 
 #[derive(Clone)]
 pub struct ValueRef {
@@ -52,7 +52,11 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
-        format!("@{}", func.name)
+        format!("{} @{}", func.get_ret_ty(ctx).to_string(ctx), func.name)
+      },
+      VKindCode::ConstArray => {
+        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
+        format!("{} @{}", const_array.ty.to_string(ctx), const_array.name)
       },
       VKindCode::Unknown => {
         format!("[unknown]")
@@ -62,14 +66,6 @@ impl<'ctx> ValueRef {
 
 }
 
-pub enum Value {
-  Argument(Argument),
-  Instruction(Instruction),
-  Function(Function),
-  Block(Block),
-  ConstScalar(ConstScalar),
-}
-
 #[derive(Clone, PartialEq)]
 pub enum VKindCode {
   Argument,
@@ -77,6 +73,7 @@ pub enum VKindCode {
   Function,
   Block,
   ConstScalar,
+  ConstArray,
   Unknown
 }
 
@@ -117,4 +114,5 @@ impl_as_ref!(Block);
 impl_as_ref!(Function);
 impl_as_ref!(Instruction);
 impl_as_ref!(ConstScalar);
+impl_as_ref!(ConstArray);
 

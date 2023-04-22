@@ -1,8 +1,8 @@
 use crate::ir::{
-  types::{IntType, VoidType, StructType, PointerType, FunctionType},
+  types::{IntType, VoidType, StructType, PointerType, FunctionType, ArrayType},
   function::{Function, Argument},
   instruction::Instruction,
-  block::Block, consts::ConstScalar,
+  block::Block, consts::{ConstScalar, ConstArray},
 };
 
 // TODO(@were): Make this private later.
@@ -13,12 +13,14 @@ pub enum Component {
   StructType(StructType),
   PointerType(PointerType),
   FunctionType(FunctionType),
+  ArrayType(ArrayType),
   // Values
   Function(Function),
   Argument(Argument),
   Instruction(Instruction),
   Block(Block),
   ConstScalar(ConstScalar),
+  ConstArray(ConstArray),
 }
 
 impl Component {
@@ -36,6 +38,8 @@ impl Component {
       Component::Instruction(v) => v.skey = Some(skey),
       Component::Block(v) => v.skey = Some(skey),
       Component::ConstScalar(v) => v.skey = Some(skey),
+      Component::ArrayType(v) => v.skey = Some(skey),
+      Component::ConstArray(v) => v.skey = Some(skey),
     }
   }
 
@@ -78,12 +82,14 @@ impl_component_related!(VoidType);
 impl_component_related!(StructType);
 impl_component_related!(PointerType);
 impl_component_related!(FunctionType);
+impl_component_related!(ArrayType);
 // Values
 impl_component_related!(Function);
 impl_component_related!(Argument);
 impl_component_related!(Instruction);
 impl_component_related!(Block);
 impl_component_related!(ConstScalar);
+impl_component_related!(ConstArray);
 
 pub trait ComponentToSelf<T> {
   fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;

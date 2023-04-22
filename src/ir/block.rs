@@ -6,10 +6,14 @@ pub struct Block {
   pub(crate) skey: Option<usize>,
   pub(crate) name: String,
   pub(crate) insts: Vec<usize>,
-  pub(crate) parent: ValueRef,
+  pub(crate) parent: usize,
 }
 
 impl Block {
+
+  pub fn get_parent(&self) -> ValueRef {
+    ValueRef{skey: self.parent, v_kind: crate::ir::value::VKindCode::Function}
+  }
 
   pub fn get_num_insts(&self) -> usize {
     return self.insts.len();

@@ -74,7 +74,7 @@ impl<'ctx> Builder {
       skey: None,
       name: block_name,
       insts: Vec::new(),
-      parent: func_ref.clone(),
+      parent: func_ref.skey,
     }.into());
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.blocks.push(skey);
@@ -149,6 +149,14 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
+  pub fn create_string(&mut self, val: String) -> ValueRef {
+    let size = self.context().int_type(32).const_value(self.context(), val.len() as u64);
+    let array_ty = self.context().int_type(8).array_type(self.context(), size);
+    let id = self.context().num_components();
+    let res = array_ty.const_array(self.context(), format!("str.{}", id), val.into_bytes());
+    self.module.global_values.push(res.skey);
+    res
+  }
 
 }
 
