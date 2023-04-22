@@ -93,11 +93,8 @@ pub struct StructType {
 impl StructType {
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let mut res = format!("%{} = {{", self.name);
-    for attr in &self.attrs {
-      res.push_str(&format!(" {} ", attr.to_string(ctx)));
-    }
-    return res;
+    let attrs = self.attrs.iter().map(|attr| attr.to_string(&ctx)).collect::<Vec<_>>().join(", ");
+    format!("%{} = {{ {} }}", self.name, attrs)
   }
 
 }
