@@ -43,7 +43,9 @@ impl<'ctx> Context {
   /// Get an integer type
   pub fn int_type(&mut self, bits: usize) -> types::TypeRef {
     let skey = self.slab.insert(IntType::new(bits).into());
-    self.get_value_ref::<IntType>(skey).as_type_ref()
+    let mut_ref = self.get_value_mut::<IntType>(skey);
+    mut_ref.skey = Some(skey);
+    mut_ref.as_type_ref()
   }
 
   /// Get a void type

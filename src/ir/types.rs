@@ -37,7 +37,7 @@ impl_as_type_ref!(VoidType);
 /// Very basic integer type
 #[derive(Clone)]
 pub struct IntType {
-  skey: Option<usize>,
+  pub(crate) skey: Option<usize>,
   bits: usize,
 }
 
