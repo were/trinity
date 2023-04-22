@@ -11,7 +11,7 @@ pub struct Argument {
   pub(crate) skey: Option<usize>,
   pub(crate) ty: TypeRef,
   pub(crate) arg_idx: usize,
-  pub(crate) parent: ValueRef
+  pub(crate) parent: usize
 }
 
 #[derive(Clone)]

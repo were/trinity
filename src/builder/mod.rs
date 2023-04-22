@@ -5,7 +5,7 @@ use crate::ir::{
   block::Block,
   function::Function,
   function,
-  types::{self, StructType, AsTypeRef},
+  types::{self, StructType, AsTypeRef, TypeRef},
   instruction::{self, Instruction}
 };
 
@@ -30,41 +30,36 @@ impl<'ctx> Builder {
   }
 
   /// Add a function to the module
-  pub fn add_function(&mut self, name: String, fty: &FunctionType) -> ValueRef {
-    let args = fty.args.iter().enumerate().map(|(i, ty)| {
-      let arg = Argument {
-        skey: None,
-        ty: ty.clone(),
-        arg_idx: i,
-        parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
-      };
-      self.context().add_component(arg.into())
-    }).collect();
+  pub fn add_function(&mut self, name: String, fty_ref: TypeRef) -> ValueRef {
+    // Create the function.
     let func = function::Function {
       skey: None,
-      name, args, fty: fty.as_type_ref(),
+      name, args: Vec::new(), fty: fty_ref.clone(),
       blocks: Vec::new(),
     };
+    // Add the function to module.
     let skey = self.context().add_component(func.into());
-    let func = self.module.get_function_mut(self.module.get_num_functions() - 1);
+    let args = fty_ref.as_ref::<FunctionType>(&self.module).unwrap().args.clone();
+    self.module.functions.push(skey);
+    let fidx = self.module.get_num_functions() - 1;
+    // Generate the arguments.
+    let fargs: Vec<usize> = args.iter().enumerate().map(|(i, ty)| {
+       let arg = Argument {
+         skey: None,
+         ty: ty.clone(),
+         arg_idx: i,
+         parent: skey
+       };
+       let arg_ref = self.context().add_component(arg.into());
+       let arg = self.context().get_value_mut::<Argument>(arg_ref);
+       arg.skey = Some(arg_ref);
+       arg_ref
+    }).collect();
+    // Finalize the arguments.
+    let func = self.module.get_function_mut(fidx);
     func.skey = Some(skey);
-    // This is to fit rust convention.
-    // Finalize the use to self.context() to retrieve the function.
-    // Then process each funcion argument.
-    let (args, func_ref) ={
-      let idx = self.module.get_num_functions() - 1;
-      let func = self.module.get_function(idx);
-      let func_ref = func.as_ref();
-      let args = func.args.clone();
-      (args, func_ref)
-    };
-    args.iter().for_each(|arg_ref| {
-       let arg = self.context().get_value_mut::<Argument>(*arg_ref);
-       arg.parent = func_ref.clone();
-       arg.skey = Some(*arg_ref);
-       arg.parent = ValueRef{skey, v_kind: VKindCode::Function};
-    });
-    func_ref
+    func.args = fargs;
+    func.as_ref()
   }
 
   /// Set the current function to insert.

@@ -3,9 +3,7 @@ use std::fmt;
 
 use crate::context::Context;
 
-use super::block;
 use super::function;
-use super::value::Argument;
 use super::types::StructType;
 
 pub struct Module {
@@ -16,7 +14,7 @@ pub struct Module {
   /// The source code file name.
   src_name: String,
   /// The function keys in the context slab.
-  functions: Vec<usize>,
+  pub(crate) functions: Vec<usize>,
   /// The struct keys in the context slab.
   structs: Vec<usize>
 }
