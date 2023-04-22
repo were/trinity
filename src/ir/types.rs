@@ -181,6 +181,14 @@ impl<'ctx> TypeRef {
     }
   }
 
+  pub fn ptr_type(&self, ctx: &mut Context) -> TypeRef {
+    let scalar_ty: TypeRef = self.clone();
+    let skey = ctx.add_component(PointerType{skey: None, scalar_ty}.into());
+    let ptr_ty = ctx.get_value_mut::<PointerType>(skey);
+    ptr_ty.skey = Some(skey);
+    ptr_ty.as_type_ref()
+  }
+
 }
 
 #[derive(Clone, PartialEq)]
