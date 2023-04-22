@@ -10,7 +10,7 @@ use super::types::StructType;
 
 pub struct Module {
   /// Context of this module.
-  pub(crate) context: Context,
+  pub context: Context,
   /// The name of the module.
   mod_name: String,
   /// The source code file name.
