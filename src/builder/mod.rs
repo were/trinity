@@ -150,6 +150,7 @@ impl<'ctx> Builder {
   }
 
   pub fn create_string(&mut self, val: String) -> ValueRef {
+    let val = format!("{}\0", val);
     let size = self.context().int_type(32).const_value(self.context(), val.len() as u64);
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
     let id = self.context().num_components();
