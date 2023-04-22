@@ -6,6 +6,7 @@ use crate::ir::{
   block::Block,
 };
 
+// TODO(@were): Make this private later.
 pub enum Component {
   // Types
   IntType(IntType),

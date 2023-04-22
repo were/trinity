@@ -20,6 +20,13 @@ I want to write a LLVM and Rust based compiler tutorial, but:
 Admittedly, I learned many from `inkwell`'s API design, and I hope this will be easier to use.
 I will prove the usability of this set of APIs, through my compiler tutorial.
 
+Another two major issues of using a bind library is the dependences and backward compatibility.
+Bind-free gets rid of the dependences of downloading a specific LLVM version. Moreover,
+as far as I observed, LLVM has very good backward compatibiilty on the IR side, but very poor
+compatibility on the developer side. Therefore, I believe the generated LLVM IR will be
+useful across as many versions as possible.
+
+
 **Where does the name Trinity come from?**
 
 I just merge the `Context`, `Module`, and `IRBuilder` together
