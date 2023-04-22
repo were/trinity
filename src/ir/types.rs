@@ -189,6 +189,14 @@ impl<'ctx> TypeRef {
     ptr_ty.as_type_ref()
   }
 
+  pub fn fn_type(&self, ctx: &mut Context, args: Vec<TypeRef>) -> TypeRef {
+    let fty = FunctionType{skey: None, args, ret_ty: Rc::new(self.clone())};
+    let skey = ctx.add_component(fty.into());
+    let fty = ctx.get_value_mut::<FunctionType>(skey);
+    fty.skey = Some(skey);
+    fty.as_type_ref()
+  }
+
 }
 
 #[derive(Clone, PartialEq)]

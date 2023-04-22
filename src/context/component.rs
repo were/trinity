@@ -1,5 +1,5 @@
 use crate::ir::{
-  types::{IntType, VoidType, StructType, PointerType},
+  types::{IntType, VoidType, StructType, PointerType, FunctionType},
   function::Function,
   value::Argument,
   instruction::Instruction,
@@ -13,6 +13,7 @@ pub enum Component {
   VoidType(VoidType),
   StructType(StructType),
   PointerType(PointerType),
+  FunctionType(FunctionType),
   // Values
   Function(Function),
   Argument(Argument),
@@ -56,6 +57,7 @@ impl_component_related!(IntType);
 impl_component_related!(VoidType);
 impl_component_related!(StructType);
 impl_component_related!(PointerType);
+impl_component_related!(FunctionType);
 // Values
 impl_component_related!(Function);
 impl_component_related!(Argument);
