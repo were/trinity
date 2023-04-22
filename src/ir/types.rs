@@ -17,7 +17,7 @@ macro_rules! impl_as_type_ref {
   ($type:tt) => {
     impl AsTypeRef for $type {
       fn as_type_ref(&self) -> TypeRef {
-        TypeRef{ skey: self.skey.clone().unwrap(), kind: TypeKind::$type }
+        TypeRef{ skey: self.skey.clone().unwrap(), type_kind: TypeKind::$type }
       }
     }
     impl WithTypeKind for $type {
