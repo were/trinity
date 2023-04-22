@@ -1,7 +1,3 @@
-use std::rc::Rc;
-
-use slab::Slab;
-
 use crate::ir::{
   module::Module,
   value::{ValueRef, Argument, VKindCode},
@@ -9,21 +5,27 @@ use crate::ir::{
   block::Block,
   function::Function,
   function,
-  types
+  types, instruction::{self, Instruction}
 };
+
+use crate::context::Context;
 
 
 pub struct Builder {
   pub module: Module,
-  func_id: Option<usize>,
-  block_id: Option<usize>,
-  inst_id: Option<usize>,
+  func: Option<ValueRef>,
+  block: Option<ValueRef>,
+  inst_idx: Option<usize>,
 }
 
-impl Builder {
+impl<'ctx> Builder {
 
   pub fn new(module: Module) -> Builder {
-    Builder { module, func_id: None, block_id: None, inst_id: None }
+    Builder { module, func: None, block: None, inst_idx: None }
+  }
+
+  pub fn context(&mut self) -> &mut Context {
+    &mut self.module.context
   }
 
   /// Add a function to the module
@@ -35,69 +37,106 @@ impl Builder {
         arg_idx: i,
         parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
       };
-      self.module.arg_buffer.insert(arg)
+      self.context().add_component(arg.into())
     }).collect();
     let func = function::Function {
       skey: None,
       name, args, fty,
       blocks: Vec::new(),
     };
-    let skey = self.module.func_buffer.insert(func);
-    self.module.func_buffer[skey].skey = Some(skey);
-    self.module.func_buffer[skey].args.iter().for_each(|arg_ref| {
-      let arg = &mut self.module.arg_buffer[*arg_ref];
-      arg.skey = Some(*arg_ref);
-      arg.parent = ValueRef{skey, v_kind: VKindCode::Function};
+    let skey = self.context().add_component(func.into());
+    {
+      let func = self.module.get_function_mut(self.module.get_num_functions() - 1);
+      func.skey = Some(skey);
+    }
+    // This is to fit rust convention.
+    // Finalize the use to self.context() to retrieve the function.
+    // Then process each funcion argument.
+    let (args, func_ref) ={
+      let idx = self.module.get_num_functions() - 1;
+      let func = self.module.get_function(idx);
+      let func_ref = func.as_ref();
+      let args = func.args.clone();
+      (args, func_ref)
+    };
+    args.iter().for_each(|arg_ref| {
+       let arg = self.context().get_value_mut::<Argument>(*arg_ref);
+       arg.parent = func_ref.clone();
+       arg.skey = Some(*arg_ref);
+       arg.parent = ValueRef{skey, v_kind: VKindCode::Function};
     });
-    self.module.func_buffer[skey].as_ref()
+    func_ref
   }
 
   /// Set the current function to insert.
   pub fn set_current_function(&mut self, func: ValueRef) {
     assert!(func.v_kind == VKindCode::Function, "Given value is not a function");
-    self.func_id = Some(func.skey);
+    self.func = Some(func);
   }
 
   /// Add a block to the current function.
   pub fn add_block(&mut self, name: String) -> ValueRef {
-    let block_name = if name != "" { name } else { format!("block{}", self.module.block_buffer.len()) };
-    let skey = self.module.block_buffer.insert(Block{
+    let block_name = if name != "" { name } else { format!("block{}", self.context().num_components()) };
+    let func_ref = self.func.clone().unwrap();
+    let skey = self.context().add_component(Block{
       skey: None,
       name: block_name,
       insts: Vec::new(),
-    });
-    let block = &mut self.module.block_buffer[skey];
-    block.skey = Some(skey);
-    let func = &mut self.module.func_buffer[self.func_id.unwrap()];
+      parent: func_ref.clone(),
+    }.into());
+    let func = func_ref.as_mut::<Function>(&mut self.module).unwrap();
     func.blocks.push(skey);
+    let block = self.context().get_value_mut::<Block>(skey);
+    block.skey = Some(skey);
     block.as_ref()
   }
 
   /// Set the current block to insert.
   pub fn set_current_block(&mut self, block: ValueRef) {
     assert!(block.v_kind == VKindCode::Block, "Given value is not a block");
-    self.block_id = Some(block.skey);
-    self.inst_id = None;
+    self.block = Some(block);
+    self.inst_idx = None
   }
 
   /// Set the instruction as the insert point.
-  pub fn set_insert_point(&mut self, inst: ValueRef) {
-    assert!(inst.v_kind == VKindCode::Instruction, "Given value is not a instruction");
-    self.inst_id = Some(inst.skey);
+  pub fn set_insert_point(&mut self, inst_ref: ValueRef) {
+    assert!(inst_ref.v_kind == VKindCode::Instruction, "Given value is not a instruction");
+    let inst = inst_ref.as_ref::<Instruction>(&self.module).unwrap();
+    let block = inst.parent.as_ref::<Block>(&self.module).unwrap();
+    let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
+    self.inst_idx = Some(idx);
   }
 
-  // TODO(@were): Move these to the context.
-
-  /// Get an integer type
-  pub fn int_type(&self, bits: i32) -> types::Type {
-    types::Type::IntType(Rc::new(types::IntType::new(bits)))
+  pub fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
+    let block_ref = self.block.clone().unwrap();
+    let skey = self.context().add_component(inst.into());
+    let inst_ref = {
+      let inst = self.context().get_value_mut::<Instruction>(skey);
+      inst.skey = Some(skey);
+      inst.parent = block_ref.clone();
+      inst.as_ref()
+    };
+    let block = block_ref.as_mut::<Block>(&mut self.module).unwrap();
+    if let Some(inst_idx) = self.inst_idx {
+      block.insts.insert(inst_idx, skey);
+    } else {
+      block.insts.push(skey);
+    }
+    inst_ref
   }
 
-  /// Get a void type
-  pub fn void_type(&self) -> types::Type {
-    types::Type::VoidType(Rc::new(types::VoidType{}))
+  pub fn alloca(&mut self, ty: types::TypeRef) -> ValueRef {
+    let inst = instruction::Instruction {
+      skey: None,
+      ty,
+      // TODO(@were): Make this alignment better
+      opcode: instruction::InstOpcode::Alloca(8),
+      name: format!("alloca.{}", self.context().num_components()),
+      operands: Vec::new(),
+      parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
+    };
+    self.add_instruction(inst)
   }
-
 
 }
 

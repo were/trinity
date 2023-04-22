@@ -1,13 +1,42 @@
-use crate::value_impl_as_ref_and_mut;
+use super::value::ValueRef;
+use super::types;
 
-use super::value::{ValueRef, VKindCode, WithVKindCode, FindInstance, FindInstanceMut};
-use super::module::Module;
-
+#[derive(Clone)]
 pub struct Instruction {
-  pub(super) skey: Option<usize>,
-  pub(super) name: String,
-  pub(super) operands: Vec<ValueRef>,
-  pub(super) parent: ValueRef,
+  pub(crate) skey: Option<usize>,
+  pub(crate) ty: types::TypeRef,
+  pub(crate) opcode: InstOpcode,
+  pub(crate) name: String,
+  pub(crate) operands: Vec<ValueRef>,
+  pub(crate) parent: ValueRef,
 }
 
-value_impl_as_ref_and_mut!(Instruction, inst_buffer);
+impl Instruction {
+
+  pub fn get_type(&self) -> &types::TypeRef {
+    &self.ty
+  }
+
+  pub fn get_num_operands(&self) -> usize {
+    self.operands.len()
+  }
+
+  pub fn get_operand(&self, idx: usize) -> ValueRef {
+    self.operands[idx].clone()
+  }
+
+  pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) {
+    self.operands[idx] = new_value;
+  }
+
+}
+
+
+/// This is not only the opcode, but also the additional information of
+/// these sub-instructions.
+#[derive(Clone)]
+pub enum InstOpcode {
+  /// The alignment of the allocated memory.
+  Alloca(usize),
+}
+

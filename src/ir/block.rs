@@ -1,12 +1,9 @@
-use crate::value_impl_as_ref_and_mut;
-
-use super::module::Module;
-use super::value::{ValueRef, VKindCode, WithVKindCode, FindInstance, FindInstanceMut};
+use super::value::ValueRef;
 
 pub struct Block {
   pub(crate) skey: Option<usize>,
   pub(crate) name: String,
   pub(crate) insts: Vec<usize>,
+  pub(crate) parent: ValueRef,
 }
 
-value_impl_as_ref_and_mut!(Block, block_buffer);

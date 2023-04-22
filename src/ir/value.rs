@@ -1,34 +1,15 @@
+use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
+
 use super::block::Block;
 use super::function::Function;
 use super::instruction::Instruction;
 use super::module::Module;
-use super::types::Type;
-
-#[macro_export]
-macro_rules! value_impl_as_ref_and_mut {
-  ($ty_name: tt, $buffer: tt) => {
-    impl WithVKindCode for $ty_name {
-      fn kind_code() -> VKindCode {
-        VKindCode::$ty_name
-      }
-    }
-    impl<'ctx> FindInstance<'ctx, $ty_name> for $ty_name {
-      fn find_instance(module: &'ctx Module, value: &'ctx ValueRef) -> &'ctx $ty_name {
-        &module.$buffer[value.skey]
-      }
-    }
-    impl<'ctx> FindInstanceMut<'ctx, $ty_name> for $ty_name {
-      fn find_instance(module: &'ctx mut Module, value: &'ctx ValueRef) -> &'ctx mut $ty_name {
-        &mut module.$buffer[value.skey]
-      }
-    }
-  };
-}
+use super::types::TypeRef;
 
 #[derive(Clone)]
 pub struct Argument {
   pub(crate) skey: Option<usize>,
-  pub(crate) ty: Type,
+  pub(crate) ty: TypeRef,
   pub(crate) arg_idx: usize,
   pub(crate) parent: ValueRef
 }
@@ -41,22 +22,29 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
-  pub fn as_typed_ref<T: WithVKindCode + FindInstance<'ctx, T>>(&'ctx self, module: &'ctx Module) -> Option<&'ctx T> {
+  pub fn as_ref<T: WithVKindCode + ComponentToSelf<T>>(&'ctx self, module: &'ctx Module) -> Option<&'ctx T> {
     if self.v_kind == T::kind_code() {
-      Some(T::find_instance(module, self))
+      Some(module.context.get_value_ref::<T>(self.skey))
     } else {
       None
     }
   }
 
-  pub fn as_typed_mut<T: WithVKindCode + FindInstanceMut<'ctx, T>>(&'ctx mut self, module: &'ctx mut Module) -> Option<&'ctx mut T> {
+  pub fn as_mut<T: WithVKindCode + ComponentToSelfMut<T>>(&'ctx self, module: &'ctx mut Module) -> Option<&'ctx mut T> {
     if self.v_kind == T::kind_code() {
-      Some(T::find_instance(module, self))
+      Some(module.context.get_value_mut::<T>(self.skey))
     } else {
       None
     }
   }
 
+}
+
+pub enum Value {
+  Argument(Argument),
+  Instruction(Instruction),
+  Function(Function),
+  Block(Block),
 }
 
 #[derive(Clone, PartialEq)]
@@ -77,7 +65,7 @@ pub trait FindInstance<'ctx, T> {
 }
 
 pub trait TypedValueRef {
-  fn get_type() -> Type;
+  fn get_type() -> TypeRef;
 }
 
 pub trait FindInstanceMut<'ctx, T> {
@@ -90,6 +78,11 @@ macro_rules! impl_as_ref {
     impl $type {
       pub fn as_ref(&self) -> ValueRef {
         ValueRef { skey: self.skey.unwrap(), v_kind: VKindCode::$type }
+      }
+    }
+    impl WithVKindCode for $type {
+      fn kind_code() -> VKindCode {
+        VKindCode::$type
       }
     }
   };

@@ -1,14 +1,9 @@
-use std::fmt;
-use crate::value_impl_as_ref_and_mut;
-
-use super::block::Block;
-use super::module::Module;
-use super::value::{WithVKindCode, FindInstance, FindInstanceMut};
-
 use super::{
   value::{Argument, ValueRef, VKindCode},
-  types::FunctionType
+  types::FunctionType,
 };
+
+use crate::context::Context;
 
 pub struct Function {
   pub(crate) skey: Option<usize>,
@@ -38,24 +33,15 @@ impl Function {
 
 }
 
-value_impl_as_ref_and_mut!(Function, func_buffer);
-
 impl Argument {
 
   pub fn name(&self) -> String {
     format!("%arg.{}", self.arg_idx)
   }
 
-}
-
-value_impl_as_ref_and_mut!(Argument, arg_buffer);
-
-
-
-impl fmt::Display for Argument {
-
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{} {}", self.ty, self.name())
+  pub fn to_string(&self, context: &Context) -> String {
+    format!("{} {}", self.ty.to_string(context), self.name())
   }
 
 }
+

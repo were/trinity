@@ -1,23 +1,47 @@
 use std::rc::Rc;
 use std::fmt;
 
+use crate::context::Context;
+
+pub trait AsTypeRef {
+  fn as_type_ref(&self) -> TypeRef;
+}
+
+macro_rules! impl_as_type_ref {
+  ($type:tt) => {
+    impl AsTypeRef for $type {
+      fn as_type_ref(&self) -> TypeRef {
+        TypeRef{ skey: self.skey.unwrap(), kind: TypeKind::$type }
+      }
+    }
+  };
+}
+
+impl_as_type_ref!(StructType);
+impl_as_type_ref!(PointerType);
+impl_as_type_ref!(FunctionType);
+impl_as_type_ref!(IntType);
+impl_as_type_ref!(VoidType);
+
 /// Very basic integer type
 #[derive(Clone)]
 pub struct IntType {
-  bits: i32,
+  skey: Option<usize>,
+  bits: usize,
 }
 
 impl IntType {
   
   /// Construct an integer type
-  pub fn new(bits: i32) -> Self {
-    IntType { bits }
+  pub(crate) fn new(bits: usize) -> Self {
+    IntType { skey: None, bits }
   }
 
   /// Return the number of bits
-  pub fn get_bits(&self) -> i32 {
+  pub fn get_bits(&self) -> usize {
     self.bits
   }
+
 }
 
 impl fmt::Display for IntType {
@@ -29,8 +53,9 @@ impl fmt::Display for IntType {
 }
 
 /// Void type
-#[derive(Clone)]
-pub struct VoidType {}
+pub struct VoidType {
+  pub(crate) skey: Option<usize>,
+}
 
 impl fmt::Display for VoidType {
 
@@ -43,116 +68,100 @@ impl fmt::Display for VoidType {
 /// Pointer type
 #[derive(Clone)]
 pub struct PointerType {
-  scalar_ty: Type,
-}
-
-impl fmt::Display for PointerType {
-
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    if let Type::StructTypeRef(sty) = &self.scalar_ty {
-      return write!(f, "%{}*", sty.name);
-    }
-    write!(f, "{}*", self.scalar_ty)
-  }
-
+  pub(crate) skey: Option<usize>,
+  scalar_ty: TypeRef,
 }
 
 /// Struct type
-#[derive(Clone)]
 pub struct StructType {
+  pub(crate) skey: Option<usize>,
   pub(crate) name: String,
-  pub(crate) attrs: Vec<Rc<Type>>,
+  pub(crate) attrs: Vec<TypeRef>,
 }
 
-/// Reference a struct type
-#[derive(Clone)]
-pub struct StructTypeRef {
-  pub(crate) name: String,
+impl StructType {
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let mut res = format!("%{} = {{", self.name);
+    for attr in &self.attrs {
+      res.push_str(&format!(" {} ", attr.to_string(ctx)));
+    }
+    return res;
+  }
+
 }
 
 impl StructType {
 
   pub fn new(name: String) -> Self {
     StructType {
+      skey: None,
       name,
       attrs: Vec::new(),
     }
   }
 
-  pub fn set_body(&mut self, elements: Vec<Type>) {
-    self.attrs = elements.iter().map(|ty| Rc::new(ty.clone())).collect();
-  }
-
-  pub fn as_ref(&self) -> StructTypeRef {
-    StructTypeRef {
-      name: self.name.clone(),
-    }
+  pub fn set_body(&mut self, elements: Vec<TypeRef>) {
+    self.attrs = elements;
   }
 
 }
 
-impl fmt::Display for StructType {
+impl PointerType {
 
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "%{} = type {{", self.name).unwrap();
-    for (i, elem) in self.attrs.iter().enumerate() {
-      write!(f, "{}{}", if i == 0 { " " } else { ", " },  elem.as_ref()).unwrap();
-    }
-    write!(f, " }}")
+  pub fn to_string(&self, context: &Context) -> String {
+    format!("{}*", self.scalar_ty.to_string(context))
   }
 
 }
 
 /// A function signature type
-#[derive(Clone)]
 pub struct FunctionType {
-  pub(crate) args: Vec<Type>,
-  pub(crate) ret_ty: Rc<Type>,
+  pub(crate) skey: Option<usize>,
+  pub(crate) args: Vec<TypeRef>,
+  pub(crate) ret_ty: Rc<TypeRef>,
 }
 
-/// The base variant of a type
 #[derive(Clone)]
-pub enum Type {
-  IntType(Rc<IntType>),
-  FunctionType(Rc<FunctionType>),
-  PointerType(Rc<PointerType>),
-  StructTypeRef(Rc<StructTypeRef>),
-  VoidType(Rc<VoidType>),
+pub struct TypeRef {
+  pub(crate) skey: usize,
+  pub(crate) kind: TypeKind
 }
 
-impl fmt::Display for Type {
+impl TypeRef {
 
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Type::IntType(ty) => write!(f, "{}", ty),
-      Type::FunctionType(_) => todo!("FunctionType"),
-      Type::PointerType(ty) => write!(f, "{}", ty),
-      Type::StructTypeRef(ty) => write!(f, "{}", ty.name),
-      Type::VoidType(ty) => write!(f, "{}", ty),
+  pub fn to_string(&self, ctx: &Context) -> String {
+    match &self.kind {
+      TypeKind::IntType => {
+        let ty = ctx.get_value_ref::<IntType>(self.skey);
+        ty.to_string()
+      },
+      TypeKind::VoidType => {
+        let ty = ctx.get_value_ref::<VoidType>(self.skey);
+        ty.to_string()
+      },
+      TypeKind::StructType => {
+        let ty = ctx.get_value_ref::<StructType>(self.skey);
+        ty.to_string(ctx)
+      },
+      TypeKind::PointerType => {
+        let ty = ctx.get_value_ref::<PointerType>(self.skey);
+        ty.to_string(ctx)
+      },
+      TypeKind::FunctionType => {
+        todo!("Function type dump not implemented");
+      },
     }
   }
 
 }
 
-impl Type {
-
-  pub fn ptr_type(&self) -> Type {
-    Type::PointerType(Rc::new(PointerType {
-      scalar_ty: self.clone(),
-    }))
-  }
-
-}
-
-impl Type {
-
-  /// Return a function signature type
-  pub fn fn_type(&self, args: &Vec<Type>) -> FunctionType {
-    FunctionType {
-      args: args.iter().map(|ty| ty.clone()).collect(),
-      ret_ty: Rc::new(self.clone()),
-    }
-  }
-
+#[derive(Clone, PartialEq)]
+pub enum TypeKind {
+  IntType,
+  VoidType,
+  StructType,
+  PointerType,
+  FunctionType,
 }
 
