@@ -92,13 +92,9 @@ pub struct StructType {
 
 impl StructType {
 
-  pub fn print_decl(&self, ctx: &Context) -> String {
+  pub fn to_string(&self, ctx: &Context) -> String {
     let attrs = self.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ");
     format!("%{} = {{ {} }}", self.name, attrs)
-  }
-
-  pub fn to_string(&self, _: &Context) -> String {
-    self.get_name().to_string()
   }
 
   pub fn new(name: String) -> Self {
@@ -158,7 +154,7 @@ impl<'ctx> TypeRef {
       },
       TypeKind::StructType => {
         let ty = ctx.get_value_ref::<StructType>(self.skey);
-        ty.to_string(ctx)
+        format!("%{}", ty.get_name().to_string())
       },
       TypeKind::PointerType => {
         let ty = ctx.get_value_ref::<PointerType>(self.skey);
