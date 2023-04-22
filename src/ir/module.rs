@@ -34,7 +34,6 @@ impl<'ctx> Module {
     }
   }
 
-
   /// Get the number of structs in the module.
   pub fn num_structs(&self) -> usize {
     self.structs.len()

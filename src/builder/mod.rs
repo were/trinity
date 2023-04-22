@@ -5,7 +5,8 @@ use crate::ir::{
   block::Block,
   function::Function,
   function,
-  types, instruction::{self, Instruction}
+  types::{self, StructType, AsTypeRef},
+  instruction::{self, Instruction}
 };
 
 use crate::context::Context;
@@ -45,10 +46,8 @@ impl<'ctx> Builder {
       blocks: Vec::new(),
     };
     let skey = self.context().add_component(func.into());
-    {
-      let func = self.module.get_function_mut(self.module.get_num_functions() - 1);
-      func.skey = Some(skey);
-    }
+    let func = self.module.get_function_mut(self.module.get_num_functions() - 1);
+    func.skey = Some(skey);
     // This is to fit rust convention.
     // Finalize the use to self.context() to retrieve the function.
     // Then process each funcion argument.
@@ -89,6 +88,12 @@ impl<'ctx> Builder {
     let block = self.context().get_value_mut::<Block>(skey);
     block.skey = Some(skey);
     block.as_ref()
+  }
+
+  /// Add a struct declaration to the context.
+  pub fn create_struct(&mut self, name: String) -> types::TypeRef {
+    let skey = self.context().add_component(StructType::new(name).into());
+    self.context().get_value_ref::<StructType>(skey).as_type_ref()
   }
 
   /// Set the current block to insert.

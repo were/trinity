@@ -77,7 +77,7 @@ macro_rules! impl_as_ref {
   ($type:tt) => {
     impl $type {
       pub fn as_ref(&self) -> ValueRef {
-        ValueRef { skey: self.skey.unwrap(), v_kind: VKindCode::$type }
+        ValueRef { skey: self.skey.clone().unwrap(), v_kind: VKindCode::$type }
       }
     }
     impl WithVKindCode for $type {

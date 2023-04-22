@@ -40,12 +40,6 @@ impl<'ctx> Context {
     self.slab.insert(instance)
   }
 
-  /// Add a struct declaration to the context.
-  pub fn create_struct(&mut self, name: String) -> types::TypeRef {
-    let skey = self.slab.insert(StructType::new(name).into());
-    self.get_value_ref::<StructType>(skey).as_type_ref()
-  }
-
   // TODO(@were): Move these to the context.
   /// Get an integer type
   pub fn int_type(&mut self, bits: usize) -> types::TypeRef {
