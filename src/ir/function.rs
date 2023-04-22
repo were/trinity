@@ -1,6 +1,6 @@
 use super::{
   value::{Argument, ValueRef, VKindCode},
-  types::{TypeRef, FunctionType}, module::{Module, namify}, block::Block,
+  types::{TypeRef, FunctionType}, module::namify, block::Block,
 };
 
 use crate::context::Context;

@@ -36,7 +36,9 @@ impl<'ctx> Context {
   }
 
   pub fn add_component(&mut self, instance: Component) -> usize {
-    self.slab.insert(instance)
+    let res = self.slab.insert(instance);
+    self.slab[res].set_skey(res);
+    res
   }
 
   // TODO(@were): Move these to the context.

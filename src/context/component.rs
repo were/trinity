@@ -21,6 +21,25 @@ pub enum Component {
   Block(Block),
 }
 
+impl Component {
+
+  // TODO(@were): Make this "more" private later.
+  pub(crate) fn set_skey(&mut self, skey: usize) {
+    match self {
+      Component::IntType(v) => v.skey = Some(skey),
+      Component::VoidType(v) => v.skey = Some(skey),
+      Component::StructType(v) => v.skey = Some(skey),
+      Component::PointerType(v) => v.skey = Some(skey),
+      Component::FunctionType(v) => v.skey = Some(skey),
+      Component::Function(v) => v.skey = Some(skey),
+      Component::Argument(v) => v.skey = Some(skey),
+      Component::Instruction(v) => v.skey = Some(skey),
+      Component::Block(v) => v.skey = Some(skey),
+    }
+  }
+
+}
+
 macro_rules! impl_component_related {
   ($type:tt) => {
 

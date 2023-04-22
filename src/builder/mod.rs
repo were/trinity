@@ -51,13 +51,10 @@ impl<'ctx> Builder {
          parent: skey
        };
        let arg_ref = self.context().add_component(arg.into());
-       let arg = self.context().get_value_mut::<Argument>(arg_ref);
-       arg.skey = Some(arg_ref);
        arg_ref
     }).collect();
     // Finalize the arguments.
     let func = self.module.get_function_mut(fidx);
-    func.skey = Some(skey);
     func.args = fargs;
     func.as_ref()
   }
@@ -81,7 +78,6 @@ impl<'ctx> Builder {
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.blocks.push(skey);
     let block = self.context().get_value_mut::<Block>(skey);
-    block.skey = Some(skey);
     block.as_ref()
   }
 
@@ -90,7 +86,6 @@ impl<'ctx> Builder {
     let skey = self.context().add_component(StructType::new(name).into());
     self.module.structs.push(skey);
     let sty_mut = self.context().get_value_mut::<StructType>(skey);
-    sty_mut.skey = Some(skey);
     sty_mut.as_type_ref()
   }
 
@@ -115,7 +110,6 @@ impl<'ctx> Builder {
     let skey = self.context().add_component(inst.into());
     let inst_ref = {
       let inst = self.context().get_value_mut::<Instruction>(skey);
-      inst.skey = Some(skey);
       inst.parent = block_ref.clone();
       inst.as_ref()
     };
