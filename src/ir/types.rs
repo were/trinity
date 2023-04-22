@@ -1,10 +1,16 @@
 use std::rc::Rc;
 use std::fmt;
 
+use super::module::Module;
 use crate::context::Context;
+use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
 
 pub trait AsTypeRef {
   fn as_type_ref(&self) -> TypeRef;
+}
+
+pub trait WithTypeKind {
+  fn kind_code() -> TypeKind;
 }
 
 macro_rules! impl_as_type_ref {
@@ -12,6 +18,11 @@ macro_rules! impl_as_type_ref {
     impl AsTypeRef for $type {
       fn as_type_ref(&self) -> TypeRef {
         TypeRef{ skey: self.skey.clone().unwrap(), kind: TypeKind::$type }
+      }
+    }
+    impl WithTypeKind for $type {
+      fn kind_code() -> TypeKind {
+        TypeKind::$type
       }
     }
   };
@@ -128,7 +139,7 @@ pub struct TypeRef {
   pub(crate) kind: TypeKind
 }
 
-impl TypeRef {
+impl<'ctx> TypeRef {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     match &self.kind {
@@ -151,6 +162,22 @@ impl TypeRef {
       TypeKind::FunctionType => {
         todo!("Function type dump not implemented");
       },
+    }
+  }
+
+  pub fn as_ref<T: WithTypeKind + ComponentToSelf<T>>(&'ctx self, module: &'ctx Module) -> Option<&'ctx T> {
+    if self.kind == T::kind_code() {
+      Some(module.context.get_value_ref::<T>(self.skey))
+    } else {
+      None
+    }
+  }
+
+  pub fn as_mut<T: WithTypeKind + ComponentToSelfMut<T>>(&'ctx self, module: &'ctx mut Module) -> Option<&'ctx mut T> {
+    if self.kind == T::kind_code() {
+      Some(module.context.get_value_mut::<T>(self.skey))
+    } else {
+      None
     }
   }
 
