@@ -32,6 +32,34 @@ impl<'ctx> ValueRef {
     }
   }
 
+  pub fn to_string(&self, ctx: &'ctx Context) -> String {
+    match self.v_kind {
+      VKindCode::Block => {
+        let block = ctx.get_value_ref::<Block>(self.skey);
+        format!("%{}", block.name)
+      },
+      VKindCode::Argument => {
+        let arg = ctx.get_value_ref::<Argument>(self.skey);
+        format!("%arg.{}", arg.arg_idx)
+      },
+      VKindCode::Instruction => {
+        let inst = ctx.get_value_ref::<Instruction>(self.skey);
+        format!("%{}", inst.name)
+      },
+      VKindCode::ConstScalar => {
+        let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
+        format!("{} {}", const_scalar.ty.to_string(ctx), const_scalar.value)
+      },
+      VKindCode::Function => {
+        let func = ctx.get_value_ref::<Function>(self.skey);
+        format!("@{}", func.name)
+      },
+      VKindCode::Unknown => {
+        format!("[unknown]")
+      }
+    }
+  }
+
 }
 
 pub enum Value {

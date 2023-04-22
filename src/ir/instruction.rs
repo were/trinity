@@ -41,7 +41,11 @@ impl Instruction {
         res.push_str(format!("alloca {}, align {}", self.ty.to_string(ctx), align).as_str());
       },
       InstOpcode::Return => {
-        res.push_str("  ret void");
+        if self.get_num_operands() == 0 {
+          res.push_str("  ret void");
+        } else {
+          res.push_str(format!("  ret {}", self.get_operand(0).to_string(ctx)).as_str());
+        }
       },
     }
     return res;
