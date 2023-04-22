@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::context::Context;
 use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
-use super::consts::ConstValue;
+use super::consts::ConstScalar;
 use super::value::ValueRef;
 
 pub trait AsTypeRef {
@@ -51,17 +51,6 @@ impl IntType {
   /// Return the number of bits
   pub fn get_bits(&self) -> usize {
     self.bits
-  }
-
-  pub fn const_value(&self, ctx: &mut Context, value: u64) -> ValueRef {
-    self.as_type_ref();
-    let instance = ConstValue{
-      skey: None,
-      ty: self.as_type_ref(),
-      value: value as u64
-    };
-    let skey = ctx.add_component(instance.into());
-    ctx.get_value_ref::<ConstValue>(skey).as_ref()
   }
 
 }
@@ -213,6 +202,16 @@ impl<'ctx> TypeRef {
     fty.as_type_ref()
   }
 
+  pub fn const_value(&self, ctx: &mut Context, value: u64) -> ValueRef {
+    assert!(self.type_kind == TypeKind::IntType);
+    let instance = ConstScalar{
+      skey: None,
+      ty: self.clone(),
+      value: value as u64
+    };
+    let skey = ctx.add_component(instance.into());
+    ctx.get_value_ref::<ConstScalar>(skey).as_ref()
+  }
 }
 
 #[derive(Clone, PartialEq)]

@@ -6,7 +6,7 @@ use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::module::Module;
 use super::types::TypeRef;
-use super::consts::ConstValue;
+use super::consts::ConstScalar;
 
 #[derive(Clone)]
 pub struct ValueRef {
@@ -39,7 +39,7 @@ pub enum Value {
   Instruction(Instruction),
   Function(Function),
   Block(Block),
-  ConstValue(ConstValue),
+  ConstScalar(ConstScalar),
 }
 
 #[derive(Clone, PartialEq)]
@@ -48,7 +48,7 @@ pub enum VKindCode {
   Instruction,
   Function,
   Block,
-  ConstValue,
+  ConstScalar,
   Unknown
 }
 
@@ -88,5 +88,5 @@ impl_as_ref!(Argument);
 impl_as_ref!(Block);
 impl_as_ref!(Function);
 impl_as_ref!(Instruction);
-impl_as_ref!(ConstValue);
+impl_as_ref!(ConstScalar);
 
