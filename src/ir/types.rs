@@ -1,9 +1,9 @@
-use std::rc::Rc;
 use std::fmt;
 
-use super::module::Module;
 use crate::context::Context;
 use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
+use super::consts::ConstValue;
+use super::value::ValueRef;
 
 pub trait AsTypeRef {
   fn as_type_ref(&self) -> TypeRef;
@@ -51,6 +51,17 @@ impl IntType {
   /// Return the number of bits
   pub fn get_bits(&self) -> usize {
     self.bits
+  }
+
+  pub fn const_value(&self, ctx: &mut Context, value: u64) -> ValueRef {
+    self.as_type_ref();
+    let instance = ConstValue{
+      skey: None,
+      ty: self.as_type_ref(),
+      value: value as u64
+    };
+    let skey = ctx.add_component(instance.into());
+    ctx.get_value_ref::<ConstValue>(skey).as_ref()
   }
 
 }
@@ -131,7 +142,7 @@ impl PointerType {
 pub struct FunctionType {
   pub(crate) skey: Option<usize>,
   pub(crate) args: Vec<TypeRef>,
-  pub(crate) ret_ty: Rc<TypeRef>,
+  pub(crate) ret_ty: TypeRef,
 }
 
 #[derive(Clone)]
@@ -195,7 +206,7 @@ impl<'ctx> TypeRef {
   }
 
   pub fn fn_type(&self, ctx: &mut Context, args: Vec<TypeRef>) -> TypeRef {
-    let fty = FunctionType{skey: None, args, ret_ty: Rc::new(self.clone())};
+    let fty = FunctionType{skey: None, args, ret_ty: self.clone()};
     let skey = ctx.add_component(fty.into());
     let fty = ctx.get_value_mut::<FunctionType>(skey);
     fty.skey = Some(skey);

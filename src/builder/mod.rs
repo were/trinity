@@ -1,10 +1,11 @@
+
 use crate::ir::{
   module::Module,
-  value::{ValueRef, Argument, VKindCode},
+  value::{ValueRef, VKindCode},
   types::FunctionType,
   block::Block,
   function::Function,
-  function,
+  function::{self, Argument},
   types::{self, StructType, AsTypeRef, TypeRef},
   instruction::{self, Instruction}
 };

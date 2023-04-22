@@ -2,18 +2,11 @@ use crate::context::Context;
 use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
 
 use super::block::Block;
-use super::function::Function;
+use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::module::Module;
 use super::types::TypeRef;
-
-#[derive(Clone)]
-pub struct Argument {
-  pub(crate) skey: Option<usize>,
-  pub(crate) ty: TypeRef,
-  pub(crate) arg_idx: usize,
-  pub(crate) parent: usize
-}
+use super::consts::ConstValue;
 
 #[derive(Clone)]
 pub struct ValueRef {
@@ -46,6 +39,7 @@ pub enum Value {
   Instruction(Instruction),
   Function(Function),
   Block(Block),
+  ConstValue(ConstValue),
 }
 
 #[derive(Clone, PartialEq)]
@@ -54,6 +48,7 @@ pub enum VKindCode {
   Instruction,
   Function,
   Block,
+  ConstValue,
   Unknown
 }
 
@@ -93,4 +88,5 @@ impl_as_ref!(Argument);
 impl_as_ref!(Block);
 impl_as_ref!(Function);
 impl_as_ref!(Instruction);
+impl_as_ref!(ConstValue);
 

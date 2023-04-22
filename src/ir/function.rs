@@ -1,9 +1,17 @@
 use super::{
-  value::{Argument, ValueRef, VKindCode},
+  value::{ValueRef, VKindCode},
   types::{TypeRef, FunctionType}, module::namify, block::Block,
 };
 
 use crate::context::Context;
+
+#[derive(Clone)]
+pub struct Argument {
+  pub(crate) skey: Option<usize>,
+  pub(crate) ty: TypeRef,
+  pub(crate) arg_idx: usize,
+  pub(crate) parent: usize
+}
 
 pub struct Function {
   pub(crate) skey: Option<usize>,

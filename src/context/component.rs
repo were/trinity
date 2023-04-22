@@ -1,9 +1,8 @@
 use crate::ir::{
   types::{IntType, VoidType, StructType, PointerType, FunctionType},
-  function::Function,
-  value::Argument,
+  function::{Function, Argument},
   instruction::Instruction,
-  block::Block,
+  block::Block, consts::ConstValue,
 };
 
 // TODO(@were): Make this private later.
@@ -19,6 +18,7 @@ pub enum Component {
   Argument(Argument),
   Instruction(Instruction),
   Block(Block),
+  ConstValue(ConstValue),
 }
 
 impl Component {
@@ -35,6 +35,7 @@ impl Component {
       Component::Argument(v) => v.skey = Some(skey),
       Component::Instruction(v) => v.skey = Some(skey),
       Component::Block(v) => v.skey = Some(skey),
+      Component::ConstValue(v) => v.skey = Some(skey),
     }
   }
 
@@ -82,6 +83,7 @@ impl_component_related!(Function);
 impl_component_related!(Argument);
 impl_component_related!(Instruction);
 impl_component_related!(Block);
+impl_component_related!(ConstValue);
 
 pub trait ComponentToSelf<T> {
   fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;
