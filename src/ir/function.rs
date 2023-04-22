@@ -49,8 +49,7 @@ impl Function {
       for i in 0..self.get_num_blocks() {
         let block_ref = self.get_block(i);
         let block = block_ref.as_ref::<Block>(ctx).unwrap();
-        res.push_str(block.name.as_str());
-        res.push_str(":\n");
+        res.push_str(block.to_string(&ctx).as_str());
       }
       res.push_str("}");
     } else {

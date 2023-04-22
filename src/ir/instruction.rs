@@ -13,6 +13,10 @@ pub struct Instruction {
 
 impl Instruction {
 
+  pub fn get_name(&self) -> &str {
+    &self.name
+  }
+
   pub fn get_type(&self) -> &types::TypeRef {
     &self.ty
   }
@@ -29,9 +33,24 @@ impl Instruction {
     self.operands[idx] = new_value;
   }
 
+  pub fn to_string(&self, ctx: &crate::context::Context) -> String {
+    let mut res = String::new();
+    match &self.opcode {
+      InstOpcode::Alloca(align) => {
+        res.push_str(format!("  %{} = ", self.name).as_str());
+        res.push_str(format!("alloca {}, align {}", self.ty.to_string(ctx), align).as_str());
+      },
+      InstOpcode::Return => {
+        res.push_str("ret void");
+      },
+    }
+    return res;
+  }
+
 }
 
 
+// TODO(@were): Revisit this idea of code organization.
 /// This is not only the opcode, but also the additional information of
 /// these sub-instructions.
 #[derive(Clone)]
