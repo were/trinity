@@ -137,13 +137,17 @@ pub struct FunctionType {
 #[derive(Clone)]
 pub struct TypeRef {
   pub(crate) skey: usize,
-  pub(crate) kind: TypeKind
+  pub(crate) type_kind: TypeKind
 }
 
 impl<'ctx> TypeRef {
 
+  pub fn kind(&self) -> &TypeKind {
+    &self.type_kind
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
-    match &self.kind {
+    match &self.type_kind {
       TypeKind::IntType => {
         let ty = ctx.get_value_ref::<IntType>(self.skey);
         ty.to_string()
@@ -167,7 +171,7 @@ impl<'ctx> TypeRef {
   }
 
   pub fn as_ref<T: WithTypeKind + ComponentToSelf<T>>(&'ctx self, module: &'ctx Module) -> Option<&'ctx T> {
-    if self.kind == T::kind_code() {
+    if self.type_kind == T::kind_code() {
       Some(module.context.get_value_ref::<T>(self.skey))
     } else {
       None
@@ -175,7 +179,7 @@ impl<'ctx> TypeRef {
   }
 
   pub fn as_mut<T: WithTypeKind + ComponentToSelfMut<T>>(&'ctx self, module: &'ctx mut Module) -> Option<&'ctx mut T> {
-    if self.kind == T::kind_code() {
+    if self.type_kind == T::kind_code() {
       Some(module.context.get_value_mut::<T>(self.skey))
     } else {
       None
