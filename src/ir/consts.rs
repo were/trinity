@@ -1,4 +1,4 @@
-use crate::context::Context;
+use crate::{context::Context, ir::types::ArrayType};
 
 use super::types::TypeRef;
 
@@ -27,7 +27,8 @@ impl ConstArray {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let literal = self.value.iter().map(|x| format!("\\{:02x}", x)).collect::<Vec<String>>().join(" ");
-    format!("@{} = private unnamed_addr constant {} \"{}\", align 1", self.name, self.ty.to_string(ctx), literal)
+    let aty = self.ty.as_ref::<ArrayType>(ctx).unwrap();
+    format!("@{} = private unnamed_addr constant {} \"{}\", align 1", self.name, aty.elem_ty.to_string(ctx), literal)
   }
 
 }
