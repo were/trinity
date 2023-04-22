@@ -92,14 +92,14 @@ pub struct StructType {
 
 impl StructType {
 
-  pub fn to_string(&self, ctx: &Context) -> String {
+  pub fn print_decl(&self, ctx: &Context) -> String {
     let attrs = self.attrs.iter().map(|attr| attr.to_string(&ctx)).collect::<Vec<_>>().join(", ");
     format!("%{} = {{ {} }}", self.name, attrs)
   }
 
-}
-
-impl StructType {
+  pub fn to_string(&self, _: &Context) -> String {
+    self.get_name().to_string()
+  }
 
   pub fn new(name: String) -> Self {
     StructType {
@@ -107,6 +107,10 @@ impl StructType {
       name,
       attrs: Vec::new(),
     }
+  }
+
+  pub fn get_name(&self) -> &str {
+    &self.name
   }
 
   pub fn set_body(&mut self, elements: Vec<TypeRef>) {

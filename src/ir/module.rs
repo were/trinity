@@ -78,7 +78,7 @@ impl fmt::Display for Module {
     write!(f, "source_filename = '{}'\n\n", self.src_name).unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
-      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+      write!(f, "{}\n", elem.print_decl(&self.context)).unwrap();
     }
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
