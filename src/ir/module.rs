@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::context::Context;
 
+use super::consts::ConstArray;
 use super::function;
 use super::types::StructType;
 
@@ -55,6 +56,16 @@ impl<'ctx> Module {
     self.functions.len()
   }
 
+  /// The number of global values in the module.
+  pub fn get_num_gvs(&self) -> usize {
+    self.global_values.len()
+  }
+
+  /// Get the global value by indices.
+  pub fn get_gv(&self, i: usize) -> &ConstArray {
+    self.context.get_value_ref::<ConstArray>(self.global_values[i])
+  }
+
   /// Get the function by indices.
   pub fn get_function(&'ctx self, idx: usize) -> &'ctx function::Function {
     self.context.get_value_ref::<function::Function>(self.functions[idx])
@@ -81,6 +92,11 @@ impl fmt::Display for Module {
     write!(f, "source_filename = '{}'\n\n", self.src_name).unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
+      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+    }
+    println!("{}", self.get_num_gvs());
+    for i in 0..self.get_num_gvs() {
+      let elem = self.get_gv(i);
       write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
     }
     write!(f, "\n").unwrap();
