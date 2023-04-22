@@ -94,7 +94,6 @@ impl fmt::Display for Module {
       let elem = self.get_struct(i);
       write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
     }
-    println!("{}", self.get_num_gvs());
     for i in 0..self.get_num_gvs() {
       let elem = self.get_gv(i);
       write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
