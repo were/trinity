@@ -52,7 +52,7 @@ impl Function {
         res.push_str(block.name.as_str());
         res.push_str(":\n");
       }
-      res.push_str("}}");
+      res.push_str("}");
     } else {
       res.push_str(";");
     }
