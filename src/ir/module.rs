@@ -16,7 +16,7 @@ pub struct Module {
   /// The function keys in the context slab.
   pub(crate) functions: Vec<usize>,
   /// The struct keys in the context slab.
-  structs: Vec<usize>
+  pub(crate) structs: Vec<usize>
 }
 
 impl<'ctx> Module {

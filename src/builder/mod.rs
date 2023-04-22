@@ -88,7 +88,10 @@ impl<'ctx> Builder {
   /// Add a struct declaration to the context.
   pub fn create_struct(&mut self, name: String) -> types::TypeRef {
     let skey = self.context().add_component(StructType::new(name).into());
-    self.context().get_value_ref::<StructType>(skey).as_type_ref()
+    self.module.structs.push(skey);
+    let sty_mut = self.context().get_value_mut::<StructType>(skey);
+    sty_mut.skey = Some(skey);
+    sty_mut.as_type_ref()
   }
 
   /// Set the current block to insert.
