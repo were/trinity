@@ -38,5 +38,7 @@ impl Instruction {
 pub enum InstOpcode {
   /// The alignment of the allocated memory.
   Alloca(usize),
+  /// Return instruction.
+  Return,
 }
 

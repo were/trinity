@@ -122,6 +122,19 @@ impl<'ctx> Builder {
     inst_ref
   }
 
+  pub fn create_return(&mut self, val: Option<ValueRef>) -> ValueRef {
+    let ret_ty = self.context().void_type();
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: ret_ty,
+      opcode: instruction::InstOpcode::Return,
+      name: format!("ret.{}", self.context().num_components()),
+      operands: if let None = val { vec![] } else {vec![val.unwrap()]},
+      parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
+    };
+    self.add_instruction(inst)
+  }
+
   pub fn alloca(&mut self, ty: types::TypeRef) -> ValueRef {
     let inst = instruction::Instruction {
       skey: None,
