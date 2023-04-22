@@ -25,6 +25,6 @@ impl Block {
       let inst = inst_ref.as_ref::<Instruction>(ctx).unwrap();
       inst.to_string(ctx)
     }).collect::<Vec<String>>().join("\n");
-    format!("{}:\n{}", self.name, insts)
+    format!("{}:\n{}\n", self.name, insts)
   }
 }

@@ -106,7 +106,6 @@ impl<'ctx> Builder {
   }
 
   fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
-    println!("add to block");
     let block_ref = self.block.clone().unwrap();
     let skey = self.context().add_component(inst.into());
     let inst_ref = {
@@ -124,7 +123,6 @@ impl<'ctx> Builder {
   }
 
   pub fn create_return(&mut self, val: Option<ValueRef>) -> ValueRef {
-    println!("create return");
     let ret_ty = self.context().void_type();
     let inst = instruction::Instruction {
       skey: None,
