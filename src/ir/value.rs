@@ -63,7 +63,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        format!("{}", const_expr.ty.to_string(ctx))
+        format!("{}", const_expr.to_string(ctx))
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
