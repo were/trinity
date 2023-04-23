@@ -225,7 +225,9 @@ impl<'ctx> Builder {
       ty: ty.ptr_type(self.context()),
       value: init
     };
-    self.context().add_instance(gvs)
+    let gvs_ref = self.context().add_instance(gvs);
+    self.module.global_values.push(gvs_ref.skey);
+    gvs_ref
   }
 
 }
