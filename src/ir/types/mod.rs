@@ -109,7 +109,7 @@ impl StructType {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let attrs = self.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ");
-    format!("%{} = {{ {} }}", self.name, attrs)
+    format!("%{} = type {{ {} }}", self.name, attrs)
   }
 
   pub fn new(name: String) -> Self {
