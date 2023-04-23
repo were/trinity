@@ -23,7 +23,7 @@ impl Block {
     let insts = self.insts.iter().map(|i| {
       let inst_ref = ValueRef{skey: *i, v_kind: crate::ir::value::VKindCode::Instruction};
       let inst = inst_ref.as_ref::<Instruction>(ctx).unwrap();
-      inst.to_string(ctx)
+      format!("  {}", inst.to_string(ctx))
     }).collect::<Vec<String>>().join("\n");
     format!("{}:\n{}", self.name, insts)
   }

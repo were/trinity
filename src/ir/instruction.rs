@@ -37,11 +37,37 @@ impl Instruction {
     let mut res = String::new();
     match &self.opcode {
       InstOpcode::Alloca(align) => {
-        res.push_str(format!("  %{} = ", self.name).as_str());
+        res.push_str(format!("%{} = ", self.name).as_str());
         res.push_str(format!("alloca {}, align {}", self.ty.to_string(ctx), align).as_str());
       },
+      InstOpcode::GetElementPtr(inbounds) => {
+        res.push_str(format!("%{} = ", self.name).as_str());
+        res.push_str(self.opcode.to_string().as_str());
+        if *inbounds {
+          res.push_str("inbounds ");
+        }
+        res.push_str(format!("{}, ", self.ty.to_string(ctx)).as_str());
+        res.push_str(
+          (0..self.get_num_operands()).map(|i| {
+            format!("{}", &self.get_operand(i).to_string(ctx))
+          }).collect::<Vec<_>>().join(", ").as_str());
+      }
       InstOpcode::Return => {
-        res.push_str("ret void");
+        res.push_str("ret");
+        if self.get_num_operands() == 0 {
+          res.push_str(" void");
+        } else {
+          res.push_str(format!(" {}", self.get_operand(0).to_string(ctx)).as_str());
+        }
+      },
+      InstOpcode::Load(align) => {
+        res.push_str(format!("%{} = ", self.name).as_str());
+        res.push_str(format!("{} load {}, align {}", self.ty.to_string(ctx), self.get_operand(0).to_string(ctx), align).as_str());
+      },
+      InstOpcode::Store(align) => {
+        let value = self.get_operand(0).to_string(ctx);
+        let ptr = self.get_operand(1).to_string(ctx);
+        res.push_str(format!("store {}, {} align {}", value, ptr, align).as_str());
       },
     }
     return res;
@@ -55,9 +81,27 @@ impl Instruction {
 /// these sub-instructions.
 #[derive(Clone)]
 pub enum InstOpcode {
-  /// The alignment of the allocated memory.
+  /// Memory allocation(alignment).
   Alloca(usize),
   /// Return instruction.
   Return,
+  /// GetElementPtr instruction(inbounds).
+  GetElementPtr(bool),
+  /// Load instruction(alignment).
+  Load(usize),
+  /// Store instruction(alignment).
+  Store(usize),
+}
+
+impl ToString for InstOpcode {
+  fn to_string(&self) -> String {
+    match self {
+      InstOpcode::Alloca(_) => format!("alloca"),
+      InstOpcode::Return => "ret".to_string(),
+      InstOpcode::GetElementPtr(_) => format!("getelementptr"),
+      InstOpcode::Load(_) => format!("load"),
+      InstOpcode::Store(_) => format!("store"),
+    }
+  }
 }
 

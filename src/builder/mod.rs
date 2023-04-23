@@ -148,5 +148,66 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
+  pub fn create_string(&mut self, val: String) -> ValueRef {
+    let val = format!("{}\0", val);
+    let size = self.context().int_type(32).const_value(self.context(), val.len() as u64);
+    let array_ty = self.context().int_type(8).array_type(self.context(), size);
+    let id = self.context().num_components();
+    let res = array_ty.const_array(self.context(), format!("str.{}", id), val.into_bytes());
+    self.module.global_values.push(res.skey);
+    res
+  }
+
+  pub fn create_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool) -> ValueRef {
+    let ty = ptr.get_type(self.context());
+    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let res_ty = pty.get_scalar_ty();
+    let mut operands = vec![ptr];
+    operands.extend(indices);
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: res_ty,
+      opcode: instruction::InstOpcode::GetElementPtr(inbounds),
+      name: format!("gep.{}", self.context().num_components()),
+      operands,
+      parent: ValueRef{skey: 0, v_kind: VKindCode::Instruction}
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
+    self.create_gep(ptr, indices, true)
+  }
+
+  // TODO(@were): Add alignment
+  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) {
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: self.context().void_type(),
+      opcode: instruction::InstOpcode::Store(8),
+      name: format!("store.{}", self.context().num_components()),
+      operands: vec![value, ptr],
+      parent: ValueRef{skey: 0, v_kind: VKindCode::Instruction}
+    };
+    self.add_instruction(inst);
+  }
+
+
+  // TODO(@were): Add alignment
+  pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
+    let ty = ptr.get_type(self.context());
+    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let res_ty = pty.get_scalar_ty();
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: res_ty,
+      opcode: instruction::InstOpcode::Load(8),
+      name: format!("load.{}", self.context().num_components()),
+      operands: vec![ptr],
+      parent: ValueRef{skey: 0, v_kind: VKindCode::Instruction}
+    };
+    self.add_instruction(inst)
+  }
+
 }
 
