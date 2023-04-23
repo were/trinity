@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::value::ValueRef};
+use crate::{context::Context, ir::{value::ValueRef, consts::ConstScalar}};
 
 use super::TypeRef;
 
@@ -32,7 +32,12 @@ pub struct ArrayType {
 impl ArrayType {
 
   pub fn to_string(&self, context: &Context) -> String {
-    format!("[{} x {}]", self.size.to_string(context), self.elem_ty.to_string(context))
+    let size = if let Some(const_int)  = self.size.as_ref::<ConstScalar>(context) {
+      format!("{}", const_int.value)
+    } else {
+      self.size.to_string(context)
+    };
+    format!("[{} x {}]", size, self.elem_ty.to_string(context))
   }
 
 }
