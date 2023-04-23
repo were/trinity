@@ -3,7 +3,8 @@ use std::fmt;
 
 use crate::context::Context;
 
-use super::{function, ValueRef};
+use super::consts::ConstObject;
+use super::{function, ValueRef, ConstArray};
 use super::types::StructType;
 
 pub struct Module {
@@ -95,7 +96,17 @@ impl fmt::Display for Module {
     }
     for i in 0..self.get_num_gvs() {
       let elem = self.get_gv(i);
-      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+      match elem.kind {
+        super::VKindCode::ConstArray => {
+          let array = elem.as_ref::<ConstArray>(&self.context).unwrap();
+          write!(f, "{}\n", array.to_string(&self.context)).unwrap();
+        }
+        super::VKindCode::ConstObject => {
+          let obj = elem.as_ref::<ConstObject>(&self.context).unwrap();
+          write!(f, "{}\n", obj.to_string(&self.context)).unwrap();
+        }
+        _ => (),
+      }
     }
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
