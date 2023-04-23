@@ -6,7 +6,7 @@ use crate::ir::{
   block::Block,
   function::Function,
   function::{self, Argument},
-  types::{self, StructType, AsTypeRef, TypeRef},
+  types::{self, StructType, AsTypeRef, TypeRef, PointerType},
   instruction::{self, Instruction}
 };
 
@@ -157,6 +157,25 @@ impl<'ctx> Builder {
     let res = array_ty.const_array(self.context(), format!("str.{}", id), val.into_bytes());
     self.module.global_values.push(res.skey);
     res
+  }
+
+  pub fn create_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool) -> ValueRef {
+    let ty = ptr.get_type(self.context());
+    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let res_ty = pty.get_scalar_ty();
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: res_ty,
+      opcode: instruction::InstOpcode::GetElementPtr(inbounds),
+      name: format!("gep.{}", self.context().num_components()),
+      operands: indices,
+      parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
+    self.create_gep(ptr, indices, true)
   }
 
 }

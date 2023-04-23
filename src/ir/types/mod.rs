@@ -51,7 +51,8 @@ pub enum TypeKind {
   StructType,
   PointerType,
   FunctionType,
-  ArrayType
+  ArrayType,
+  BlockType,
 }
 
 
@@ -162,6 +163,9 @@ impl<'ctx> TypeRef {
       TypeKind::ArrayType => {
         let ty = ctx.get_value_ref::<ArrayType>(self.skey);
         ty.to_string(ctx)
+      },
+      TypeKind::BlockType => {
+        String::from("")
       },
       TypeKind::FunctionType => {
         todo!("Function type dump not implemented");

@@ -5,8 +5,8 @@ use super::block::Block;
 use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::module::Module;
-use super::types::TypeRef;
 use super::consts::{ConstScalar, ConstArray};
+use super::types::{TypeRef, TypeKind};
 
 #[derive(Clone)]
 pub struct ValueRef {
@@ -64,6 +64,37 @@ impl<'ctx> ValueRef {
     }
   }
 
+  pub fn get_type(&self, ctx: &'ctx Context) -> TypeRef {
+    match self.v_kind {
+      VKindCode::Block => {
+        TypeRef { skey: 0, type_kind: TypeKind::BlockType }
+      },
+      VKindCode::Argument => {
+        let arg = ctx.get_value_ref::<Argument>(self.skey);
+        arg.ty.clone()
+      },
+      VKindCode::Instruction => {
+        let inst = ctx.get_value_ref::<Instruction>(self.skey);
+        inst.get_type().clone()
+      },
+      VKindCode::ConstScalar => {
+        let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
+        const_scalar.ty.clone()
+      },
+      VKindCode::Function => {
+        let func = ctx.get_value_ref::<Function>(self.skey);
+        func.fty.clone()
+      },
+      VKindCode::ConstArray => {
+        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
+        const_array.ty.clone()
+      },
+      VKindCode::Unknown => {
+        panic!("Unknown value type")
+      }
+    }
+  }
+
 }
 
 #[derive(Clone, PartialEq)]
@@ -83,10 +114,6 @@ pub trait WithVKindCode {
 
 pub trait FindInstance<'ctx, T> {
   fn find_instance(module: &'ctx Module, value: &'ctx ValueRef) -> &'ctx T;
-}
-
-pub trait TypedValueRef {
-  fn get_type() -> TypeRef;
 }
 
 pub trait FindInstanceMut<'ctx, T> {
