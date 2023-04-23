@@ -163,12 +163,14 @@ impl<'ctx> Builder {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
     let res_ty = pty.get_scalar_ty();
+    let mut operands = vec![ptr];
+    operands.extend(indices);
     let inst = instruction::Instruction {
       skey: None,
       ty: res_ty,
       opcode: instruction::InstOpcode::GetElementPtr(inbounds),
       name: format!("gep.{}", self.context().num_components()),
-      operands: indices,
+      operands,
       parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
     };
     self.add_instruction(inst)
