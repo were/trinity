@@ -153,7 +153,7 @@ impl<'ctx> Builder {
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
     let id = self.context().num_components();
     let res = array_ty.const_array(self.context(), format!("str.{}", id), val.into_bytes());
-    self.module.global_values.push(res.skey);
+    self.module.global_values.push(res.clone());
     res
   }
 
@@ -226,7 +226,7 @@ impl<'ctx> Builder {
       value: init
     };
     let gvs_ref = self.context().add_instance(gvs);
-    self.module.global_values.push(gvs_ref.skey);
+    self.module.global_values.push(gvs_ref.clone());
     gvs_ref
   }
 
