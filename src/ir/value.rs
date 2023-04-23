@@ -2,18 +2,11 @@ use crate::context::Context;
 use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
 
 use super::block::Block;
-use super::function::Function;
+use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::module::Module;
-use super::types::TypeRef;
-
-#[derive(Clone)]
-pub struct Argument {
-  pub(crate) skey: Option<usize>,
-  pub(crate) ty: TypeRef,
-  pub(crate) arg_idx: usize,
-  pub(crate) parent: usize
-}
+use super::consts::{ConstScalar, ConstArray};
+use super::types::{TypeRef, TypeKind};
 
 #[derive(Clone)]
 pub struct ValueRef {
@@ -39,13 +32,69 @@ impl<'ctx> ValueRef {
     }
   }
 
-}
+  pub fn to_string(&self, ctx: &'ctx Context) -> String {
+    match self.v_kind {
+      VKindCode::Block => {
+        let block = ctx.get_value_ref::<Block>(self.skey);
+        format!("%{}", block.name)
+      },
+      VKindCode::Argument => {
+        let arg = ctx.get_value_ref::<Argument>(self.skey);
+        format!("%arg.{}", arg.arg_idx)
+      },
+      VKindCode::Instruction => {
+        let inst = ctx.get_value_ref::<Instruction>(self.skey);
+        format!("%{}", inst.name)
+      },
+      VKindCode::ConstScalar => {
+        let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
+        format!("{} {}", const_scalar.ty.to_string(ctx), const_scalar.value)
+      },
+      VKindCode::Function => {
+        let func = ctx.get_value_ref::<Function>(self.skey);
+        format!("{} @{}", func.get_ret_ty(ctx).to_string(ctx), func.name)
+      },
+      VKindCode::ConstArray => {
+        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
+        format!("{} @{}", const_array.ty.to_string(ctx), const_array.name)
+      },
+      VKindCode::Unknown => {
+        format!("[unknown]")
+      }
+    }
+  }
 
-pub enum Value {
-  Argument(Argument),
-  Instruction(Instruction),
-  Function(Function),
-  Block(Block),
+  pub fn get_type(&self, ctx: &'ctx Context) -> TypeRef {
+    match self.v_kind {
+      VKindCode::Block => {
+        TypeRef { skey: 0, type_kind: TypeKind::BlockType }
+      },
+      VKindCode::Argument => {
+        let arg = ctx.get_value_ref::<Argument>(self.skey);
+        arg.ty.clone()
+      },
+      VKindCode::Instruction => {
+        let inst = ctx.get_value_ref::<Instruction>(self.skey);
+        inst.get_type().clone()
+      },
+      VKindCode::ConstScalar => {
+        let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
+        const_scalar.ty.clone()
+      },
+      VKindCode::Function => {
+        let func = ctx.get_value_ref::<Function>(self.skey);
+        func.fty.clone()
+      },
+      VKindCode::ConstArray => {
+        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
+        const_array.ty.clone()
+      },
+      VKindCode::Unknown => {
+        panic!("Unknown value type")
+      }
+    }
+  }
+
 }
 
 #[derive(Clone, PartialEq)]
@@ -54,6 +103,8 @@ pub enum VKindCode {
   Instruction,
   Function,
   Block,
+  ConstScalar,
+  ConstArray,
   Unknown
 }
 
@@ -63,10 +114,6 @@ pub trait WithVKindCode {
 
 pub trait FindInstance<'ctx, T> {
   fn find_instance(module: &'ctx Module, value: &'ctx ValueRef) -> &'ctx T;
-}
-
-pub trait TypedValueRef {
-  fn get_type() -> TypeRef;
 }
 
 pub trait FindInstanceMut<'ctx, T> {
@@ -93,4 +140,6 @@ impl_as_ref!(Argument);
 impl_as_ref!(Block);
 impl_as_ref!(Function);
 impl_as_ref!(Instruction);
+impl_as_ref!(ConstScalar);
+impl_as_ref!(ConstArray);
 

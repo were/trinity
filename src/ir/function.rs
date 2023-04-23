@@ -1,9 +1,17 @@
 use super::{
-  value::{Argument, ValueRef, VKindCode},
+  value::{ValueRef, VKindCode},
   types::{TypeRef, FunctionType}, module::namify, block::Block,
 };
 
 use crate::context::Context;
+
+#[derive(Clone)]
+pub struct Argument {
+  pub(crate) skey: Option<usize>,
+  pub(crate) ty: TypeRef,
+  pub(crate) arg_idx: usize,
+  pub(crate) parent: usize
+}
 
 pub struct Function {
   pub(crate) skey: Option<usize>,
@@ -29,6 +37,10 @@ impl Function {
 
   pub fn get_block(&self, i: usize) -> ValueRef {
     return ValueRef{skey: self.blocks[i], v_kind: VKindCode::Block};
+  }
+
+  pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
+    return self.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty.clone();
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
@@ -61,6 +73,10 @@ impl Function {
 }
 
 impl Argument {
+
+  pub fn get_parent(&self) -> ValueRef {
+    return ValueRef{ skey: self.parent, v_kind: VKindCode::Function };
+  }
 
   pub fn name(&self) -> String {
     format!("%arg.{}", self.arg_idx)

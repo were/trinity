@@ -1,11 +1,12 @@
+
 use crate::ir::{
   module::Module,
-  value::{ValueRef, Argument, VKindCode},
+  value::{ValueRef, VKindCode},
   types::FunctionType,
   block::Block,
   function::Function,
-  function,
-  types::{self, StructType, AsTypeRef, TypeRef},
+  function::{self, Argument},
+  types::{self, StructType, AsTypeRef, TypeRef, PointerType},
   instruction::{self, Instruction}
 };
 
@@ -73,7 +74,7 @@ impl<'ctx> Builder {
       skey: None,
       name: block_name,
       insts: Vec::new(),
-      parent: func_ref.clone(),
+      parent: func_ref.skey,
     }.into());
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.blocks.push(skey);
@@ -105,7 +106,7 @@ impl<'ctx> Builder {
     self.inst_idx = Some(idx);
   }
 
-  pub fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
+  fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
     let skey = self.context().add_component(inst.into());
     let inst_ref = {

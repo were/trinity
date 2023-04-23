@@ -41,8 +41,8 @@ impl Instruction {
         res.push_str(format!("alloca {}, align {}", self.ty.to_string(ctx), align).as_str());
       },
       InstOpcode::GetElementPtr(inbounds) => {
-        res.push_str(format!("%{} = ", self.name).as_str());
-        res.push_str(self.opcode.to_string().as_str());
+        res.push_str(format!("  %{} = ", self.name).as_str());
+        res.push_str("getelementptr ");
         if *inbounds {
           res.push_str("inbounds ");
         }
