@@ -1,5 +1,6 @@
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode};
+use crate::ir::ConstExpr;
 use crate::ir::consts::ConstObject;
 
 use super::PointerType;
@@ -61,7 +62,7 @@ impl<'ctx> ValueRef {
         format!("{} @{}", const_array.ty.to_string(ctx), const_array.name)
       },
       VKindCode::ConstExpr => {
-        let const_expr = ctx.get_value_ref::<ConstArray>(self.skey);
+        let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
         format!("{}", const_expr.ty.to_string(ctx))
       },
       VKindCode::ConstObject => {
