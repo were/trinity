@@ -1,6 +1,7 @@
 use crate::{context::Context, ir::types::PointerType};
 
-use super::{types::TypeRef, value::ValueRef, instruction::InstOpcode};
+use crate::ir::types::TypeRef;
+use super::{ValueRef, instruction::InstOpcode};
 
 pub struct ConstScalar {
   pub(crate) skey: Option<usize>,
@@ -44,7 +45,15 @@ impl ConstExpr {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let operands = self.operands.iter().map(|x| x.to_string(ctx)).collect::<Vec<String>>().join(", ");
-    format!("{} {} ( {}, {} )", self.ty.to_string(ctx), self.opcode.to_string(), self.ty.to_string(ctx), operands)
+    match self.opcode {
+      InstOpcode::GetElementPtr(_) => {
+        let ptr_scalar = self.operands[0].get_type(ctx).as_ref::<PointerType>(ctx).unwrap().get_scalar_ty();
+        format!("{} {} ( {}, {} )", self.ty.to_string(ctx), self.opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
+      }
+      _ => {
+        panic!("ConstExpr::to_string: not a constant opcode {:?}", self.opcode.to_string());
+      }
+    }
   }
 
 }

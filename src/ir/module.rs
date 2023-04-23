@@ -3,8 +3,8 @@ use std::fmt;
 
 use crate::context::Context;
 
-use super::consts::ConstObject;
-use super::{function, ValueRef, ConstArray};
+use super::value::consts::ConstObject;
+use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
 
 pub struct Module {

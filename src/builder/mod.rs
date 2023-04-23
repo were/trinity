@@ -1,20 +1,20 @@
+use crate::context::component::AsSuper;
 
-use crate::{
-  ir::{
-    module::Module,
-    value::{ValueRef, VKindCode},
-    types::FunctionType,
-    block::Block,
-    function::Function,
-    function::{self, Argument},
-    types::{self, StructType, TypeRef, PointerType},
-    instruction::{self, Instruction}, consts::{ConstExpr, ConstObject}
-  },
-  context::component::*
+use crate::ir::{
+  module::Module,
+  value::{ValueRef, VKindCode},
+  types::FunctionType,
+  value::block::Block,
+  value::function::Function,
+  value::function::{self, Argument},
+  types::{self, StructType, TypeRef, PointerType},
+  value::instruction::{self, Instruction},
+  value::consts::{ConstExpr, ConstObject}
 };
 
-use crate::context::Context;
 
+
+use crate::context::Context;
 
 pub struct Builder {
   pub module: Module,
@@ -157,17 +157,14 @@ impl<'ctx> Builder {
     res
   }
 
-  pub fn create_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool) -> ValueRef {
-    let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
-    let res_ty = pty.get_scalar_ty();
+  pub fn create_gep(&mut self, ty: TypeRef, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool) -> ValueRef {
     let mut operands = vec![ptr];
     operands.extend(indices);
     // All constants
     if operands.iter().fold(true, |acc, val| acc && val.is_const()) {
       let res = ConstExpr{
         skey: None,
-        ty: res_ty,
+        ty,
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
         operands,
       };
@@ -176,7 +173,7 @@ impl<'ctx> Builder {
     } else {
       let inst = instruction::Instruction {
         skey: None,
-        ty: res_ty,
+        ty,
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
         name: format!("gep.{}", self.context().num_components()),
         operands,
@@ -187,7 +184,10 @@ impl<'ctx> Builder {
   }
 
   pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
-    self.create_gep(ptr, indices, true)
+    let ty = ptr.get_type(self.context());
+    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let res_ty = pty.get_scalar_ty();
+    self.create_gep(res_ty, ptr, indices, true)
   }
 
   // TODO(@were): Add alignment

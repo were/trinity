@@ -1,7 +1,6 @@
-use super::{
-  value::{ValueRef, VKindCode},
-  types::{TypeRef, FunctionType}, module::namify, block::Block,
-};
+use super::{ValueRef, VKindCode, block::Block};
+use crate::ir::types::{TypeRef, FunctionType};
+use crate::ir::module::namify;
 
 use crate::context::Context;
 

@@ -1,15 +1,14 @@
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode};
 use crate::ir::ConstExpr;
-use crate::ir::consts::ConstObject;
+use crate::ir::types::{TypeRef, TKindCode, PointerType};
+use crate::ir::module::Module;
 
-use super::PointerType;
+use super::consts::ConstObject;
 use super::block::Block;
 use super::function::{Function, Argument};
 use super::instruction::Instruction;
-use super::module::Module;
 use super::consts::{ConstScalar, ConstArray };
-use super::types::{TypeRef, TKindCode};
 
 #[derive(Clone)]
 pub struct ValueRef {

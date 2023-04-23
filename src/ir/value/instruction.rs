@@ -1,5 +1,5 @@
-use super::value::ValueRef;
-use super::types::{self, PointerType};
+use crate::ir::value::ValueRef;
+use crate::ir::types::{self, PointerType};
 
 #[derive(Clone)]
 pub struct Instruction {

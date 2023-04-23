@@ -1,9 +1,9 @@
 use crate::ir::{
   types::{IntType, VoidType, StructType, PointerType, FunctionType, ArrayType, TypeRef},
-  function::{Function, Argument},
-  instruction::Instruction,
-  block::Block,
-  consts::{ConstScalar, ConstArray, ConstExpr, ConstObject},
+  value::function::{Function, Argument},
+  value::instruction::Instruction,
+  value::block::Block,
+  value::consts::{ConstScalar, ConstArray, ConstExpr, ConstObject},
   ValueRef,
 };
 use crate::ir::value::VKindCode;

@@ -9,7 +9,7 @@ use component::{
 };
 use crate::ir::{
   types::{self, IntType, VoidType, TypeRef, TKindCode },
-  consts::ConstScalar, value::ValueRef
+  value::consts::ConstScalar, value::ValueRef
 };
 
 pub struct Context {

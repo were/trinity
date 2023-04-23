@@ -8,8 +8,8 @@ pub use functype::FunctionType;
 
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode};
+use crate::ir::value::consts::ConstArray;
 
-use super::consts::ConstArray;
 use super::value::ValueRef;
 
 // Register all the types here.

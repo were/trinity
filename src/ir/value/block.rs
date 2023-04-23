@@ -1,6 +1,6 @@
-use crate::{context::Context, ir::instruction::Instruction};
+use crate::context::Context;
 
-use super::value::ValueRef;
+use super::{ValueRef, instruction::Instruction};
 
 pub struct Block {
   pub(crate) skey: Option<usize>,
