@@ -171,7 +171,8 @@ impl<'ctx> Builder {
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
         operands,
       };
-      self.context().add_instance::<ConstExpr, _>(res)
+      let expr = self.context().add_instance::<ConstExpr, _>(res);
+      return expr
     } else {
       let inst = instruction::Instruction {
         skey: None,

@@ -102,7 +102,7 @@ impl<'ctx> ValueRef {
         const_array.ty.clone()
       },
       VKindCode::ConstExpr => {
-        let const_expr = ctx.get_value_ref::<ConstArray>(self.skey);
+        let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
         const_expr.ty.clone()
       },
       VKindCode::ConstObject => {
