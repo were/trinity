@@ -44,7 +44,7 @@ impl ConstExpr {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let operands = self.operands.iter().map(|x| x.to_string(ctx)).collect::<Vec<String>>().join(", ");
-    format!("{} ( {}, {} )", self.opcode.to_string(), self.ty.to_string(ctx), operands)
+    format!("{} {} ( {}, {} )", self.ty.to_string(ctx), self.opcode.to_string(), self.ty.to_string(ctx), operands)
   }
 
 }
