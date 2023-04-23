@@ -40,8 +40,24 @@ impl Instruction {
         res.push_str(format!("  %{} = ", self.name).as_str());
         res.push_str(format!("alloca {}, align {}", self.ty.to_string(ctx), align).as_str());
       },
+      InstOpcode::GetElementPtr(inbounds) => {
+        res.push_str(format!("  %{} = ", self.name).as_str());
+        res.push_str("getelementptr ");
+        if *inbounds {
+          res.push_str("inbounds ");
+        }
+        res.push_str(format!("{}, ", self.ty.to_string(ctx)).as_str());
+        res.push_str(
+          (0..self.get_num_operands()).map(|i| {
+            format!("{}", &self.get_operand(i).to_string(ctx))
+          }).collect::<Vec<_>>().join(", ").as_str());
+      }
       InstOpcode::Return => {
-        res.push_str("ret void");
+        if self.get_num_operands() == 0 {
+          res.push_str("  ret void");
+        } else {
+          res.push_str(format!("  ret {}", self.get_operand(0).to_string(ctx)).as_str());
+        }
       },
     }
     return res;
@@ -59,5 +75,7 @@ pub enum InstOpcode {
   Alloca(usize),
   /// Return instruction.
   Return,
+  /// GetElementPtr instruction.
+  GetElementPtr(bool),
 }
 

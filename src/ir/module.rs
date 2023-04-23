@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::context::Context;
 
+use super::consts::ConstArray;
 use super::function;
 use super::types::StructType;
 
@@ -13,10 +14,12 @@ pub struct Module {
   mod_name: String,
   /// The source code file name.
   src_name: String,
-  /// The function keys in the context slab.
+  /// The function keys in this module.
   pub(crate) functions: Vec<usize>,
-  /// The struct keys in the context slab.
-  pub(crate) structs: Vec<usize>
+  /// The struct keys in this module.
+  pub(crate) structs: Vec<usize>,
+  /// The global values in this module.
+  pub(crate) global_values: Vec<usize>,
 }
 
 impl<'ctx> Module {
@@ -29,6 +32,7 @@ impl<'ctx> Module {
       context: Context::new(),
       functions: Vec::new(),
       structs: Vec::new(),
+      global_values: Vec::new(),
     }
   }
 
@@ -50,6 +54,16 @@ impl<'ctx> Module {
   /// The number of functions in the module.
   pub fn get_num_functions(&self) -> usize {
     self.functions.len()
+  }
+
+  /// The number of global values in the module.
+  pub fn get_num_gvs(&self) -> usize {
+    self.global_values.len()
+  }
+
+  /// Get the global value by indices.
+  pub fn get_gv(&self, i: usize) -> &ConstArray {
+    self.context.get_value_ref::<ConstArray>(self.global_values[i])
   }
 
   /// Get the function by indices.
@@ -75,10 +89,14 @@ pub(crate) fn namify(name: &String) -> String {
 impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "; ModuleID = '{}'\n", self.mod_name).unwrap();
-    write!(f, "source_filename = '{}'\n\n", self.src_name).unwrap();
+    write!(f, "source_filename = \"{}\"\n\n", self.src_name).unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
-      write!(f, "{}\n", elem.print_decl(&self.context)).unwrap();
+      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+    }
+    for i in 0..self.get_num_gvs() {
+      let elem = self.get_gv(i);
+      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
     }
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {

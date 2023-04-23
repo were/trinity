@@ -4,3 +4,4 @@ pub mod instruction;
 pub mod block;
 pub mod value;
 pub mod types;
+pub mod consts;
