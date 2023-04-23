@@ -89,7 +89,7 @@ pub(crate) fn namify(name: &String) -> String {
 impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "; ModuleID = '{}'\n", self.mod_name).unwrap();
-    write!(f, "source_filename = '{}'\n\n", self.src_name).unwrap();
+    write!(f, "source_filename = \"{}\"\n\n", self.src_name).unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
       write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
