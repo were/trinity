@@ -1,5 +1,6 @@
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode};
+use crate::ir::consts::ConstObject;
 
 use super::PointerType;
 use super::block::Block;
@@ -64,7 +65,7 @@ impl<'ctx> ValueRef {
         format!("{}", const_expr.ty.to_string(ctx))
       },
       VKindCode::ConstObject => {
-        let const_object = ctx.get_value_ref::<ConstArray>(self.skey);
+        let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
         let ptr_ty = const_object.ty.as_ref::<PointerType>(ctx).unwrap();
         format!("{} @{}", ptr_ty.get_scalar_ty().to_string(ctx), const_object.name)
       },
