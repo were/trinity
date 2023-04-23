@@ -42,9 +42,9 @@ impl Instruction {
       },
       InstOpcode::GetElementPtr(inbounds) => {
         res.push_str(format!("  %{} = ", self.name).as_str());
-        res.push_str(format!("getelementptr {}", self.ty.to_string(ctx)).as_str());
+        res.push_str(format!("getelementptr {} ", self.ty.to_string(ctx)).as_str());
         if *inbounds {
-          res.push_str(" inbounds");
+          res.push_str("inbounds ");
         }
         res.push_str(
           (0..self.get_num_operands()).map(|i| {
