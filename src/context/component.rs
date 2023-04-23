@@ -3,7 +3,7 @@ use crate::ir::{
   function::{Function, Argument},
   instruction::Instruction,
   block::Block,
-  consts::{ConstScalar, ConstArray, ConstExpr},
+  consts::{ConstScalar, ConstArray, ConstExpr, ConstObject},
   ValueRef,
 };
 use crate::ir::value::VKindCode;
@@ -27,6 +27,7 @@ pub enum Component {
   ConstScalar(ConstScalar),
   ConstArray(ConstArray),
   ConstExpr(ConstExpr),
+  ConstObject(ConstObject),
 }
 
 
@@ -57,6 +58,7 @@ impl Component {
       Component::ArrayType(v) => v.skey = Some(skey),
       Component::ConstArray(v) => v.skey = Some(skey),
       Component::ConstExpr(v) => v.skey = Some(skey),
+      Component::ConstObject(v) => v.skey = Some(skey),
     }
   }
 
@@ -131,5 +133,6 @@ impl_component_to_xx!(ValueRef, VKindCode, Block);
 impl_component_to_xx!(ValueRef, VKindCode, ConstScalar);
 impl_component_to_xx!(ValueRef, VKindCode, ConstArray);
 impl_component_to_xx!(ValueRef, VKindCode, ConstExpr);
+impl_component_to_xx!(ValueRef, VKindCode, ConstObject);
 
 

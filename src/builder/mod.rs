@@ -8,7 +8,7 @@ use crate::{
     function::Function,
     function::{self, Argument},
     types::{self, StructType, TypeRef, PointerType},
-    instruction::{self, Instruction}, consts::ConstExpr
+    instruction::{self, Instruction}, consts::{ConstExpr, ConstObject}
   },
   context::component::*
 };
@@ -202,7 +202,6 @@ impl<'ctx> Builder {
     self.add_instruction(inst);
   }
 
-
   // TODO(@were): Add alignment
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
@@ -217,6 +216,16 @@ impl<'ctx> Builder {
       parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
     self.add_instruction(inst)
+  }
+
+  pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
+    let gvs = ConstObject {
+      skey: None,
+      name: format!("globalobj.{}", self.context().num_components()),
+      ty: ty.ptr_type(self.context()),
+      value: init
+    };
+    self.context().add_instance(gvs)
   }
 
 }

@@ -48,3 +48,24 @@ impl ConstExpr {
   }
 
 }
+
+pub struct ConstObject {
+  pub(crate) skey: Option<usize>,
+  pub(crate) name: String,
+  pub(crate) ty: TypeRef,
+  pub(crate) value: Vec<ValueRef>
+}
+
+impl ConstObject {
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let pty = self.ty.as_ref::<PointerType>(ctx).unwrap();
+    let initializer = if self.value.len() != 0 {
+      format!("{{ {} }}", self.value.iter().map(|x| x.to_string(ctx)).collect::<Vec<String>>().join(", "))
+    } else {
+      "zeroinitializer".to_string()
+    };
+    format!("@{} = dso_local global {} {}, align 8", self.name, pty.get_scalar_ty().to_string(ctx), initializer)
+  }
+
+}

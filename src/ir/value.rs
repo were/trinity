@@ -1,6 +1,7 @@
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode};
 
+use super::PointerType;
 use super::block::Block;
 use super::function::{Function, Argument};
 use super::instruction::Instruction;
@@ -62,6 +63,11 @@ impl<'ctx> ValueRef {
         let const_expr = ctx.get_value_ref::<ConstArray>(self.skey);
         format!("{}", const_expr.ty.to_string(ctx))
       },
+      VKindCode::ConstObject => {
+        let const_object = ctx.get_value_ref::<ConstArray>(self.skey);
+        let ptr_ty = const_object.ty.as_ref::<PointerType>(ctx).unwrap();
+        format!("{} @{}", ptr_ty.get_scalar_ty().to_string(ctx), const_object.name)
+      },
       VKindCode::Unknown => {
         format!("[unknown]")
       }
@@ -97,6 +103,11 @@ impl<'ctx> ValueRef {
         let const_expr = ctx.get_value_ref::<ConstArray>(self.skey);
         const_expr.ty.clone()
       },
+      VKindCode::ConstObject => {
+        let const_object = ctx.get_value_ref::<ConstArray>(self.skey);
+        let ptr_ty = const_object.ty.as_ref::<PointerType>(ctx).unwrap();
+        ptr_ty.get_scalar_ty()
+      },
       VKindCode::Unknown => {
         panic!("Unknown value type")
       }
@@ -106,7 +117,7 @@ impl<'ctx> ValueRef {
   /// Returns true if the value is a constant.
   pub fn is_const(&self) -> bool {
     match self.kind {
-      VKindCode::ConstScalar | VKindCode::ConstArray | VKindCode::ConstExpr => true,
+      VKindCode::ConstScalar | VKindCode::ConstArray | VKindCode::ConstExpr | VKindCode::ConstObject => true,
       _ => false
     }
   }
@@ -121,6 +132,7 @@ pub enum VKindCode {
   ConstScalar,
   ConstArray,
   ConstExpr,
+  ConstObject,
   Unknown
 }
 
