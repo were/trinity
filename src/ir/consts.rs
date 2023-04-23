@@ -28,7 +28,7 @@ impl ConstArray {
   pub fn to_string(&self, ctx: &Context) -> String {
     let literal = self.value.iter().map(|x| format!("\\{:02x}", x)).collect::<Vec<String>>().join("");
     let pty = self.ty.as_ref::<PointerType>(ctx).unwrap();
-    format!("@{} = private unnamed_addr constant {} \"{}\", align 1", self.name, pty.get_scalar_ty().to_string(ctx), literal)
+    format!("@{} = private unnamed_addr constant {} c\"{}\", align 1", self.name, pty.get_scalar_ty().to_string(ctx), literal)
   }
 
 }
