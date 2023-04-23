@@ -1,10 +1,14 @@
 use crate::ir::{
-  types::{IntType, VoidType, StructType, PointerType, FunctionType, ArrayType, TKindCode, TypeRef},
+  types::{IntType, VoidType, StructType, PointerType, FunctionType, ArrayType, TypeRef},
   function::{Function, Argument},
   instruction::Instruction,
-  value::{ValueRef, VKindCode},
-  block::Block, consts::{ConstScalar, ConstArray, ConstExpr},
+  block::Block,
+  consts::{ConstScalar, ConstArray, ConstExpr},
+  ValueRef,
 };
+use crate::ir::value::VKindCode;
+use crate::ir::types::TKindCode;
+
 
 // TODO(@were): Make this private later.
 pub enum Component {
@@ -58,6 +62,15 @@ impl Component {
 
 }
 
+
+pub trait ComponentToRef<T> {
+  fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;
+}
+
+pub trait ComponentToMut<T> {
+  fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut T;
+}
+
 macro_rules! impl_component_to_xx {
   ($super:tt, $code_type:tt, $type:tt) => {
 
@@ -103,7 +116,6 @@ macro_rules! impl_component_to_xx {
   };
 }
 
-
 // Types
 impl_component_to_xx!(TypeRef, TKindCode, IntType);
 impl_component_to_xx!(TypeRef, TKindCode, VoidType);
@@ -120,11 +132,4 @@ impl_component_to_xx!(ValueRef, VKindCode, ConstScalar);
 impl_component_to_xx!(ValueRef, VKindCode, ConstArray);
 impl_component_to_xx!(ValueRef, VKindCode, ConstExpr);
 
-pub trait ComponentToRef<T> {
-  fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;
-}
-
-pub trait ComponentToMut<T> {
-  fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut T;
-}
 

@@ -1,14 +1,17 @@
 
-use crate::{ir::{
-  module::Module,
-  value::{ValueRef, VKindCode},
-  types::FunctionType,
-  block::Block,
-  function::Function,
-  function::{self, Argument},
-  types::{self, StructType, TypeRef, PointerType},
-  instruction::{self, Instruction}, consts::ConstExpr
-}, context::component::AsSuper};
+use crate::{
+  ir::{
+    module::Module,
+    value::{ValueRef, VKindCode},
+    types::FunctionType,
+    block::Block,
+    function::Function,
+    function::{self, Argument},
+    types::{self, StructType, TypeRef, PointerType},
+    instruction::{self, Instruction}, consts::ConstExpr
+  },
+  context::component::*
+};
 
 use crate::context::Context;
 
@@ -39,9 +42,9 @@ impl<'ctx> Builder {
       blocks: Vec::new(),
     };
     // Add the function to module.
-    let skey = self.context().add_component(func.into());
+    let func_ref = self.context().add_instance(func);
     let args = fty_ref.as_ref::<FunctionType>(self.context()).unwrap().args.clone();
-    self.module.functions.push(skey);
+    self.module.functions.push(func_ref.skey);
     let fidx = self.module.get_num_functions() - 1;
     // Generate the arguments.
     let fargs: Vec<usize> = args.iter().enumerate().map(|(i, ty)| {
@@ -49,10 +52,9 @@ impl<'ctx> Builder {
          skey: None,
          ty: ty.clone(),
          arg_idx: i,
-         parent: skey
+         parent: func_ref.skey
        };
-       let arg_ref = self.context().add_component(arg.into());
-       arg_ref
+       self.context().add_instance(arg).skey
     }).collect();
     // Finalize the arguments.
     let func = self.module.get_function_mut(fidx);
@@ -70,24 +72,23 @@ impl<'ctx> Builder {
   pub fn add_block(&mut self, name: String) -> ValueRef {
     let block_name = if name != "" { name } else { format!("block{}", self.context().num_components()) };
     let func_ref = self.func.clone().unwrap();
-    let skey = self.context().add_component(Block{
+    let block = Block{
       skey: None,
       name: block_name,
       insts: Vec::new(),
       parent: func_ref.skey,
-    }.into());
+    };
+    let block_ref = self.context().add_instance(block);
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
-    func.blocks.push(skey);
-    let block = self.context().get_value_mut::<Block>(skey);
-    block.as_super()
+    func.blocks.push(block_ref.skey);
+    block_ref
   }
 
   /// Add a struct declaration to the context.
   pub fn create_struct(&mut self, name: String) -> types::TypeRef {
-    let skey = self.context().add_component(StructType::new(name).into());
-    self.module.structs.push(skey);
-    let sty_mut = self.context().get_value_mut::<StructType>(skey);
-    sty_mut.as_super()
+    let sty_ref = self.context().add_instance(StructType::new(name));
+    self.module.structs.push(sty_ref.skey);
+    sty_ref
   }
 
   /// Set the current block to insert.
@@ -108,17 +109,12 @@ impl<'ctx> Builder {
 
   fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
-    let skey = self.context().add_component(inst.into());
-    let inst_ref = {
-      let inst = self.context().get_value_mut::<Instruction>(skey);
-      inst.parent = block_ref.clone();
-      inst.as_super()
-    };
+    let inst_ref = self.context().add_instance(inst);
     let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
     if let Some(inst_idx) = self.inst_idx {
-      block.insts.insert(inst_idx, skey);
+      block.insts.insert(inst_idx, inst_ref.skey);
     } else {
-      block.insts.push(skey);
+      block.insts.push(inst_ref.skey);
     }
     inst_ref
   }
@@ -152,7 +148,8 @@ impl<'ctx> Builder {
 
   pub fn create_string(&mut self, val: String) -> ValueRef {
     let val = format!("{}\0", val);
-    let size = self.context().int_type(32).const_value(self.context(), val.len() as u64);
+    let ty = self.context().int_type(32);
+    let size = self.context().const_value(ty, val.len() as u64);
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
     let id = self.context().num_components();
     let res = array_ty.const_array(self.context(), format!("str.{}", id), val.into_bytes());
@@ -174,9 +171,7 @@ impl<'ctx> Builder {
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
         operands,
       };
-      // TODO(@were): fix this
-      let skey = self.context().add_component(res.into());
-      ValueRef{skey, kind: VKindCode::ConstExpr}
+      self.context().add_instance::<ConstExpr, _>(res)
     } else {
       let inst = instruction::Instruction {
         skey: None,
