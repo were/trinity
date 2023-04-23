@@ -7,45 +7,15 @@ pub use arraytype::{PointerType, ArrayType};
 pub use functype::FunctionType;
 
 use crate::context::Context;
-use crate::context::component::{ComponentToSelf, ComponentToSelfMut};
+use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, AsSuper};
 
 use super::consts::{ConstScalar, ConstArray};
 use super::value::ValueRef;
 
-pub trait AsTypeRef {
-  fn as_type_ref(&self) -> TypeRef;
-}
-
-pub trait WithTypeKind {
-  fn kind_code() -> TypeKind;
-}
-
 // Register all the types here.
 
-macro_rules! impl_as_type_ref {
-  ($type:tt) => {
-    impl AsTypeRef for $type {
-      fn as_type_ref(&self) -> TypeRef {
-        TypeRef{ skey: self.skey.clone().unwrap(), type_kind: TypeKind::$type }
-      }
-    }
-    impl WithTypeKind for $type {
-      fn kind_code() -> TypeKind {
-        TypeKind::$type
-      }
-    }
-  };
-}
-
-impl_as_type_ref!(StructType);
-impl_as_type_ref!(PointerType);
-impl_as_type_ref!(FunctionType);
-impl_as_type_ref!(IntType);
-impl_as_type_ref!(VoidType);
-impl_as_type_ref!(ArrayType);
-
 #[derive(Clone, PartialEq)]
-pub enum TypeKind {
+pub enum TKindCode {
   IntType,
   VoidType,
   StructType,
@@ -133,56 +103,56 @@ impl StructType {
 #[derive(Clone)]
 pub struct TypeRef {
   pub(crate) skey: usize,
-  pub(crate) type_kind: TypeKind
+  pub(crate) kind: TKindCode
 }
 
 impl<'ctx> TypeRef {
 
-  pub fn kind(&self) -> &TypeKind {
-    &self.type_kind
+  pub fn kind(&self) -> &TKindCode {
+    &self.kind
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    match &self.type_kind {
-      TypeKind::IntType => {
+    match &self.kind {
+      TKindCode::IntType => {
         let ty = ctx.get_value_ref::<IntType>(self.skey);
         ty.to_string()
       },
-      TypeKind::VoidType => {
+      TKindCode::VoidType => {
         let ty = ctx.get_value_ref::<VoidType>(self.skey);
         ty.to_string()
       },
-      TypeKind::StructType => {
+      TKindCode::StructType => {
         let ty = ctx.get_value_ref::<StructType>(self.skey);
         format!("%{}", ty.get_name().to_string())
       },
-      TypeKind::PointerType => {
+      TKindCode::PointerType => {
         let ty = ctx.get_value_ref::<PointerType>(self.skey);
         ty.to_string(ctx)
       },
-      TypeKind::ArrayType => {
+      TKindCode::ArrayType => {
         let ty = ctx.get_value_ref::<ArrayType>(self.skey);
         ty.to_string(ctx)
       },
-      TypeKind::BlockType => {
+      TKindCode::BlockType => {
         String::from("")
       },
-      TypeKind::FunctionType => {
+      TKindCode::FunctionType => {
         todo!("Function type dump not implemented");
       },
     }
   }
 
-  pub fn as_ref<T: WithTypeKind + ComponentToSelf<T>>(&'ctx self, ctx: &'ctx Context) -> Option<&'ctx T> {
-    if self.type_kind == T::kind_code() {
+  pub fn as_ref<T: WithKindCode<TKindCode> + ComponentToRef<T>>(&'ctx self, ctx: &'ctx Context) -> Option<&'ctx T> {
+    if self.kind == T::kind_code() {
       Some(ctx.get_value_ref::<T>(self.skey))
     } else {
       None
     }
   }
 
-  pub fn as_mut<T: WithTypeKind + ComponentToSelfMut<T>>(&'ctx self, ctx: &'ctx mut Context) -> Option<&'ctx mut T> {
-    if self.type_kind == T::kind_code() {
+  pub fn as_mut<T: WithKindCode<TKindCode> + ComponentToMut<T>>(&'ctx self, ctx: &'ctx mut Context) -> Option<&'ctx mut T> {
+    if self.kind == T::kind_code() {
       Some(ctx.get_value_mut::<T>(self.skey))
     } else {
       None
@@ -194,7 +164,7 @@ impl<'ctx> TypeRef {
     let skey = ctx.add_component(PointerType{skey: None, scalar_ty}.into());
     let ptr_ty = ctx.get_value_mut::<PointerType>(skey);
     ptr_ty.skey = Some(skey);
-    ptr_ty.as_type_ref()
+    ptr_ty.as_super()
   }
 
   pub fn fn_type(&self, ctx: &mut Context, args: Vec<TypeRef>) -> TypeRef {
@@ -202,29 +172,29 @@ impl<'ctx> TypeRef {
     let skey = ctx.add_component(fty.into());
     let fty = ctx.get_value_mut::<FunctionType>(skey);
     fty.skey = Some(skey);
-    fty.as_type_ref()
+    fty.as_super()
   }
 
   pub fn const_value(&self, ctx: &mut Context, value: u64) -> ValueRef {
-    assert!(self.type_kind == TypeKind::IntType);
+    assert!(self.kind == TKindCode::IntType);
     let instance = ConstScalar{
       skey: None,
       ty: self.clone(),
       value: value as u64
     };
     let skey = ctx.add_component(instance.into());
-    ctx.get_value_ref::<ConstScalar>(skey).as_ref()
+    ctx.get_value_ref::<ConstScalar>(skey).as_super()
   }
 
   pub fn array_type(&self, ctx: &mut Context, size: ValueRef) -> TypeRef {
     let array_ty = ArrayType{skey: None, elem_ty: self.clone(), size};
     let skey = ctx.add_component(array_ty.into());
     let array_ty = ctx.get_value_ref::<ArrayType>(skey);
-    array_ty.as_type_ref()
+    array_ty.as_super()
   }
 
   pub fn const_array(&self, ctx: &mut Context, name: String, value: Vec<u8>) -> ValueRef {
-    assert!(self.type_kind == TypeKind::ArrayType);
+    assert!(self.kind == TKindCode::ArrayType);
     let res = ConstArray {
       skey: None,
       name,
@@ -233,7 +203,7 @@ impl<'ctx> TypeRef {
     };
     let skey = ctx.add_component(res.into());
     let res = ctx.get_value_ref::<ConstArray>(skey);
-    res.as_ref()
+    res.as_super()
   }
 
 }

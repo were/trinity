@@ -1,5 +1,5 @@
 use super::value::ValueRef;
-use super::types;
+use super::types::{self, PointerType};
 
 #[derive(Clone)]
 pub struct Instruction {
@@ -38,7 +38,8 @@ impl Instruction {
     match &self.opcode {
       InstOpcode::Alloca(align) => {
         res.push_str(format!("%{} = ", self.name).as_str());
-        res.push_str(format!("alloca {}, align {}", self.ty.to_string(ctx), align).as_str());
+        let ptr_ty = self.ty.as_ref::<PointerType>(ctx).unwrap();
+        res.push_str(format!("alloca {}, align {}", ptr_ty.get_scalar_ty().to_string(ctx), align).as_str());
       },
       InstOpcode::GetElementPtr(inbounds) => {
         res.push_str(format!("  %{} = ", self.name).as_str());

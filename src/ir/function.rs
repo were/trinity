@@ -28,7 +28,7 @@ impl Function {
   }
 
   pub fn get_arg(&self, i: usize) -> ValueRef {
-    return ValueRef{skey: self.args[i], v_kind: VKindCode::Argument};
+    return ValueRef{skey: self.args[i], kind: VKindCode::Argument};
   }
 
   pub fn get_num_blocks(&self) -> usize {
@@ -36,7 +36,7 @@ impl Function {
   }
 
   pub fn get_block(&self, i: usize) -> ValueRef {
-    return ValueRef{skey: self.blocks[i], v_kind: VKindCode::Block};
+    return ValueRef{skey: self.blocks[i], kind: VKindCode::Block};
   }
 
   pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
@@ -75,7 +75,7 @@ impl Function {
 impl Argument {
 
   pub fn get_parent(&self) -> ValueRef {
-    return ValueRef{ skey: self.parent, v_kind: VKindCode::Function };
+    return ValueRef{ skey: self.parent, kind: VKindCode::Function };
   }
 
   pub fn name(&self) -> String {

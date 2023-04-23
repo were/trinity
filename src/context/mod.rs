@@ -3,10 +3,12 @@ use slab::Slab;
 pub mod component;
 
 use component::{
-  Component, ComponentToSelf, ComponentToSelfMut,
+  Component, ComponentToMut, ComponentToRef,
 };
 
-use crate::ir::types::{self, AsTypeRef, IntType, VoidType};
+use crate::ir::types::{self, IntType, VoidType };
+
+use self::component::AsSuper;
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
@@ -23,11 +25,11 @@ impl<'ctx> Context {
     }
   }
 
-  pub(crate) fn get_value_ref<T: ComponentToSelf<T>>(&'ctx self, skey: usize) -> &'ctx T {
+  pub(crate) fn get_value_ref<T: ComponentToRef<T>>(&'ctx self, skey: usize) -> &'ctx T {
     T::instance_to_self(&self.slab[skey])
   }
 
-  pub(crate) fn get_value_mut<T: ComponentToSelfMut<T>>(&'ctx mut self, skey: usize) -> &'ctx mut T {
+  pub(crate) fn get_value_mut<T: ComponentToMut<T>>(&'ctx mut self, skey: usize) -> &'ctx mut T {
     T::instance_to_self_mut(&mut self.slab[skey])
   }
 
@@ -41,13 +43,18 @@ impl<'ctx> Context {
     res
   }
 
+  pub fn add_instance<T: Into<Component> + AsSuper<T> + ComponentToRef<T>>(&mut self, instance: T) -> T::SuperType {
+    let skey = self.slab.insert(instance.into());
+    self.slab[skey].set_skey(skey);
+    let instance_ref = self.get_value_ref::<T>(skey);
+    instance_ref.as_super()
+  }
+
   // TODO(@were): Move these to the context.
   /// Get an integer type
   pub fn int_type(&mut self, bits: usize) -> types::TypeRef {
-    let skey = self.slab.insert(IntType::new(bits).into());
-    let mut_ref = self.get_value_mut::<IntType>(skey);
-    mut_ref.skey = Some(skey);
-    mut_ref.as_type_ref()
+    let skey = self.add_component(Component::IntType(IntType::new(bits)));
+    self.get_value_ref::<IntType>(skey).as_super()
   }
 
   /// Get a void type
@@ -56,7 +63,7 @@ impl<'ctx> Context {
     let skey = self.slab.insert(instance.into());
     let mut_ref = self.get_value_mut::<VoidType>(skey);
     mut_ref.skey = Some(skey);
-    mut_ref.as_type_ref()
+    mut_ref.as_super()
   }
 
 

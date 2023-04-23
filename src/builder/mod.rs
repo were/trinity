@@ -1,14 +1,14 @@
 
-use crate::ir::{
+use crate::{ir::{
   module::Module,
   value::{ValueRef, VKindCode},
   types::FunctionType,
   block::Block,
   function::Function,
   function::{self, Argument},
-  types::{self, StructType, AsTypeRef, TypeRef, PointerType},
-  instruction::{self, Instruction}
-};
+  types::{self, StructType, TypeRef, PointerType},
+  instruction::{self, Instruction}, consts::ConstExpr
+}, context::component::AsSuper};
 
 use crate::context::Context;
 
@@ -57,12 +57,12 @@ impl<'ctx> Builder {
     // Finalize the arguments.
     let func = self.module.get_function_mut(fidx);
     func.args = fargs;
-    func.as_ref()
+    func.as_super()
   }
 
   /// Set the current function to insert.
   pub fn set_current_function(&mut self, func: ValueRef) {
-    assert!(func.v_kind == VKindCode::Function, "Given value is not a function");
+    assert!(func.kind == VKindCode::Function, "Given value is not a function");
     self.func = Some(func);
   }
 
@@ -79,7 +79,7 @@ impl<'ctx> Builder {
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.blocks.push(skey);
     let block = self.context().get_value_mut::<Block>(skey);
-    block.as_ref()
+    block.as_super()
   }
 
   /// Add a struct declaration to the context.
@@ -87,19 +87,19 @@ impl<'ctx> Builder {
     let skey = self.context().add_component(StructType::new(name).into());
     self.module.structs.push(skey);
     let sty_mut = self.context().get_value_mut::<StructType>(skey);
-    sty_mut.as_type_ref()
+    sty_mut.as_super()
   }
 
   /// Set the current block to insert.
   pub fn set_current_block(&mut self, block: ValueRef) {
-    assert!(block.v_kind == VKindCode::Block, "Given value is not a block");
+    assert!(block.kind == VKindCode::Block, "Given value is not a block");
     self.block = Some(block);
     self.inst_idx = None
   }
 
   /// Set the instruction as the insert point.
   pub fn set_insert_point(&mut self, inst_ref: ValueRef) {
-    assert!(inst_ref.v_kind == VKindCode::Instruction, "Given value is not a instruction");
+    assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let block = inst.parent.as_ref::<Block>(&self.module.context).unwrap();
     let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
@@ -112,7 +112,7 @@ impl<'ctx> Builder {
     let inst_ref = {
       let inst = self.context().get_value_mut::<Instruction>(skey);
       inst.parent = block_ref.clone();
-      inst.as_ref()
+      inst.as_super()
     };
     let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
     if let Some(inst_idx) = self.inst_idx {
@@ -131,20 +131,21 @@ impl<'ctx> Builder {
       opcode: instruction::InstOpcode::Return,
       name: format!("ret.{}", self.context().num_components()),
       operands: if let None = val { vec![] } else {vec![val.unwrap()]},
-      parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
+      parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
     };
     self.add_instruction(inst)
   }
 
   pub fn alloca(&mut self, ty: types::TypeRef) -> ValueRef {
+    let ptr_ty = ty.ptr_type(self.context());
     let inst = instruction::Instruction {
       skey: None,
-      ty,
+      ty: ptr_ty,
       // TODO(@were): Make this alignment better
       opcode: instruction::InstOpcode::Alloca(8),
       name: format!("alloca.{}", self.context().num_components()),
       operands: Vec::new(),
-      parent: ValueRef{skey: 0, v_kind: VKindCode::Unknown}
+      parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
     };
     self.add_instruction(inst)
   }
@@ -165,15 +166,28 @@ impl<'ctx> Builder {
     let res_ty = pty.get_scalar_ty();
     let mut operands = vec![ptr];
     operands.extend(indices);
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: res_ty,
-      opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-      name: format!("gep.{}", self.context().num_components()),
-      operands,
-      parent: ValueRef{skey: 0, v_kind: VKindCode::Instruction}
-    };
-    self.add_instruction(inst)
+    // All constants
+    if operands.iter().fold(true, |acc, val| acc && val.is_const()) {
+      let res = ConstExpr{
+        skey: None,
+        ty: res_ty,
+        opcode: instruction::InstOpcode::GetElementPtr(inbounds),
+        operands,
+      };
+      // TODO(@were): fix this
+      let skey = self.context().add_component(res.into());
+      ValueRef{skey, kind: VKindCode::ConstExpr}
+    } else {
+      let inst = instruction::Instruction {
+        skey: None,
+        ty: res_ty,
+        opcode: instruction::InstOpcode::GetElementPtr(inbounds),
+        name: format!("gep.{}", self.context().num_components()),
+        operands,
+        parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      };
+      self.add_instruction(inst)
+    }
   }
 
   pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
@@ -188,7 +202,7 @@ impl<'ctx> Builder {
       opcode: instruction::InstOpcode::Store(8),
       name: format!("store.{}", self.context().num_components()),
       operands: vec![value, ptr],
-      parent: ValueRef{skey: 0, v_kind: VKindCode::Instruction}
+      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
     self.add_instruction(inst);
   }
@@ -205,7 +219,7 @@ impl<'ctx> Builder {
       opcode: instruction::InstOpcode::Load(8),
       name: format!("load.{}", self.context().num_components()),
       operands: vec![ptr],
-      parent: ValueRef{skey: 0, v_kind: VKindCode::Instruction}
+      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
     self.add_instruction(inst)
   }
