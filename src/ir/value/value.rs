@@ -1,6 +1,6 @@
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
-use crate::ir::{ConstExpr, VoidType, StructType};
+use crate::ir::ConstExpr;
 use crate::ir::types::{TypeRef, TKindCode, PointerType};
 use crate::ir::module::Module;
 

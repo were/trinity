@@ -9,6 +9,10 @@ pub struct ConstScalar {
   pub(crate) value: u64
 }
 
+fn str2display(s: &String) -> String {
+  s.chars().map(|c| if ('\x20'..'\x7e').contains(&c) { c.to_string() } else { format!("\\{:02x}", c as u8) }).collect::<Vec<String>>().join("")
+}
+
 impl ConstScalar {
 
   pub fn to_string(&self, ctx: &Context) -> String {
@@ -96,7 +100,9 @@ impl InlineAsm {
       self.ty.to_string(ctx)
     };
     let sideeffect = if self.sideeffect { "sideeffect" } else { "" };
-    format!("{} asm {} \"{}\", \"{}\"", ty, sideeffect, self.mnemonic, self.operands)
+    let mnemonic = str2display(&self.mnemonic);
+    let operands = str2display(&self.operands);
+    format!("{} asm {} \"{}\", \"{}\"", ty, sideeffect, mnemonic, operands)
   }
 }
 
