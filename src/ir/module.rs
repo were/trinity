@@ -3,8 +3,8 @@ use std::fmt;
 
 use crate::context::Context;
 
-use super::consts::ConstArray;
-use super::function;
+use super::value::consts::ConstObject;
+use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
 
 pub struct Module {
@@ -19,7 +19,7 @@ pub struct Module {
   /// The struct keys in this module.
   pub(crate) structs: Vec<usize>,
   /// The global values in this module.
-  pub(crate) global_values: Vec<usize>,
+  pub(crate) global_values: Vec<ValueRef>,
 }
 
 impl<'ctx> Module {
@@ -62,8 +62,8 @@ impl<'ctx> Module {
   }
 
   /// Get the global value by indices.
-  pub fn get_gv(&self, i: usize) -> &ConstArray {
-    self.context.get_value_ref::<ConstArray>(self.global_values[i])
+  pub fn get_gv(&self, i: usize) -> ValueRef {
+    self.global_values[i].clone()
   }
 
   /// Get the function by indices.
@@ -96,7 +96,17 @@ impl fmt::Display for Module {
     }
     for i in 0..self.get_num_gvs() {
       let elem = self.get_gv(i);
-      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+      match elem.kind {
+        super::VKindCode::ConstArray => {
+          let array = elem.as_ref::<ConstArray>(&self.context).unwrap();
+          write!(f, "{}\n", array.to_string(&self.context)).unwrap();
+        }
+        super::VKindCode::ConstObject => {
+          let obj = elem.as_ref::<ConstObject>(&self.context).unwrap();
+          write!(f, "{}\n", obj.to_string(&self.context)).unwrap();
+        }
+        _ => (),
+      }
     }
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {

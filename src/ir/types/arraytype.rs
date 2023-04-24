@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::{value::ValueRef, consts::ConstScalar}};
+use crate::{context::Context, ir::{value::ValueRef, value::consts::ConstScalar}};
 
 use super::TypeRef;
 
@@ -15,7 +15,7 @@ impl PointerType {
     format!("{}*", self.scalar_ty.to_string(context))
   }
 
-  pub fn get_scalar_ty(&self) -> TypeRef {
+  pub fn get_pointee_ty(&self) -> TypeRef {
     self.scalar_ty.clone()
   }
 
@@ -40,4 +40,11 @@ impl ArrayType {
     format!("[{} x {}]", size, self.elem_ty.to_string(context))
   }
 
+  pub fn get_elem_ty(&self) -> TypeRef {
+    self.elem_ty.clone()
+  }
+
+  pub fn to_pointer(&self, ctx: &mut Context) -> TypeRef {
+    self.elem_ty.ptr_type(ctx)
+  }
 }
