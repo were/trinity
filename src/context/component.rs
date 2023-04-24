@@ -3,7 +3,7 @@ use crate::ir::{
   value::function::{Function, Argument},
   value::instruction::Instruction,
   value::block::Block,
-  value::consts::{ConstScalar, ConstArray, ConstExpr, ConstObject},
+  value::consts::{ConstScalar, ConstArray, ConstExpr, ConstObject, InlineAsm},
   ValueRef,
 };
 use crate::ir::value::VKindCode;
@@ -28,21 +28,11 @@ pub enum Component {
   ConstArray(ConstArray),
   ConstExpr(ConstExpr),
   ConstObject(ConstObject),
-}
-
-
-pub trait WithKindCode<T> {
-  fn kind_code() -> T;
-}
-
-pub trait AsSuper<T> {
-  type SuperType;
-  fn as_super(&self) -> Self::SuperType;
+  InlineAsm(InlineAsm),
 }
 
 impl Component {
 
-  // TODO(@were): Make this "more" private later.
   pub(crate) fn set_skey(&mut self, skey: usize) {
     match self {
       Component::IntType(v) => v.skey = Some(skey),
@@ -59,11 +49,25 @@ impl Component {
       Component::ConstArray(v) => v.skey = Some(skey),
       Component::ConstExpr(v) => v.skey = Some(skey),
       Component::ConstObject(v) => v.skey = Some(skey),
+      Component::InlineAsm(v) => v.skey = Some(skey),
     }
   }
 
 }
 
+
+pub trait WithKindCode<T> {
+  fn kind_code() -> T;
+}
+
+pub trait AsSuper<T> {
+  type SuperType;
+  fn as_super(&self) -> Self::SuperType;
+}
+
+pub trait GetSlabKey {
+  fn get_skey(&self) -> usize;
+}
 
 pub trait ComponentToRef<T> {
   fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;
@@ -115,6 +119,12 @@ macro_rules! impl_component_to_xx {
       }
     }
 
+    impl GetSlabKey for $type {
+      fn get_skey(&self) -> usize {
+        self.skey.unwrap()
+      }
+    }
+
   };
 }
 
@@ -134,5 +144,6 @@ impl_component_to_xx!(ValueRef, VKindCode, ConstScalar);
 impl_component_to_xx!(ValueRef, VKindCode, ConstArray);
 impl_component_to_xx!(ValueRef, VKindCode, ConstExpr);
 impl_component_to_xx!(ValueRef, VKindCode, ConstObject);
+impl_component_to_xx!(ValueRef, VKindCode, InlineAsm);
 
 

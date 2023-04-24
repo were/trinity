@@ -1,5 +1,6 @@
 use crate::context::component::AsSuper;
 
+use crate::ir::value::consts::InlineAsm;
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -203,6 +204,26 @@ impl<'ctx> Builder {
     self.add_instruction(inst);
   }
 
+  pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
+    let mut args = args.clone();
+    args.push(callee);
+    let inst = instruction::Instruction{
+      skey: None,
+      ty,
+      opcode: instruction::InstOpcode::Call,
+      name: format!("call.{}", self.context().num_components()),
+      operands: args,
+      parent: self.block.clone().unwrap()
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_func_call(&mut self, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
+    let fty = callee.get_type(self.context());
+    let ty = fty.as_ref::<FunctionType>(self.context()).unwrap().ret_ty.clone();
+    self.create_typed_call(ty, callee, args)
+  }
+
   // TODO(@were): Add alignment
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
@@ -229,6 +250,16 @@ impl<'ctx> Builder {
     let gvs_ref = self.context().add_instance(gvs);
     self.module.global_values.push(gvs_ref.clone());
     gvs_ref
+  }
+
+  pub fn create_inline_asm(&mut self, ty: TypeRef, mnemonic: String, operands: String) -> ValueRef {
+    let asm = InlineAsm {
+      skey: None,
+      ty,
+      mnemonic,
+      operands,
+    };
+    self.context().add_instance(asm)
   }
 
 }

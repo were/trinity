@@ -5,7 +5,7 @@ pub mod component;
 pub use component::*;
 
 use component::{
-  Component, ComponentToMut, ComponentToRef, AsSuper
+  Component, ComponentToMut, ComponentToRef, AsSuper, GetSlabKey
 };
 use crate::ir::{
   types::{self, IntType, VoidType, TypeRef, TKindCode },
@@ -26,11 +26,11 @@ impl<'ctx> Context {
     }
   }
 
-  pub(crate) fn get_value_ref<T: ComponentToRef<T>>(&'ctx self, skey: usize) -> &'ctx T {
+  pub(crate) fn get_value_ref<T: ComponentToRef<T> + GetSlabKey>(&'ctx self, skey: usize) -> &'ctx T {
     T::instance_to_self(&self.slab[skey])
   }
 
-  pub(crate) fn get_value_mut<T: ComponentToMut<T>>(&'ctx mut self, skey: usize) -> &'ctx mut T {
+  pub(crate) fn get_value_mut<T: ComponentToMut<T> + GetSlabKey>(&'ctx mut self, skey: usize) -> &'ctx mut T {
     T::instance_to_self_mut(&mut self.slab[skey])
   }
 
@@ -40,12 +40,12 @@ impl<'ctx> Context {
 
   fn add_component(&mut self, instance: Component) -> usize {
     let res = self.slab.insert(instance);
-    self.slab[res].set_skey(res);
     res
   }
 
-  pub fn add_instance<T: Into<Component> + AsSuper<U> + ComponentToRef<T>, U>(&mut self, instance: T) -> T::SuperType {
+  pub fn add_instance<T: Into<Component> + AsSuper<U> + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey, U>(&mut self, instance: T) -> T::SuperType {
     let skey = self.add_component(instance.into());
+    self.slab[skey].set_skey(skey);
     let instance_ref = self.get_value_ref::<T>(skey);
     instance_ref.as_super()
   }

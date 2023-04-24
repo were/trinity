@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode}};
+use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType}};
 
 use super::Instruction;
 
@@ -118,29 +118,29 @@ impl <'inst>GetElementPtr<'inst> {
 
 /// Call a callable value.
 pub struct Call<'inst> {
-  pub(super) base: &'inst Instruction,
+  pub(super) inst: &'inst Instruction,
 }
 
 impl <'inst> Call<'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
     if let InstOpcode::Call = inst.opcode {
-      Self { base: inst, }
+      Self { inst, }
     } else {
       panic!("Invalid opcode for Call instruction.");
     }
   }
 
   pub fn get_callee(&self) -> ValueRef {
-    self.base.operands.last().unwrap().clone()
+    self.inst.operands.last().unwrap().clone()
   }
 
   pub fn get_num_args(&self) -> usize {
-    self.base.operands.len() - 1
+    self.inst.operands.len() - 1
   }
 
   pub fn get_arg(&self, idx: usize) -> ValueRef {
-    self.base.operands[idx].clone()
+    self.inst.operands[idx].clone()
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
@@ -148,7 +148,11 @@ impl <'inst> Call<'inst> {
     let args_str = (0..self.get_num_args()).map(|i| {
       self.get_arg(i).to_string(ctx)
     }).collect::<Vec<_>>().join(", ");
-    format!("call {} {}({})", self.base.ty.to_string(ctx), callee.to_string(ctx), args_str)
+    if let None = self.inst.get_type().as_ref::<VoidType>(ctx) {
+      format!("%{} = call {}({})", self.inst.get_name(), callee.to_string(ctx), args_str)
+    } else {
+      format!("call {}({})", callee.to_string(ctx), args_str)
+    }
   }
 
 }

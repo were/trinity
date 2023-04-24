@@ -78,3 +78,12 @@ impl ConstObject {
   }
 
 }
+
+/// Inline assembly
+pub struct InlineAsm {
+  pub(crate) skey: Option<usize>,
+  pub(crate) ty: TypeRef,
+  pub(crate) mnemonic: String,
+  pub(crate) operands: String
+}
+
