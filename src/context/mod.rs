@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use slab::Slab;
 
 pub mod component;
