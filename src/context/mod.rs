@@ -8,7 +8,7 @@ use component::{
   Component, ComponentToMut, ComponentToRef, AsSuper, GetSlabKey
 };
 use crate::ir::{
-  types::{self, IntType, VoidType, TypeRef, TKindCode },
+  types::{ IntType, VoidType, TypeRef, TKindCode },
   value::consts::ConstScalar, value::ValueRef
 };
 
@@ -43,7 +43,8 @@ impl<'ctx> Context {
     res
   }
 
-  pub fn add_instance<T: Into<Component> + AsSuper<U> + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey, U>(&mut self, instance: T) -> T::SuperType {
+  pub(crate) fn add_instance<T, U>(&mut self, instance: T) -> T::SuperType
+    where T: Into<Component> + AsSuper<U> + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey {
     let skey = self.add_component(instance.into());
     self.slab[skey].set_skey(skey);
     let instance_ref = self.get_value_ref::<T>(skey);
@@ -52,15 +53,15 @@ impl<'ctx> Context {
 
   // TODO(@were): Move these to the context.
   /// Get an integer type
-  pub fn int_type(&mut self, bits: usize) -> types::TypeRef {
-    let skey = self.add_component(Component::IntType(IntType::new(bits)));
-    self.get_value_ref::<IntType>(skey).as_super()
+  pub fn int_type(&mut self, bits: usize) -> TypeRef {
+    let instance = IntType::new(bits);
+    self.add_instance(instance)
   }
 
   /// Get a void type
-  pub fn void_type(&mut self) -> types::TypeRef {
-    let instance = types::VoidType{skey: None};
-    self.add_instance::<VoidType, _>(instance)
+  pub fn void_type(&mut self) -> TypeRef {
+    let instance = VoidType{skey: None};
+    self.add_instance(instance)
   }
 
   pub fn const_value(&mut self, ty: TypeRef, value: u64) -> ValueRef {
@@ -70,7 +71,7 @@ impl<'ctx> Context {
       ty: ty.clone(),
       value: value as u64
     };
-    self.add_instance::<ConstScalar, _>(instance)
+    self.add_instance(instance)
   }
 
 }

@@ -51,7 +51,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
-        format!("%{}", inst.name)
+        format!("{} %{}", inst.ty.to_string(ctx), inst.name)
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
@@ -76,14 +76,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
-        let ty = if let Some(void) = inline_asm.ty.as_ref::<VoidType>(ctx) {
-          "sideeffect".to_string()
-        } else if let Some(sty) = inline_asm.ty.as_ref::<StructType>(ctx) {
-          sty.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
-        } else {
-          inline_asm.ty.to_string(ctx)
-        };
-        format!("{} \"{}\", \"{}\"", ty, inline_asm.mnemonic, inline_asm.operands)
+        inline_asm.to_string(ctx)
       },
       VKindCode::Unknown => {
         format!("[unknown]")
@@ -123,7 +116,7 @@ impl<'ctx> ValueRef {
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstArray>(self.skey);
         let ptr_ty = const_object.ty.as_ref::<PointerType>(ctx).unwrap();
-        ptr_ty.get_scalar_ty()
+        ptr_ty.get_pointee_ty()
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);

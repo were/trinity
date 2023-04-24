@@ -82,6 +82,14 @@ impl StructType {
     format!("%{} = type {{ {} }}", self.name, attrs)
   }
 
+  pub fn get_num_attrs(&self) -> usize {
+    self.attrs.len()
+  }
+
+  pub fn get_attr(&self, i: usize) -> TypeRef {
+    self.attrs[i].clone()
+  }
+
   pub fn new(name: String) -> Self {
     StructType {
       skey: None,

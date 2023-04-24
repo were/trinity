@@ -20,7 +20,7 @@ impl<'inst> Alloca <'inst> {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let ptr_ty = self.inst.ty.as_ref::<PointerType>(ctx).unwrap();
-    let ptr_str = ptr_ty.get_scalar_ty().to_string(ctx);
+    let ptr_str = ptr_ty.get_pointee_ty().to_string(ctx);
     return format!("%{} = alloca {}, align {}", self.inst.name, ptr_str, self.align);
   }
 
@@ -42,13 +42,13 @@ impl <'inst> Load <'inst> {
     }
   }
 
-  pub fn get_ptr(&self) -> ValueRef {
-    self.inst.operands[0].clone()
+  pub fn get_ptr(&self) -> &ValueRef {
+    &self.inst.operands[0]
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let inst = ctx.get_value_ref::<Instruction>(self.inst.skey.unwrap());
-    format!("%{} = {} load {}, align {}", inst.get_name(), inst.to_string(ctx), self.get_ptr().to_string(ctx), self.align)
+    format!("%{} = load {}, {}, align {}", inst.get_name(), inst.ty.to_string(ctx), self.get_ptr().to_string(ctx), self.align)
   }
 
 }
@@ -70,12 +70,12 @@ impl <'inst> Store <'inst> {
     }
   }
   
-  pub fn get_value(&self) -> ValueRef {
-    self.inst.operands[0].clone()
+  pub fn get_value(&self) -> &ValueRef {
+    &self.inst.operands[0]
   }
 
-  pub fn get_ptr(&self) -> ValueRef {
-    self.inst.operands[1].clone()
+  pub fn get_ptr(&self) -> &ValueRef {
+    &self.inst.operands[1]
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
@@ -106,12 +106,14 @@ impl <'inst>GetElementPtr<'inst> {
     } else {
       ""
     };
-    // Embrace the legacy!
-    let ty_str = self.inst.ty.to_string(ctx);
+    // TODO(@were): What if this is not a pointer?
+    let ptr_scalar = self.inst.operands[0].get_type(ctx).as_ref::<PointerType>(ctx).unwrap().get_pointee_ty();
+    let ty_str = ptr_scalar.to_string(ctx);
+
     let operands = (0..self.inst.get_num_operands()).map(|i| {
       format!("{}", &self.inst.get_operand(i).to_string(ctx))
     }).collect::<Vec<_>>().join(", ");
-    format!("  %{} = getelementptr {} {} {}", self.inst.name, inbounds, ty_str, operands)
+    format!("%{} = getelementptr {} {}, {}", self.inst.name, inbounds, ty_str, operands)
   }
 
 }
@@ -131,16 +133,16 @@ impl <'inst> Call<'inst> {
     }
   }
 
-  pub fn get_callee(&self) -> ValueRef {
-    self.inst.operands.last().unwrap().clone()
+  pub fn get_callee(&self) -> &ValueRef {
+    self.inst.operands.last().unwrap()
   }
 
   pub fn get_num_args(&self) -> usize {
     self.inst.operands.len() - 1
   }
 
-  pub fn get_arg(&self, idx: usize) -> ValueRef {
-    self.inst.operands[idx].clone()
+  pub fn get_arg(&self, idx: usize) -> &ValueRef {
+    &self.inst.operands[idx]
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {

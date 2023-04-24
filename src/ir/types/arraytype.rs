@@ -15,7 +15,7 @@ impl PointerType {
     format!("{}*", self.scalar_ty.to_string(context))
   }
 
-  pub fn get_scalar_ty(&self) -> TypeRef {
+  pub fn get_pointee_ty(&self) -> TypeRef {
     self.scalar_ty.clone()
   }
 

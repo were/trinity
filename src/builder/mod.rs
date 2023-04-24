@@ -1,5 +1,6 @@
 use crate::context::component::AsSuper;
 
+use crate::ir::types::VoidType;
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::{
   module::Module,
@@ -187,7 +188,7 @@ impl<'ctx> Builder {
   pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
-    let res_ty = pty.get_scalar_ty();
+    let res_ty = pty.get_pointee_ty();
     self.create_gep(res_ty, ptr, indices, true)
   }
 
@@ -224,14 +225,19 @@ impl<'ctx> Builder {
     self.create_typed_call(ty, callee, args)
   }
 
-  // TODO(@were): Add alignment
+
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
-    let res_ty = pty.get_scalar_ty();
+    let res_ty = pty.get_pointee_ty();
+    self.create_typed_load(res_ty, ptr)
+  }
+
+  // TODO(@were): Add alignment
+  pub fn create_typed_load(&mut self, ty: TypeRef, ptr: ValueRef) -> ValueRef {
     let inst = instruction::Instruction {
       skey: None,
-      ty: res_ty,
+      ty,
       opcode: instruction::InstOpcode::Load(8),
       name: format!("load.{}", self.context().num_components()),
       operands: vec![ptr],
@@ -252,10 +258,15 @@ impl<'ctx> Builder {
     gvs_ref
   }
 
-  pub fn create_inline_asm(&mut self, ty: TypeRef, mnemonic: String, operands: String) -> ValueRef {
+  pub fn create_inline_asm(&mut self, ty: TypeRef, mnemonic: String, operands: String, sideeffect: bool) -> ValueRef {
+    let mut sideeffect = sideeffect;
+    if let Some(_) = ty.as_ref::<VoidType>(self.context()) {
+      sideeffect = true;
+    }
     let asm = InlineAsm {
       skey: None,
       ty,
+      sideeffect,
       mnemonic,
       operands,
     };
