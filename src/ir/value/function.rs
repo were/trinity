@@ -71,6 +71,7 @@ impl Function {
 
 }
 
+/// Function argument
 impl Argument {
 
   pub fn get_parent(&self) -> ValueRef {

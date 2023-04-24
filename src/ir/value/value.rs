@@ -18,6 +18,10 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
+  pub fn undef() -> Self {
+    Self { skey: 0, kind: VKindCode::Unknown }
+  }
+
   pub fn as_ref<T: WithKindCode<VKindCode> + ComponentToRef<T>>(&'ctx self, context: &'ctx Context) -> Option<&'ctx T> {
     if self.kind == T::kind_code() {
       Some(context.get_value_ref::<T>(self.skey))
@@ -119,6 +123,13 @@ impl<'ctx> ValueRef {
   pub fn is_const(&self) -> bool {
     match self.kind {
       VKindCode::ConstScalar | VKindCode::ConstArray | VKindCode::ConstExpr | VKindCode::ConstObject => true,
+      _ => false
+    }
+  }
+
+  pub fn is_callable(&self) -> bool {
+    match self.kind {
+      VKindCode::Function => true,
       _ => false
     }
   }
