@@ -134,7 +134,7 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
-  pub fn alloca(&mut self, ty: types::TypeRef) -> ValueRef {
+  pub fn create_alloca(&mut self, ty: types::TypeRef) -> ValueRef {
     let ptr_ty = ty.ptr_type(self.context());
     let inst = instruction::Instruction {
       skey: None,
