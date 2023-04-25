@@ -9,10 +9,8 @@ mod pod;
 use component::{
   Component, ComponentToMut, ComponentToRef, AsSuper, GetSlabKey
 };
-use crate::ir::{
-  types::{ TypeRef, TKindCode },
-  value::consts::ConstScalar, value::ValueRef
-};
+
+use crate::ir::{ types::TypeRef, value::ValueRef };
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
@@ -83,13 +81,13 @@ impl<'ctx> Context {
   }
 
   pub fn const_value(&mut self, ty: TypeRef, value: u64) -> ValueRef {
-    assert!(ty.kind == TKindCode::IntType);
-    let instance = ConstScalar{
-      skey: None,
-      ty: ty.clone(),
-      value: value as u64
-    };
-    self.add_instance(instance)
+    assert!(pod::is_pod(&ty));
+    pod::Cache::const_scalar(self, ty, value)
+    // let instance = ConstScalar{
+    //   skey: None, ty,
+    //   value: value as u64
+    // };
+    // self.add_instance(instance)
   }
 
 

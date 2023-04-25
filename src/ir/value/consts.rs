@@ -15,6 +15,14 @@ fn str2display(s: &String) -> String {
 
 impl ConstScalar {
 
+  pub(crate) fn new(ty: TypeRef, value: u64) -> Self {
+    Self {
+      skey: None,
+      ty,
+      value
+    }
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
     format!("{} = {}", self.ty.to_string(ctx), self.value)
   }
