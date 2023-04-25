@@ -14,7 +14,7 @@ use super::value::ValueRef;
 
 // Register all the types here.
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum TKindCode {
   IntType,
   VoidType,
@@ -108,7 +108,7 @@ impl StructType {
 
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TypeRef {
   pub(crate) skey: usize,
   pub(crate) kind: TKindCode
@@ -168,22 +168,20 @@ impl<'ctx> TypeRef {
   }
 
   pub fn ptr_type(&self, ctx: &mut Context) -> TypeRef {
-    let scalar_ty: TypeRef = self.clone();
-    ctx.add_instance(PointerType{skey: None, scalar_ty})
+    ctx.pointer_type(self.clone())
   }
 
   pub fn fn_type(&self, ctx: &mut Context, args: Vec<TypeRef>) -> TypeRef {
-    let fty = FunctionType{skey: None, args, ret_ty: self.clone()};
-    ctx.add_instance(fty)
+    ctx.function_type(self.clone(), args)
   }
 
-  pub fn array_type(&self, ctx: &mut Context, size: ValueRef) -> TypeRef {
-    let array_ty = ArrayType{skey: None, elem_ty: self.clone(), size};
-    ctx.add_instance(array_ty)
+  pub fn array_type(&self, ctx: &mut Context, size: usize) -> TypeRef {
+    ctx.array_type(self.clone(), size)
   }
 
-  pub fn const_array(&self, ctx: &mut Context, name: String, value: Vec<u8>) -> ValueRef {
+  pub fn const_array(&self, ctx: &mut Context, name: String, value: Vec<ValueRef>) -> ValueRef {
     assert!(self.kind == TKindCode::ArrayType);
+    // TODO(@were): Check the types.
     let const_array = ConstArray {
       skey: None,
       name,

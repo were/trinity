@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::{value::ValueRef, value::consts::ConstScalar}};
+use crate::context::Context;
 
 use super::TypeRef;
 
@@ -10,6 +10,13 @@ pub struct PointerType {
 }
 
 impl PointerType {
+
+  pub(crate) fn new(scalar_ty: TypeRef) -> Self {
+    PointerType {
+      skey: None,
+      scalar_ty,
+    }
+  }
 
   pub fn to_string(&self, context: &Context) -> String {
     format!("{}*", self.scalar_ty.to_string(context))
@@ -25,19 +32,22 @@ impl PointerType {
 #[derive(Clone)]
 pub struct ArrayType {
   pub(crate) skey: Option<usize>,
-  pub(crate) size: ValueRef,
   pub(crate) elem_ty: TypeRef,
+  pub(crate) size: usize,
 }
 
 impl ArrayType {
 
+  pub(crate) fn new(elem_ty: TypeRef, size: usize) -> Self {
+    ArrayType {
+      skey: None,
+      elem_ty,
+      size,
+    }
+  }
+
   pub fn to_string(&self, context: &Context) -> String {
-    let size = if let Some(const_int)  = self.size.as_ref::<ConstScalar>(context) {
-      format!("{}", const_int.value)
-    } else {
-      self.size.to_string(context)
-    };
-    format!("[{} x {}]", size, self.elem_ty.to_string(context))
+    format!("[{} x {}]", self.size, self.elem_ty.to_string(context))
   }
 
   pub fn get_elem_ty(&self) -> TypeRef {

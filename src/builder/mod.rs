@@ -134,7 +134,7 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
-  pub fn alloca(&mut self, ty: types::TypeRef) -> ValueRef {
+  pub fn create_alloca(&mut self, ty: types::TypeRef) -> ValueRef {
     let ptr_ty = ty.ptr_type(self.context());
     let inst = instruction::Instruction {
       skey: None,
@@ -150,11 +150,12 @@ impl<'ctx> Builder {
 
   pub fn create_string(&mut self, val: String) -> ValueRef {
     let val = format!("{}\0", val);
-    let ty = self.context().int_type(32);
-    let size = self.context().const_value(ty, val.len() as u64);
+    let size = val.len();
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
     let id = self.context().num_components();
-    let res = array_ty.const_array(self.context(), format!("str.{}", id), val.into_bytes());
+    let i8ty = self.context().int_type(8);
+    let init = val.chars().map(|x| { self.context().const_value(i8ty.clone(), x as u64) }).collect::<Vec<_>>();
+    let res = array_ty.const_array(self.context(), format!("str.{}", id), init);
     self.module.global_values.push(res.clone());
     res
   }

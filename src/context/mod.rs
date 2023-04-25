@@ -4,17 +4,19 @@ pub mod component;
 
 pub use component::*;
 
+mod pod;
+
 use component::{
   Component, ComponentToMut, ComponentToRef, AsSuper, GetSlabKey
 };
-use crate::ir::{
-  types::{ IntType, VoidType, TypeRef, TKindCode },
-  value::consts::ConstScalar, value::ValueRef
-};
+
+use crate::ir::{ types::TypeRef, value::ValueRef };
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
   slab: Slab<Component>,
+  /// The cache of Plain Old Data (POD) related objects.
+  pod_cache: pod::Cache,
 }
 
 impl<'ctx> Context {
@@ -23,6 +25,7 @@ impl<'ctx> Context {
   pub fn new() -> Context {
     Context {
       slab: Slab::new(),
+      pod_cache: pod::Cache::new(),
     }
   }
 
@@ -43,7 +46,7 @@ impl<'ctx> Context {
     res
   }
 
-  pub(crate) fn add_instance<T, U>(&mut self, instance: T) -> T::SuperType
+  pub(super) fn add_instance<T, U>(&mut self, instance: T) -> T::SuperType
     where T: Into<Component> + AsSuper<U> + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey {
     let skey = self.add_component(instance.into());
     self.slab[skey].set_skey(skey);
@@ -54,25 +57,39 @@ impl<'ctx> Context {
   // TODO(@were): Move these to the context.
   /// Get an integer type
   pub fn int_type(&mut self, bits: usize) -> TypeRef {
-    let instance = IntType::new(bits);
-    self.add_instance(instance)
+    pod::Cache::int_type(self, bits)
   }
 
   /// Get a void type
   pub fn void_type(&mut self) -> TypeRef {
-    let instance = VoidType{skey: None};
-    self.add_instance(instance)
+    pod::Cache::void_type(self)
+  }
+
+  /// Get a pointer type
+  pub fn pointer_type(&mut self, pointee: TypeRef) -> TypeRef {
+    pod::Cache::pointer_type(self, pointee)
+  }
+
+  /// Get an array type
+  pub fn array_type(&mut self, element: TypeRef, num_elements: usize) -> TypeRef {
+    pod::Cache::array_type(self, element, num_elements)
+  }
+
+  /// Get a function type
+  pub fn function_type(&mut self, return_type: TypeRef, param_types: Vec<TypeRef>) -> TypeRef {
+    pod::Cache::function_type(self, return_type, param_types)
   }
 
   pub fn const_value(&mut self, ty: TypeRef, value: u64) -> ValueRef {
-    assert!(ty.kind == TKindCode::IntType);
-    let instance = ConstScalar{
-      skey: None,
-      ty: ty.clone(),
-      value: value as u64
-    };
-    self.add_instance(instance)
+    assert!(pod::is_pod(&ty));
+    pod::Cache::const_scalar(self, ty, value)
+    // let instance = ConstScalar{
+    //   skey: None, ty,
+    //   value: value as u64
+    // };
+    // self.add_instance(instance)
   }
+
 
 }
 
