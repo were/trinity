@@ -36,7 +36,7 @@ impl<'ctx> Builder {
   }
 
   /// Add a function to the module
-  pub fn add_function(&mut self, name: String, fty_ref: TypeRef) -> ValueRef {
+  pub fn create_function(&mut self, name: String, fty_ref: TypeRef) -> ValueRef {
     // Create the function.
     let func = function::Function {
       skey: None,

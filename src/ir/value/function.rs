@@ -42,10 +42,19 @@ impl Function {
     return self.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty.clone();
   }
 
+  pub fn is_declaration(&self) -> bool {
+    return self.blocks.len() == 0;
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
     let mut res = String::new();
     let fty = self.fty.as_ref::<FunctionType>(ctx).unwrap();
-    res.push_str(format!("define dso_local {} @{}(", fty.ret_ty.to_string(&ctx), namify(&self.name)).as_str());
+    let prefix = if self.is_declaration() {
+      "declare"
+    } else {
+      "define dso_local"
+    };
+    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty.to_string(&ctx), namify(&self.name)).as_str());
     for i in 0..self.get_num_args() {
       if i != 0 {
         res.push_str(", ");
@@ -55,7 +64,7 @@ impl Function {
       res.push_str(format!("{}", arg.to_string(&ctx)).as_str());
     }
     res.push_str(")");
-    if self.blocks.len() != 0 {
+    if !self.is_declaration() {
       res.push_str(" {\n");
       for i in 0..self.get_num_blocks() {
         let block_ref = self.get_block(i);
