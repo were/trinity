@@ -10,7 +10,7 @@ use crate::ir::{
   value::function::Function,
   value::function::{self, Argument},
   types::{self, StructType, TypeRef, PointerType},
-  value::instruction::{self, Instruction},
+  value::instruction::{self, Instruction, BinaryOp},
   value::consts::{ConstExpr, ConstObject}
 };
 
@@ -226,6 +226,27 @@ impl<'ctx> Builder {
     self.create_typed_call(ty, callee, args)
   }
 
+  pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    // @were: Check type equality.
+    let ty = lhs.get_type(self.context());
+    let inst = instruction::Instruction {
+      skey: None,
+      ty,
+      opcode: instruction::InstOpcode::BinaryOp(op),
+      name: format!("binop.{}", self.context().num_components()),
+      operands: vec![lhs, rhs],
+      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_add(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::Add, lhs, rhs)
+  }
+
+  pub fn create_sub(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::Sub, lhs, rhs)
+  }
 
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
@@ -259,7 +280,8 @@ impl<'ctx> Builder {
     gvs_ref
   }
 
-  pub fn create_inline_asm(&mut self, ty: TypeRef, mnemonic: String, operands: String, sideeffect: bool) -> ValueRef {
+  pub fn create_inline_asm(&mut self, ty: TypeRef, mnemonic: String,
+                           operands: String, sideeffect: bool) -> ValueRef {
     let mut sideeffect = sideeffect;
     if let Some(_) = ty.as_ref::<VoidType>(self.context()) {
       sideeffect = true;

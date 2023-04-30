@@ -2,7 +2,7 @@ use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::ConstExpr;
 use crate::ir::types::{TypeRef, TKindCode, PointerType};
-use crate::ir::module::Module;
+use crate::ir::module::{Module, namify};
 
 use super::consts::ConstObject;
 use super::block::Block;
@@ -59,7 +59,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
-        format!("{} @{}", func.get_ret_ty(ctx).to_string(ctx), func.name)
+        format!("{} @{}", func.get_ret_ty(ctx).to_string(ctx), namify(&func.name))
       },
       VKindCode::ConstArray => {
         let const_array = ctx.get_value_ref::<ConstArray>(self.skey);

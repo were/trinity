@@ -24,8 +24,42 @@ impl ToString for InstOpcode {
       InstOpcode::Load(_) => format!("load"),
       InstOpcode::Store(_) => format!("store"),
       InstOpcode::Call => format!("call"),
+      InstOpcode::BinaryOp(binop) => {
+        match binop {
+          BinaryOp::Add => format!("add"),
+          BinaryOp::Sub => format!("sub"),
+          BinaryOp::Mul => format!("mul"),
+          BinaryOp::Div => format!("div"),
+          BinaryOp::Rem => format!("rem"),
+          BinaryOp::Shl => format!("shl"),
+          BinaryOp::Shr => format!("shr"),
+          BinaryOp::And => format!("and"),
+          BinaryOp::Or => format!("or"),
+          BinaryOp::Xor => format!("xor"),
+          BinaryOp::LogicalAnd => format!("and"),
+          BinaryOp::LogicalOr => format!("or"),
+        }
+      }
     }
   }
+}
+
+
+/// Sub-opcodes for binary operations.
+#[derive(Clone, PartialEq)]
+pub enum BinaryOp {
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Rem,
+  Shl,
+  Shr,
+  And,
+  Or,
+  Xor,
+  LogicalAnd,
+  LogicalOr,
 }
 
 
@@ -46,6 +80,8 @@ pub enum InstOpcode {
   GetElementPtr(bool),
   /// Call a callable value.
   Call,
+  /// Binary operation.
+  BinaryOp(BinaryOp),
 }
 
 impl Instruction {
@@ -78,6 +114,7 @@ impl Instruction {
       InstOpcode::Load(align) => { Load::new(self, align).to_string(ctx) },
       InstOpcode::Store(align) => { Store::new(self, align).to_string(ctx) },
       InstOpcode::Call => { Call::new(self).to_string(ctx) },
+      InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(ctx) },
     }
   }
 

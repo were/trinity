@@ -48,7 +48,9 @@ impl <'inst> Load <'inst> {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let inst = ctx.get_value_ref::<Instruction>(self.inst.skey.unwrap());
-    format!("%{} = load {}, {}, align {}", inst.get_name(), inst.ty.to_string(ctx), self.get_ptr().to_string(ctx), self.align)
+    format!("%{} = load {}, {}, align {}",
+      inst.get_name(), inst.ty.to_string(ctx),
+      self.get_ptr().to_string(ctx), self.align)
   }
 
 }
@@ -187,3 +189,36 @@ impl <'inst> Return <'inst> {
 
 }
 
+/// Binary operation.
+pub struct BinaryInst <'inst> {
+  pub(super) base: &'inst Instruction,
+}
+
+
+impl<'inst> BinaryInst <'inst> {
+
+  pub fn new(inst: &'inst Instruction) -> Self {
+    if let InstOpcode::BinaryOp(_) = inst.opcode {
+      Self { base: inst, }
+    } else {
+      panic!("Invalid opcode for BinaryOp instruction.");
+    }
+  }
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let lhs = self.lhs();
+    let rhs = self.rhs();
+    let op = self.base.opcode.to_string();
+    let ty = self.base.ty.to_string(ctx);
+    format!("%{} = {} {}, {}, {}", self.base.name, op, ty, lhs.to_string(ctx), rhs.to_string(ctx))
+  }
+
+  pub fn lhs(&self) -> &ValueRef {
+    &self.base.operands[0]
+  }
+
+  pub fn rhs(&self) -> &ValueRef {
+    &self.base.operands[1]
+  }
+
+}
