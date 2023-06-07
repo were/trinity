@@ -2,6 +2,7 @@ use std::fmt;
 
 
 use crate::context::Context;
+use crate::target::TargetTriple;
 
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
@@ -10,6 +11,8 @@ use super::types::StructType;
 pub struct Module {
   /// Context of this module.
   pub context: Context,
+  /// Target triple this module targets.
+  pub target: TargetTriple,
   /// The name of the module.
   mod_name: String,
   /// The source code file name.
@@ -25,10 +28,11 @@ pub struct Module {
 impl<'ctx> Module {
 
   /// Construct a module
-  pub fn new(mod_name: String, src_name: String) -> Module {
+  pub fn new(mod_name: String, src_name: String, tt: String) -> Module {
     Module {
       mod_name,
       src_name,
+      target: TargetTriple::new(tt),
       context: Context::new(),
       functions: Vec::new(),
       structs: Vec::new(),
