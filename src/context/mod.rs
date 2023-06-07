@@ -41,6 +41,10 @@ impl<'ctx> Context {
     self.slab.len()
   }
 
+  pub(crate) fn get_name(&self, prefix: &str) -> String {
+    format!("{}.{}", prefix, self.num_components())
+  }
+
   fn add_component(&mut self, instance: Component) -> usize {
     let res = self.slab.insert(instance);
     res

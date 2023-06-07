@@ -2,6 +2,7 @@ use crate::context::component::AsSuper;
 
 use crate::ir::types::VoidType;
 use crate::ir::value::consts::InlineAsm;
+use crate::ir::value::instruction::{CastOp, InstOpcode};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -127,7 +128,7 @@ impl<'ctx> Builder {
       skey: None,
       ty: ret_ty,
       opcode: instruction::InstOpcode::Return,
-      name: format!("ret.{}", self.context().num_components()),
+      name: self.context().get_name("ret"),
       operands: if let None = val { vec![] } else {vec![val.unwrap()]},
       parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
     };
@@ -141,7 +142,7 @@ impl<'ctx> Builder {
       ty: ptr_ty,
       // TODO(@were): Make this alignment better
       opcode: instruction::InstOpcode::Alloca(8),
-      name: format!("alloca.{}", self.context().num_components()),
+      name: self.context().get_name("alloca"),
       operands: Vec::new(),
       parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
     };
@@ -152,10 +153,10 @@ impl<'ctx> Builder {
     let val = format!("{}\0", val);
     let size = val.len();
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
-    let id = self.context().num_components();
     let i8ty = self.context().int_type(8);
     let init = val.chars().map(|x| { self.context().const_value(i8ty.clone(), x as u64) }).collect::<Vec<_>>();
-    let res = array_ty.const_array(self.context(), format!("str.{}", id), init);
+    let name = self.context().get_name("str");
+    let res = array_ty.const_array(self.context(), name, init);
     self.module.global_values.push(res.clone());
     res
   }
@@ -178,7 +179,7 @@ impl<'ctx> Builder {
         skey: None,
         ty,
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-        name: format!("gep.{}", self.context().num_components()),
+        name: self.context().get_name("gep"),
         operands,
         parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
       };
@@ -194,16 +195,16 @@ impl<'ctx> Builder {
   }
 
   // TODO(@were): Add alignment
-  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) {
+  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> ValueRef {
     let inst = instruction::Instruction {
       skey: None,
       ty: self.context().void_type(),
       opcode: instruction::InstOpcode::Store(8),
-      name: format!("store.{}", self.context().num_components()),
+      name: self.context().get_name("store"),
       operands: vec![value, ptr],
       parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
-    self.add_instruction(inst);
+    self.add_instruction(inst)
   }
 
   pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
@@ -233,7 +234,7 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::BinaryOp(op),
-      name: format!("binop.{}", self.context().num_components()),
+      name: self.context().get_name("binop"),
       operands: vec![lhs, rhs],
       parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
@@ -261,7 +262,7 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::Load(8),
-      name: format!("load.{}", self.context().num_components()),
+      name: self.context().get_name("load"),
       operands: vec![ptr],
       parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
@@ -271,7 +272,7 @@ impl<'ctx> Builder {
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
     let gvs = ConstObject {
       skey: None,
-      name: format!("globalobj.{}", self.context().num_components()),
+      name: self.context().get_name("globalobj"),
       ty: ty.ptr_type(self.context()),
       value: init
     };
@@ -294,6 +295,19 @@ impl<'ctx> Builder {
       operands,
     };
     self.context().add_instance(asm)
+  }
+
+  pub fn create_bitcast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+    let cast_op = InstOpcode::CastInst(CastOp::Bitcast);
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: dest,
+      opcode: cast_op,
+      name: self.context().get_name("bitcast"),
+      operands: vec![val],
+      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+    };
+    self.add_instruction(inst)
   }
 
 }

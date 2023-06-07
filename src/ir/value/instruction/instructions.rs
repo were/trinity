@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType}};
+use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef}};
 
 use super::Instruction;
 
@@ -219,6 +219,32 @@ impl<'inst> BinaryInst <'inst> {
 
   pub fn rhs(&self) -> &ValueRef {
     &self.base.operands[1]
+  }
+
+}
+
+pub struct CastInst <'inst> {
+  pub(super) base: &'inst Instruction,
+}
+
+impl<'inst> CastInst <'inst> {
+
+  pub fn new(inst: &'inst Instruction) -> Self {
+    if let InstOpcode::CastInst(_) = inst.opcode {
+      Self { base: inst }
+    } else {
+      panic!("Not a cast instruction!");
+    }
+  }
+
+  pub fn dest_ty(&self) -> TypeRef {
+    return self.base.ty.clone()
+  }
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let operand = self.base.operands[0].to_string(ctx);
+    let dest_type = self.dest_ty().to_string(ctx);
+    format!("%{} = {} {} to {}", self.base.name, self.base.opcode.to_string(), operand, dest_type)
   }
 
 }
