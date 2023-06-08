@@ -298,6 +298,11 @@ impl<'ctx> Builder {
   }
 
   pub fn create_bitcast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+    // Skip casting if the same types.
+    let src_ty = val.get_type(&self.context());
+    if src_ty.skey == dest.skey {
+      return val;
+    }
     let cast_op = InstOpcode::CastInst(CastOp::Bitcast);
     let inst = instruction::Instruction {
       skey: None,
