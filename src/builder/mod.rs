@@ -1,6 +1,6 @@
 use crate::context::component::AsSuper;
 
-use crate::ir::types::VoidType;
+use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode};
 use crate::ir::{
@@ -297,22 +297,49 @@ impl<'ctx> Builder {
     self.context().add_instance(asm)
   }
 
-  pub fn create_bitcast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+  pub fn create_op_cast(&mut self, cast_op: CastOp, val: ValueRef, dest: TypeRef) -> ValueRef {
     // Skip casting if the same types.
     let src_ty = val.get_type(&self.context());
     if src_ty.skey == dest.skey {
       return val;
     }
-    let cast_op = InstOpcode::CastInst(CastOp::Bitcast);
+    let op = InstOpcode::CastInst(cast_op);
     let inst = instruction::Instruction {
       skey: None,
       ty: dest,
-      opcode: cast_op,
-      name: self.context().get_name("bitcast"),
+      opcode: op,
+      name: self.context().get_name("cast"),
       operands: vec![val],
       parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
     };
     self.add_instruction(inst)
+  }
+
+  pub fn create_bitcast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+    self.create_op_cast(CastOp::Bitcast, val, dest)
+  }
+
+  pub fn create_cast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+    let src_ty = val.get_type(&self.context());
+    // TODO(@were): This is messy, fix this later.
+    let cast_op = if src_ty.kind == TKindCode::IntType && dest.kind == TKindCode::IntType {
+      let src_bits = src_ty.get_scalar_size_in_bits(&self.module);
+      let dst_bits = dest.get_scalar_size_in_bits(&self.module);
+      if src_bits < dst_bits {
+        CastOp::SignExt
+      } else if src_bits > dst_bits {
+        CastOp::Trunc
+      } else {
+        return val
+      }
+    } else if (src_ty.kind == TKindCode::IntType && dest.kind == TKindCode::PointerType) ||
+              (src_ty.kind == TKindCode::PointerType && dest.kind == TKindCode::IntType) {
+      assert_eq!(src_ty.get_scalar_size_in_bits(&self.module), dest.get_scalar_size_in_bits(&self.module));
+      CastOp::Bitcast
+    } else {
+      panic!("Not supported casting!");
+    };
+    self.create_op_cast(cast_op, val, dest)
   }
 
 }

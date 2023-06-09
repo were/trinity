@@ -1,5 +1,24 @@
 use std::collections::HashMap;
 
+pub struct TargetMachine {
+  /// The target triple of the target machine
+  pub target_triple: TargetTriple,
+  /// The data layout of the target machine
+  pub data_layout: DataLayout
+}
+
+impl TargetMachine {
+
+  /// Get the pointer size under this target machine.
+  pub fn get_pointer_size_in_bits(&self) -> usize {
+    if let Some(x) = self.data_layout.pointer_alignment.get(&(0 as usize)) {
+      return x.0;
+    }
+    return 64;
+  }
+
+}
+
 /// Target triple of the machine.
 pub struct TargetTriple {
   /// Instruction set.
@@ -74,8 +93,7 @@ impl DataLayout {
         }
         'S' => {
           // S:<pref>
-          assert!(elem.as_bytes()[1] as char == ':');
-          res.stack_alignment = elem[2..].parse::<usize>().unwrap()
+          res.stack_alignment = elem[1..].parse::<usize>().unwrap()
         }
         'p' => {
           // p[n]:<size>:<abi>[:<pref>][:<idx>]
@@ -111,7 +129,7 @@ impl DataLayout {
   pub fn to_string(&self) -> String {
     let endian = if self.big_endian { 'E' } else { 'e' };
 
-    let mut res = format!("{}-m:{}-S:{}", endian, self.mangling, self.stack_alignment);
+    let mut res = format!("{}-m:{}-S{}", endian, self.mangling, self.stack_alignment);
 
     if self.pointer_alignment.len() != 0 {
       let pointers = self.pointer_alignment.iter().map(|x| {

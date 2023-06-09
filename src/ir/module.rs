@@ -2,7 +2,7 @@ use std::fmt;
 
 
 use crate::context::Context;
-use crate::machine::{TargetTriple, DataLayout};
+use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
@@ -11,10 +11,8 @@ use super::types::StructType;
 pub struct Module {
   /// Context of this module.
   pub context: Context,
-  /// Target triple this module targets.
-  pub target: TargetTriple,
-  /// The data layout of the target machine.
-  pub data_layout: DataLayout,
+  /// The associated information of the target machine.
+  pub tm: TargetMachine,
   /// The name of the module.
   mod_name: String,
   /// The source code file name.
@@ -34,8 +32,10 @@ impl<'ctx> Module {
     Module {
       mod_name,
       src_name,
-      target: TargetTriple::new(tt),
-      data_layout: DataLayout::new(layout),
+      tm: TargetMachine {
+        target_triple: TargetTriple::new(tt),
+        data_layout: DataLayout::new(layout)
+      },
       context: Context::new(),
       functions: Vec::new(),
       structs: Vec::new(),
@@ -97,8 +97,8 @@ impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "; ModuleID = '{}'\n", self.mod_name).unwrap();
     write!(f, "source_filename = \"{}\"\n", self.src_name).unwrap();
-    write!(f, "target triple = \"{}\"\n", self.target.to_string()).unwrap();
-    write!(f, "data layout = \"{}\"\n", self.data_layout.to_string()).unwrap();
+    write!(f, "target triple = \"{}\"\n", self.tm.target_triple.to_string()).unwrap();
+    write!(f, "target datalayout = \"{}\"\n", self.tm.data_layout.to_string()).unwrap();
     write!(f, "\n").unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);

@@ -38,7 +38,16 @@ impl<'ctx> ValueRef {
     }
   }
 
-  pub fn to_string(&self, ctx: &'ctx Context) -> String {
+  fn type_to_string(&self, ctx: &'ctx Context, with_type: bool) -> String {
+    self.get_type(ctx).to_string(ctx);
+    if with_type {
+      format!("{} ", self.get_type(ctx).to_string(ctx))
+    } else {
+      "".to_string()
+    }
+  }
+
+  pub fn to_string(&self, ctx: &'ctx Context, with_type: bool) -> String {
     match self.kind {
       VKindCode::Block => {
         let block = ctx.get_value_ref::<Block>(self.skey);
@@ -46,24 +55,23 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);
-        let ty = &arg.ty;
-        format!("{} %arg.{}", ty.to_string(ctx), arg.arg_idx)
+        format!("{}%arg.{}", self.type_to_string(ctx, with_type), arg.arg_idx)
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
-        format!("{} %{}", inst.ty.to_string(ctx), inst.name)
+        format!("{}%{}", self.type_to_string(ctx, with_type), inst.name)
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        format!("{} {}", const_scalar.ty.to_string(ctx), const_scalar.value)
+        format!("{}{}", self.type_to_string(ctx, with_type), const_scalar.value)
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
-        format!("{} @{}", func.get_ret_ty(ctx).to_string(ctx), namify(&func.name))
+        format!("{}@{}", if with_type { func.get_ret_ty(ctx).to_string(ctx) + " " } else { "".to_string() }, namify(&func.name))
       },
       VKindCode::ConstArray => {
         let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
-        format!("{} @{}", const_array.ty.to_string(ctx), const_array.name)
+        format!("{}@{}", self.type_to_string(ctx, with_type), const_array.name)
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
@@ -71,8 +79,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
-        let ptr_ty = const_object.ty.as_ref::<PointerType>(ctx).unwrap();
-        format!("{} @{}", ptr_ty.to_string(ctx), const_object.name)
+        format!("{}@{}", self.type_to_string(ctx, with_type), const_object.name)
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
@@ -114,9 +121,8 @@ impl<'ctx> ValueRef {
         const_expr.ty.clone()
       },
       VKindCode::ConstObject => {
-        let const_object = ctx.get_value_ref::<ConstArray>(self.skey);
-        let ptr_ty = const_object.ty.as_ref::<PointerType>(ctx).unwrap();
-        ptr_ty.get_pointee_ty()
+        let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
+        const_object.ty.clone()
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
