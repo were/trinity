@@ -10,6 +10,7 @@ use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::value::consts::ConstArray;
 
+use super::module::Module;
 use super::value::ValueRef;
 
 // Register all the types here.
@@ -177,6 +178,39 @@ impl<'ctx> TypeRef {
 
   pub fn array_type(&self, ctx: &mut Context, size: usize) -> TypeRef {
     ctx.array_type(self.clone(), size)
+  }
+
+  pub fn get_scalar_size_in_bits(&self, module: &Module) -> usize {
+    let ctx = &module.context;
+    let tm = &module.tm;
+    match self.kind {
+      TKindCode::IntType => {
+        let it = self.as_ref::<IntType>(ctx).unwrap();
+        it.bits
+      }
+      TKindCode::VoidType => {
+        1
+      }
+      TKindCode::StructType => {
+        let st = self.as_ref::<StructType>(ctx).unwrap();
+        st.attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
+      }
+      TKindCode::ArrayType => {
+        let at = self.as_ref::<ArrayType>(ctx).unwrap();
+        at.elem_ty.get_scalar_size_in_bits(module)
+      }
+      TKindCode::PointerType => {
+        tm.get_pointer_size_in_bits()
+      }
+      TKindCode::BlockType => {
+        // TODO(@were): Later have program pointer size.
+        tm.get_pointer_size_in_bits()
+      }
+      TKindCode::FunctionType => {
+        // TODO(@were): Later have program pointer size.
+        tm.get_pointer_size_in_bits()
+      }
+    }
   }
 
   pub fn const_array(&self, ctx: &mut Context, name: String, value: Vec<ValueRef>) -> ValueRef {

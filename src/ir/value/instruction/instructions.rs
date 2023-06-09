@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType}};
+use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef}};
 
 use super::Instruction;
 
@@ -21,7 +21,7 @@ impl<'inst> Alloca <'inst> {
   pub fn to_string(&self, ctx: &Context) -> String {
     let ptr_ty = self.inst.ty.as_ref::<PointerType>(ctx).unwrap();
     let ptr_str = ptr_ty.get_pointee_ty().to_string(ctx);
-    return format!("%{} = alloca {}, align {}", self.inst.name, ptr_str, self.align);
+    return format!("%{} = alloca {}, align {}", self.inst.get_name(), ptr_str, self.align);
   }
 
 }
@@ -50,7 +50,7 @@ impl <'inst> Load <'inst> {
     let inst = ctx.get_value_ref::<Instruction>(self.inst.skey.unwrap());
     format!("%{} = load {}, {}, align {}",
       inst.get_name(), inst.ty.to_string(ctx),
-      self.get_ptr().to_string(ctx), self.align)
+      self.get_ptr().to_string(ctx, true), self.align)
   }
 
 }
@@ -81,7 +81,7 @@ impl <'inst> Store <'inst> {
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    format!("store {}, {}, align {}", self.get_value().to_string(ctx), self.get_ptr().to_string(ctx), self.align)
+    format!("store {}, {}, align {}", self.get_value().to_string(ctx, true), self.get_ptr().to_string(ctx, true), self.align)
   }
 
 }
@@ -113,9 +113,9 @@ impl <'inst>GetElementPtr<'inst> {
     let ty_str = ptr_scalar.to_string(ctx);
 
     let operands = (0..self.inst.get_num_operands()).map(|i| {
-      format!("{}", &self.inst.get_operand(i).to_string(ctx))
+      format!("{}", &self.inst.get_operand(i).to_string(ctx, true))
     }).collect::<Vec<_>>().join(", ");
-    format!("%{} = getelementptr {} {}, {}", self.inst.name, inbounds, ty_str, operands)
+    format!("%{} = getelementptr {} {}, {}", self.inst.get_name(), inbounds, ty_str, operands)
   }
 
 }
@@ -150,12 +150,12 @@ impl <'inst> Call<'inst> {
   pub fn to_string(&self, ctx: &Context) -> String {
     let callee = self.get_callee();
     let args_str = (0..self.get_num_args()).map(|i| {
-      self.get_arg(i).to_string(ctx)
+      self.get_arg(i).to_string(ctx, true)
     }).collect::<Vec<_>>().join(", ");
     if let None = self.inst.get_type().as_ref::<VoidType>(ctx) {
-      format!("%{} = call {}({})", self.inst.get_name(), callee.to_string(ctx), args_str)
+      format!("%{} = call {}({})", self.inst.get_name(), callee.to_string(ctx, true), args_str)
     } else {
-      format!("call {}({})", callee.to_string(ctx), args_str)
+      format!("call {}({})", callee.to_string(ctx, true), args_str)
     }
   }
 
@@ -182,7 +182,7 @@ impl <'inst> Return <'inst> {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     match self.get_ret_val() {
-      Some(val) => format!("ret {}", val.to_string(ctx)),
+      Some(val) => format!("ret {}", val.to_string(ctx, true)),
       None => String::from("ret void")
     }
   }
@@ -210,7 +210,7 @@ impl<'inst> BinaryInst <'inst> {
     let rhs = self.rhs();
     let op = self.base.opcode.to_string();
     let ty = self.base.ty.to_string(ctx);
-    format!("%{} = {} {}, {}, {}", self.base.name, op, ty, lhs.to_string(ctx), rhs.to_string(ctx))
+    format!("%{} = {} {} {}, {}", self.base.get_name(), op, ty, lhs.to_string(ctx, false), rhs.to_string(ctx, false))
   }
 
   pub fn lhs(&self) -> &ValueRef {
@@ -219,6 +219,32 @@ impl<'inst> BinaryInst <'inst> {
 
   pub fn rhs(&self) -> &ValueRef {
     &self.base.operands[1]
+  }
+
+}
+
+pub struct CastInst <'inst> {
+  pub(super) base: &'inst Instruction,
+}
+
+impl<'inst> CastInst <'inst> {
+
+  pub fn new(inst: &'inst Instruction) -> Self {
+    if let InstOpcode::CastInst(_) = inst.opcode {
+      Self { base: inst }
+    } else {
+      panic!("Not a cast instruction!");
+    }
+  }
+
+  pub fn dest_ty(&self) -> TypeRef {
+    return self.base.ty.clone()
+  }
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let operand = self.base.operands[0].to_string(ctx, true);
+    let dest_type = self.dest_ty().to_string(ctx);
+    format!("%{} = {} {} to {}", self.base.get_name(), self.base.opcode.to_string(), operand, dest_type)
   }
 
 }

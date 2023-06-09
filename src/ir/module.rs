@@ -2,7 +2,9 @@ use std::fmt;
 
 
 use crate::context::Context;
+use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
+use super::Function;
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
@@ -10,6 +12,8 @@ use super::types::StructType;
 pub struct Module {
   /// Context of this module.
   pub context: Context,
+  /// The associated information of the target machine.
+  pub tm: TargetMachine,
   /// The name of the module.
   mod_name: String,
   /// The source code file name.
@@ -25,10 +29,14 @@ pub struct Module {
 impl<'ctx> Module {
 
   /// Construct a module
-  pub fn new(mod_name: String, src_name: String) -> Module {
+  pub fn new(mod_name: String, src_name: String, tt: String, layout: String) -> Module {
     Module {
       mod_name,
       src_name,
+      tm: TargetMachine {
+        target_triple: TargetTriple::new(tt),
+        data_layout: DataLayout::new(layout)
+      },
       context: Context::new(),
       functions: Vec::new(),
       structs: Vec::new(),
@@ -75,6 +83,30 @@ impl<'ctx> Module {
     self.context.get_value_mut::<function::Function>(self.functions[idx])
   }
 
+  pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {
+    return ModuleFuncIter{i: 0, module: self}
+  }
+
+}
+
+pub struct ModuleFuncIter <'ctx> {
+  i: usize,
+  module: &'ctx Module
+}
+
+impl<'ctx> Iterator for ModuleFuncIter<'ctx> {
+
+  type Item = &'ctx Function;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.i < self.module.functions.len() {
+      let skey = self.module.functions[self.i];
+      self.i += 1;
+      Some(self.module.context.get_value_ref::<Function>(skey))
+    } else {
+      None
+    }
+  }
 }
 
 pub(crate) fn namify(name: &String) -> String {
@@ -89,7 +121,10 @@ pub(crate) fn namify(name: &String) -> String {
 impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "; ModuleID = '{}'\n", self.mod_name).unwrap();
-    write!(f, "source_filename = \"{}\"\n\n", self.src_name).unwrap();
+    write!(f, "source_filename = \"{}\"\n", self.src_name).unwrap();
+    write!(f, "target triple = \"{}\"\n", self.tm.target_triple.to_string()).unwrap();
+    write!(f, "target datalayout = \"{}\"\n", self.tm.data_layout.to_string()).unwrap();
+    write!(f, "\n").unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
       write!(f, "{}\n", elem.to_string(&self.context)).unwrap();

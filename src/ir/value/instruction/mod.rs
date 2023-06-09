@@ -10,9 +10,9 @@ pub struct Instruction {
   pub(crate) skey: Option<usize>,
   pub(crate) ty: types::TypeRef,
   pub(crate) opcode: InstOpcode,
-  pub(crate) name: String,
+  pub(crate) name_prefix: String,
   pub(crate) operands: Vec<ValueRef>,
-  pub(crate) parent: ValueRef,
+  pub(crate) parent: Option<usize>,
 }
 
 impl ToString for InstOpcode {
@@ -25,20 +25,10 @@ impl ToString for InstOpcode {
       InstOpcode::Store(_) => format!("store"),
       InstOpcode::Call => format!("call"),
       InstOpcode::BinaryOp(binop) => {
-        match binop {
-          BinaryOp::Add => format!("add"),
-          BinaryOp::Sub => format!("sub"),
-          BinaryOp::Mul => format!("mul"),
-          BinaryOp::Div => format!("div"),
-          BinaryOp::Rem => format!("rem"),
-          BinaryOp::Shl => format!("shl"),
-          BinaryOp::Shr => format!("shr"),
-          BinaryOp::And => format!("and"),
-          BinaryOp::Or => format!("or"),
-          BinaryOp::Xor => format!("xor"),
-          BinaryOp::LogicalAnd => format!("and"),
-          BinaryOp::LogicalOr => format!("or"),
-        }
+        binop.to_string().to_string()
+      }
+      InstOpcode::CastInst(cast) => {
+        cast.to_string().to_string()
       }
     }
   }
@@ -62,6 +52,45 @@ pub enum BinaryOp {
   LogicalOr,
 }
 
+impl BinaryOp {
+  fn to_string(&self) -> &str {
+    match &self {
+      BinaryOp::Add => "add",
+      BinaryOp::Sub => "sub",
+      BinaryOp::Mul => "mul",
+      BinaryOp::Div => "div",
+      BinaryOp::Rem => "rem",
+      BinaryOp::Shl => "shl",
+      BinaryOp::Shr => "shr",
+      BinaryOp::And => "and",
+      BinaryOp::Or => "or",
+      BinaryOp::Xor => "xor",
+      BinaryOp::LogicalAnd => "and",
+      BinaryOp::LogicalOr => "or",
+    }
+  }
+}
+
+/// Sub-opcodes of cast operation.
+#[derive(Clone, PartialEq)]
+pub enum CastOp {
+  Bitcast,
+  FpToSi,
+  SignExt,
+  Trunc,
+}
+
+impl CastOp {
+  fn to_string(&self) -> &str {
+    match &self {
+      CastOp::Bitcast => "bitcast",
+      CastOp::FpToSi => "fptosi",
+      CastOp::SignExt => "sext",
+      CastOp::Trunc => "trunc"
+    }
+  }
+}
+
 
 // TODO(@were): Revisit this idea of code organization.
 /// This is not only the opcode, but also the additional information of
@@ -82,12 +111,18 @@ pub enum InstOpcode {
   Call,
   /// Binary operation.
   BinaryOp(BinaryOp),
+  /// Bitcast or reinterpret cast.
+  CastInst(CastOp),
 }
 
 impl Instruction {
 
-  pub fn get_name(&self) -> &str {
-    &self.name
+  pub fn get_opcode(&self) -> &InstOpcode {
+    &self.opcode
+  }
+
+  pub fn get_name(&self) -> String {
+    format!("{}.{}", self.name_prefix, self.skey.unwrap())
   }
 
   pub fn get_type(&self) -> &types::TypeRef {
@@ -106,6 +141,10 @@ impl Instruction {
     self.operands[idx] = new_value;
   }
 
+  pub fn get_parent(&self) -> ValueRef {
+    ValueRef{skey: self.parent.unwrap(), kind: super::VKindCode::Block}
+  }
+
   pub fn to_string(&self, ctx: &crate::context::Context) -> String {
     match self.opcode {
       InstOpcode::Alloca(align) => { Alloca::new(self, align).to_string(ctx) },
@@ -115,6 +154,7 @@ impl Instruction {
       InstOpcode::Store(align) => { Store::new(self, align).to_string(ctx) },
       InstOpcode::Call => { Call::new(self).to_string(ctx) },
       InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(ctx) },
+      InstOpcode::CastInst(_) => { CastInst::new(self).to_string(ctx) }
     }
   }
 

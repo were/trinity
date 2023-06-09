@@ -1,7 +1,8 @@
 use crate::context::component::AsSuper;
 
-use crate::ir::types::VoidType;
+use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
+use crate::ir::value::instruction::{CastOp, InstOpcode};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -72,11 +73,10 @@ impl<'ctx> Builder {
 
   /// Add a block to the current function.
   pub fn add_block(&mut self, name: String) -> ValueRef {
-    let block_name = if name != "" { name } else { format!("block{}", self.context().num_components()) };
     let func_ref = self.func.clone().unwrap();
     let block = Block{
       skey: None,
-      name: block_name,
+      name_prefix: if name.len() != 0 { name } else { "".to_string() },
       insts: Vec::new(),
       parent: func_ref.skey,
     };
@@ -104,13 +104,15 @@ impl<'ctx> Builder {
   pub fn set_insert_point(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-    let block = inst.parent.as_ref::<Block>(&self.module.context).unwrap();
+    let block = inst.get_parent();
+    let block = block.as_ref::<Block>(&self.module.context).unwrap();
     let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
 
-  fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
+  fn add_instruction(&mut self, mut inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
+    inst.parent = Some(block_ref.skey);
     let inst_ref = self.context().add_instance(inst);
     let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
     if let Some(inst_idx) = self.inst_idx {
@@ -127,9 +129,9 @@ impl<'ctx> Builder {
       skey: None,
       ty: ret_ty,
       opcode: instruction::InstOpcode::Return,
-      name: format!("ret.{}", self.context().num_components()),
+      name_prefix: "ret".to_string(),
       operands: if let None = val { vec![] } else {vec![val.unwrap()]},
-      parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -141,9 +143,9 @@ impl<'ctx> Builder {
       ty: ptr_ty,
       // TODO(@were): Make this alignment better
       opcode: instruction::InstOpcode::Alloca(8),
-      name: format!("alloca.{}", self.context().num_components()),
+      name_prefix: "alloca".to_string(),
       operands: Vec::new(),
-      parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -152,10 +154,10 @@ impl<'ctx> Builder {
     let val = format!("{}\0", val);
     let size = val.len();
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
-    let id = self.context().num_components();
     let i8ty = self.context().int_type(8);
     let init = val.chars().map(|x| { self.context().const_value(i8ty.clone(), x as u64) }).collect::<Vec<_>>();
-    let res = array_ty.const_array(self.context(), format!("str.{}", id), init);
+    let name = "str".to_string();
+    let res = array_ty.const_array(self.context(), name, init);
     self.module.global_values.push(res.clone());
     res
   }
@@ -178,9 +180,9 @@ impl<'ctx> Builder {
         skey: None,
         ty,
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-        name: format!("gep.{}", self.context().num_components()),
+        name_prefix: "gep".to_string(),
         operands,
-        parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+        parent: None
       };
       self.add_instruction(inst)
     }
@@ -194,16 +196,16 @@ impl<'ctx> Builder {
   }
 
   // TODO(@were): Add alignment
-  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) {
+  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> ValueRef {
     let inst = instruction::Instruction {
       skey: None,
       ty: self.context().void_type(),
       opcode: instruction::InstOpcode::Store(8),
-      name: format!("store.{}", self.context().num_components()),
+      name_prefix: "store".to_string(),
       operands: vec![value, ptr],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
-    self.add_instruction(inst);
+    self.add_instruction(inst)
   }
 
   pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
@@ -213,9 +215,9 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::Call,
-      name: format!("call.{}", self.context().num_components()),
+      name_prefix: "call".to_string(),
       operands: args,
-      parent: self.block.clone().unwrap()
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -233,9 +235,9 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::BinaryOp(op),
-      name: format!("binop.{}", self.context().num_components()),
+      name_prefix: "binop".to_string(),
       operands: vec![lhs, rhs],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -261,9 +263,9 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::Load(8),
-      name: format!("load.{}", self.context().num_components()),
+      name_prefix: "load".to_string(),
       operands: vec![ptr],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -271,7 +273,7 @@ impl<'ctx> Builder {
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
     let gvs = ConstObject {
       skey: None,
-      name: format!("globalobj.{}", self.context().num_components()),
+      name: "globalobj".to_string(),
       ty: ty.ptr_type(self.context()),
       value: init
     };
@@ -294,6 +296,51 @@ impl<'ctx> Builder {
       operands,
     };
     self.context().add_instance(asm)
+  }
+
+  pub fn create_op_cast(&mut self, cast_op: CastOp, val: ValueRef, dest: TypeRef) -> ValueRef {
+    // Skip casting if the same types.
+    let src_ty = val.get_type(&self.context());
+    if src_ty.skey == dest.skey {
+      return val;
+    }
+    let op = InstOpcode::CastInst(cast_op);
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: dest,
+      opcode: op,
+      name_prefix: "cast".to_string(),
+      operands: vec![val],
+      parent: None
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_bitcast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+    self.create_op_cast(CastOp::Bitcast, val, dest)
+  }
+
+  pub fn create_cast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
+    let src_ty = val.get_type(&self.context());
+    // TODO(@were): This is messy, fix this later.
+    let cast_op = if src_ty.kind == TKindCode::IntType && dest.kind == TKindCode::IntType {
+      let src_bits = src_ty.get_scalar_size_in_bits(&self.module);
+      let dst_bits = dest.get_scalar_size_in_bits(&self.module);
+      if src_bits < dst_bits {
+        CastOp::SignExt
+      } else if src_bits > dst_bits {
+        CastOp::Trunc
+      } else {
+        return val
+      }
+    } else if (src_ty.kind == TKindCode::IntType && dest.kind == TKindCode::PointerType) ||
+              (src_ty.kind == TKindCode::PointerType && dest.kind == TKindCode::IntType) {
+      assert_eq!(src_ty.get_scalar_size_in_bits(&self.module), dest.get_scalar_size_in_bits(&self.module));
+      CastOp::Bitcast
+    } else {
+      panic!("Not supported casting!");
+    };
+    self.create_op_cast(cast_op, val, dest)
   }
 
 }

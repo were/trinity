@@ -78,6 +78,31 @@ impl Function {
     return res;
   }
 
+  pub fn iter(&self) -> FuncBlockIter {
+    FuncBlockIter{ i: 0, func: self }
+  }
+
+}
+
+pub struct FuncBlockIter<'ctx> {
+  i: usize,
+  func: &'ctx Function,
+}
+
+impl <'ctx>Iterator for FuncBlockIter<'ctx> {
+
+  type Item = ValueRef;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.i < self.func.blocks.len() {
+      let res = self.func.get_block(self.i);
+      self.i += 1;
+      Some(res)
+    } else {
+      None
+    }
+  }
+
 }
 
 /// Function argument
