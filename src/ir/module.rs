@@ -4,6 +4,7 @@ use std::fmt;
 use crate::context::Context;
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
+use super::Function;
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
@@ -82,6 +83,30 @@ impl<'ctx> Module {
     self.context.get_value_mut::<function::Function>(self.functions[idx])
   }
 
+  pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {
+    return ModuleFuncIter{i: 0, module: self}
+  }
+
+}
+
+pub struct ModuleFuncIter <'ctx> {
+  i: usize,
+  module: &'ctx Module
+}
+
+impl<'ctx> Iterator for ModuleFuncIter<'ctx> {
+
+  type Item = &'ctx Function;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.i < self.module.functions.len() {
+      let skey = self.module.functions[self.i];
+      self.i += 1;
+      Some(self.module.context.get_value_ref::<Function>(skey))
+    } else {
+      None
+    }
+  }
 }
 
 pub(crate) fn namify(name: &String) -> String {

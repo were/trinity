@@ -10,9 +10,9 @@ pub struct Instruction {
   pub(crate) skey: Option<usize>,
   pub(crate) ty: types::TypeRef,
   pub(crate) opcode: InstOpcode,
-  pub(crate) name: String,
+  pub(crate) name_prefix: String,
   pub(crate) operands: Vec<ValueRef>,
-  pub(crate) parent: ValueRef,
+  pub(crate) parent: Option<usize>,
 }
 
 impl ToString for InstOpcode {
@@ -117,8 +117,12 @@ pub enum InstOpcode {
 
 impl Instruction {
 
-  pub fn get_name(&self) -> &str {
-    &self.name
+  pub fn get_opcode(&self) -> &InstOpcode {
+    &self.opcode
+  }
+
+  pub fn get_name(&self) -> String {
+    format!("{}.{}", self.name_prefix, self.skey.unwrap())
   }
 
   pub fn get_type(&self) -> &types::TypeRef {
@@ -135,6 +139,10 @@ impl Instruction {
 
   pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) {
     self.operands[idx] = new_value;
+  }
+
+  pub fn get_parent(&self) -> ValueRef {
+    ValueRef{skey: self.parent.unwrap(), kind: super::VKindCode::Block}
   }
 
   pub fn to_string(&self, ctx: &crate::context::Context) -> String {

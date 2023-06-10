@@ -9,7 +9,6 @@ pub use functype::FunctionType;
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::value::consts::ConstArray;
-use crate::machine::TargetMachine;
 
 use super::module::Module;
 use super::value::ValueRef;

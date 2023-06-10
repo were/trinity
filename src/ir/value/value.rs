@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::ConstExpr;
-use crate::ir::types::{TypeRef, TKindCode, PointerType};
+use crate::ir::types::{TypeRef, TKindCode};
 use crate::ir::module::{Module, namify};
 
 use super::consts::ConstObject;
@@ -10,7 +10,7 @@ use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::consts::{ConstScalar, ConstArray, InlineAsm};
 
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct ValueRef {
   pub skey: usize,
   pub kind: VKindCode
@@ -51,7 +51,7 @@ impl<'ctx> ValueRef {
     match self.kind {
       VKindCode::Block => {
         let block = ctx.get_value_ref::<Block>(self.skey);
-        format!("%{}", block.name)
+        format!("%{}", block.name_prefix)
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);
@@ -59,7 +59,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
-        format!("{}%{}", self.type_to_string(ctx, with_type), inst.name)
+        format!("{}%{}", self.type_to_string(ctx, with_type), inst.get_name())
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
@@ -152,7 +152,7 @@ impl<'ctx> ValueRef {
   }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum VKindCode {
   Argument,
   Instruction,

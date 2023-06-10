@@ -37,12 +37,8 @@ impl<'ctx> Context {
     T::instance_to_self_mut(&mut self.slab[skey])
   }
 
-  pub(crate) fn num_components(&self) -> usize {
-    self.slab.len()
-  }
-
-  pub(crate) fn get_name(&self, prefix: &str) -> String {
-    format!("{}.{}", prefix, self.num_components())
+  pub fn capacity(&self) -> usize {
+    self.slab.capacity()
   }
 
   fn add_component(&mut self, instance: Component) -> usize {

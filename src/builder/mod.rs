@@ -73,11 +73,10 @@ impl<'ctx> Builder {
 
   /// Add a block to the current function.
   pub fn add_block(&mut self, name: String) -> ValueRef {
-    let block_name = if name != "" { name } else { format!("block{}", self.context().num_components()) };
     let func_ref = self.func.clone().unwrap();
     let block = Block{
       skey: None,
-      name: block_name,
+      name_prefix: if name.len() != 0 { name } else { "".to_string() },
       insts: Vec::new(),
       parent: func_ref.skey,
     };
@@ -105,13 +104,15 @@ impl<'ctx> Builder {
   pub fn set_insert_point(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-    let block = inst.parent.as_ref::<Block>(&self.module.context).unwrap();
+    let block = inst.get_parent();
+    let block = block.as_ref::<Block>(&self.module.context).unwrap();
     let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
 
-  fn add_instruction(&mut self, inst: instruction::Instruction) -> ValueRef {
+  fn add_instruction(&mut self, mut inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
+    inst.parent = Some(block_ref.skey);
     let inst_ref = self.context().add_instance(inst);
     let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
     if let Some(inst_idx) = self.inst_idx {
@@ -128,9 +129,9 @@ impl<'ctx> Builder {
       skey: None,
       ty: ret_ty,
       opcode: instruction::InstOpcode::Return,
-      name: self.context().get_name("ret"),
+      name_prefix: "ret".to_string(),
       operands: if let None = val { vec![] } else {vec![val.unwrap()]},
-      parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -142,9 +143,9 @@ impl<'ctx> Builder {
       ty: ptr_ty,
       // TODO(@were): Make this alignment better
       opcode: instruction::InstOpcode::Alloca(8),
-      name: self.context().get_name("alloca"),
+      name_prefix: "alloca".to_string(),
       operands: Vec::new(),
-      parent: ValueRef{skey: 0, kind: VKindCode::Unknown}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -155,7 +156,7 @@ impl<'ctx> Builder {
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
     let i8ty = self.context().int_type(8);
     let init = val.chars().map(|x| { self.context().const_value(i8ty.clone(), x as u64) }).collect::<Vec<_>>();
-    let name = self.context().get_name("str");
+    let name = "str".to_string();
     let res = array_ty.const_array(self.context(), name, init);
     self.module.global_values.push(res.clone());
     res
@@ -179,9 +180,9 @@ impl<'ctx> Builder {
         skey: None,
         ty,
         opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-        name: self.context().get_name("gep"),
+        name_prefix: "gep".to_string(),
         operands,
-        parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+        parent: None
       };
       self.add_instruction(inst)
     }
@@ -200,9 +201,9 @@ impl<'ctx> Builder {
       skey: None,
       ty: self.context().void_type(),
       opcode: instruction::InstOpcode::Store(8),
-      name: self.context().get_name("store"),
+      name_prefix: "store".to_string(),
       operands: vec![value, ptr],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -214,9 +215,9 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::Call,
-      name: format!("call.{}", self.context().num_components()),
+      name_prefix: "call".to_string(),
       operands: args,
-      parent: self.block.clone().unwrap()
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -234,9 +235,9 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::BinaryOp(op),
-      name: self.context().get_name("binop"),
+      name_prefix: "binop".to_string(),
       operands: vec![lhs, rhs],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -262,9 +263,9 @@ impl<'ctx> Builder {
       skey: None,
       ty,
       opcode: instruction::InstOpcode::Load(8),
-      name: self.context().get_name("load"),
+      name_prefix: "load".to_string(),
       operands: vec![ptr],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
     self.add_instruction(inst)
   }
@@ -272,7 +273,7 @@ impl<'ctx> Builder {
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
     let gvs = ConstObject {
       skey: None,
-      name: self.context().get_name("globalobj"),
+      name: "globalobj".to_string(),
       ty: ty.ptr_type(self.context()),
       value: init
     };
@@ -308,9 +309,9 @@ impl<'ctx> Builder {
       skey: None,
       ty: dest,
       opcode: op,
-      name: self.context().get_name("cast"),
+      name_prefix: "cast".to_string(),
       operands: vec![val],
-      parent: ValueRef{skey: 0, kind: VKindCode::Instruction}
+      parent: None
     };
     self.add_instruction(inst)
   }
