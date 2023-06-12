@@ -15,15 +15,44 @@ pub struct Instruction {
   pub(crate) parent: Option<usize>,
 }
 
+// TODO(@were): Revisit this idea of code organization.
+/// This is not only the opcode, but also the additional information of
+/// these sub-instructions.
+#[derive(Clone, PartialEq)]
+pub enum InstOpcode {
+  /// Memory allocation (alignment).
+  Alloca(usize),
+  /// Load instruction (alignment).
+  Load(usize),
+  /// Store instruction (alignment).
+  Store(usize),
+  /// Return instruction.
+  Return,
+  /// GetElementPtr instruction (inbound).
+  GetElementPtr(bool),
+  /// Call a callable value.
+  Call,
+  /// Binary operation.
+  BinaryOp(BinaryOp),
+  /// Bitcast or reinterpret cast.
+  CastInst(CastOp),
+  /// Int value comparison.
+  ICompare(CmpPred),
+  /// Branch instruction
+  Branch
+}
+
 impl ToString for InstOpcode {
   fn to_string(&self) -> String {
     match self {
-      InstOpcode::Alloca(_) => format!("alloca"),
+      InstOpcode::Alloca(_) => "alloca".to_string(),
       InstOpcode::Return => "ret".to_string(),
-      InstOpcode::GetElementPtr(_) => format!("getelementptr"),
-      InstOpcode::Load(_) => format!("load"),
-      InstOpcode::Store(_) => format!("store"),
-      InstOpcode::Call => format!("call"),
+      InstOpcode::GetElementPtr(_) => "getelementptr".to_string(),
+      InstOpcode::Load(_) => "load".to_string(),
+      InstOpcode::Store(_) => "store".to_string(),
+      InstOpcode::Call => "call".to_string(),
+      InstOpcode::ICompare(_) => "icmp".to_string(),
+      InstOpcode::Branch => "br".to_string(),
       InstOpcode::BinaryOp(binop) => {
         binop.to_string().to_string()
       }
@@ -91,28 +120,21 @@ impl CastOp {
   }
 }
 
-
-// TODO(@were): Revisit this idea of code organization.
-/// This is not only the opcode, but also the additional information of
-/// these sub-instructions.
+/// Sub instructions of comparison.
 #[derive(Clone, PartialEq)]
-pub enum InstOpcode {
-  /// Memory allocation (alignment).
-  Alloca(usize),
-  /// Load instruction (alignment).
-  Load(usize),
-  /// Store instruction (alignment).
-  Store(usize),
-  /// Return instruction.
-  Return,
-  /// GetElementPtr instruction (inbound).
-  GetElementPtr(bool),
-  /// Call a callable value.
-  Call,
-  /// Binary operation.
-  BinaryOp(BinaryOp),
-  /// Bitcast or reinterpret cast.
-  CastInst(CastOp),
+pub enum CmpPred {
+  /// Signed less than.
+  SLT
+}
+
+impl CmpPred {
+
+  pub fn to_string(&self) -> String {
+    match self {
+      CmpPred::SLT => "slt".to_string()
+    }
+  }
+
 }
 
 impl Instruction {
@@ -155,6 +177,8 @@ impl Instruction {
       InstOpcode::Call => { Call::new(self).to_string(ctx) },
       InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(ctx) },
       InstOpcode::CastInst(_) => { CastInst::new(self).to_string(ctx) }
+      InstOpcode::ICompare(_) => { CompareInst::new(self).to_string(ctx) }
+      InstOpcode::Branch => { BranchInst::new(self).to_string(ctx) }
     }
   }
 

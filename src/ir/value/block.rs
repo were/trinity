@@ -33,7 +33,7 @@ impl Block {
       let inst = inst_ref.as_ref::<Instruction>(ctx).unwrap();
       format!("  {}", inst.to_string(ctx))
     }).collect::<Vec<String>>().join("\n");
-    format!("{}:\n{}\n", self.name_prefix, insts)
+    format!("{}:\n{}\n", self.get_name(), insts)
   }
 
   pub fn iter(&self) -> BlockInstIter {

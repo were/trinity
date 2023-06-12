@@ -52,7 +52,7 @@ impl<'ctx> ValueRef {
     match self.kind {
       VKindCode::Block => {
         let block = ctx.get_value_ref::<Block>(self.skey);
-        format!("%{}", block.name_prefix)
+        format!("%{}", block.get_name())
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);

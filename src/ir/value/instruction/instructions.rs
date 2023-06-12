@@ -1,6 +1,6 @@
 use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef}};
 
-use super::Instruction;
+use super::{Instruction, CmpPred};
 
 /// Stack memory allocation.
 pub struct Alloca<'inst> {
@@ -247,4 +247,91 @@ impl<'inst> CastInst <'inst> {
     format!("%{} = {} {} to {}", self.base.get_name(), self.base.opcode.to_string(), operand, dest_type)
   }
 
+}
+
+pub struct CompareInst <'inst> {
+  pub(super) base: &'inst Instruction,
+}
+
+impl <'inst> CompareInst<'inst> {
+
+  pub fn new(inst: &'inst Instruction) -> Self {
+    if let InstOpcode::ICompare(_) = inst.opcode {
+      CompareInst { base: inst }
+    } else {
+      panic!("Invalid opcode!")
+    }
+  }
+
+  pub fn get_pred(&self) -> &CmpPred {
+    match self.base.get_opcode() {
+      InstOpcode::ICompare(x) => x,
+      _ => { panic!("Invalid opcode!") }
+    }
+  }
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let opcode = self.base.opcode.to_string();
+    let pred = self.get_pred().to_string();
+    let lhs = self.base.operands.get(0).unwrap();
+    let ty = lhs.get_type(ctx).to_string(ctx);
+    let lhs = lhs.to_string(ctx, false);
+    let res = format!("%{} = {} {} {} {}", self.base.get_name(), opcode, pred, ty, lhs);
+    if let Some(rhs) = self.base.operands.get(1) {
+      let rhs = rhs.to_string(ctx, false);
+      format!("{}, {}", res, rhs)
+    } else {
+      res
+    }
+  }
+
+}
+
+pub struct BranchInst<'inst> {
+  pub(super) base: &'inst Instruction
+}
+
+impl <'inst> BranchInst <'inst> {
+
+  pub fn new(inst: &'inst Instruction) -> Self {
+    if let InstOpcode::Branch = inst.opcode {
+      BranchInst { base: inst }
+    } else {
+      panic!("Invalid opcode!")
+    }
+  }
+
+  pub fn is_cond_br(&self) -> bool {
+    self.base.get_num_operands() == 3
+  }
+
+  pub fn cond(&self) -> Option<&ValueRef> {
+    self.base.operands.get(0)
+  }
+
+  pub fn true_label(&self) -> Option<&ValueRef> {
+    self.base.operands.get(1)
+  }
+
+  pub fn false_label(&self) -> Option<&ValueRef> {
+    self.base.operands.get(2)
+  }
+
+  pub fn dest_label(&self) -> Option<&ValueRef> {
+    self.base.operands.get(0)
+  }
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    if self.base.get_num_operands() == 3 {
+      let cond = self.base.operands.get(0).unwrap();
+      let cond = cond.to_string(ctx, true);
+      let true_label = self.base.operands.get(1).unwrap();
+      let true_label = true_label.to_string(ctx, false);
+      let false_label = self.base.operands.get(2).unwrap();
+      let false_label = false_label.to_string(ctx, false);
+      format!("br {}, label {}, label {}", cond, true_label, false_label)
+    } else {
+      format!("br label {}", self.base.operands.get(0).unwrap().to_string(ctx, false))
+    }
+  }
 }

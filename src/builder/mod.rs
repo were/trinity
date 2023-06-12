@@ -2,7 +2,7 @@ use crate::context::component::AsSuper;
 
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
-use crate::ir::value::instruction::{CastOp, InstOpcode};
+use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -341,6 +341,42 @@ impl<'ctx> Builder {
       panic!("Not supported casting!");
     };
     self.create_op_cast(cast_op, val, dest)
+  }
+
+  pub fn create_slt(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: self.context().int_type(1),
+      opcode: instruction::InstOpcode::ICompare(CmpPred::SLT),
+      name_prefix: "slt".to_string(),
+      operands: vec![lhs, rhs],
+      parent: None
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: self.context().void_type(),
+      opcode: instruction::InstOpcode::Branch,
+      name_prefix: "br".to_string(),
+      operands: vec![bb],
+      parent: None
+    };
+    self.add_instruction(inst)
+  }
+
+  pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef) -> ValueRef {
+    let inst = instruction::Instruction {
+      skey: None,
+      ty: self.context().void_type(),
+      opcode: instruction::InstOpcode::Branch,
+      name_prefix: "br".to_string(),
+      operands: vec![cond, true_bb, false_bb],
+      parent: None
+    };
+    self.add_instruction(inst)
   }
 
 }
