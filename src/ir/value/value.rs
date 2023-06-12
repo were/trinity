@@ -30,7 +30,8 @@ impl<'ctx> ValueRef {
     }
   }
 
-  pub fn as_mut<T: WithKindCode<VKindCode> + ComponentToMut<T> + GetSlabKey>(&'ctx self, context: &'ctx mut Context) -> Option<&'ctx mut T> {
+  pub fn as_mut<T>(&'ctx self, context: &'ctx mut Context) -> Option<&'ctx mut T> 
+    where T: WithKindCode<VKindCode> + ComponentToMut<T> + GetSlabKey {
     if self.kind == T::kind_code() {
       Some(context.get_value_mut::<T>(self.skey))
     } else {

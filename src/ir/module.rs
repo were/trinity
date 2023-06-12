@@ -4,7 +4,7 @@ use std::fmt;
 use crate::context::Context;
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
-use super::Function;
+use super::{Function, Instruction, Block};
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
@@ -57,6 +57,14 @@ impl<'ctx> Module {
   /// Get the struct mutable reference by name
   pub fn get_struct_mut(&'ctx mut self, i: usize) -> &mut StructType {
     self.context.get_value_mut::<StructType>(self.structs[i])
+  }
+
+  /// Remove the given instruction.
+  pub fn remove_inst(&'ctx mut self, v: ValueRef) {
+    let block = v.as_ref::<Instruction>(&self.context).unwrap().get_parent();
+    let block = block.as_mut::<Block>(&mut self.context).unwrap();
+    block.insts.retain(|x| *x != v.skey);
+    self.context.dispose(v.skey);
   }
 
   /// The number of functions in the module.

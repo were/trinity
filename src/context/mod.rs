@@ -29,6 +29,10 @@ impl<'ctx> Context {
     }
   }
 
+  pub(crate) fn dispose(&mut self, skey: usize) {
+    self.slab.remove(skey);
+  }
+
   pub(crate) fn get_value_ref<T: ComponentToRef<T> + GetSlabKey>(&'ctx self, skey: usize) -> &'ctx T {
     T::instance_to_self(&self.slab[skey])
   }

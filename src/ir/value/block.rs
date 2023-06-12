@@ -27,11 +27,6 @@ impl Block {
     ValueRef{skey: self.insts[i], kind: crate::ir::value::VKindCode::Instruction}
   }
 
-  pub fn remove(&mut self, inst: ValueRef) {
-    // TODO(@were): Recycle the memory from the slab.
-    self.insts.retain(|x| *x != inst.skey)
-  }
-
   pub fn to_string(&self, ctx: &Context) -> String {
     let insts = self.insts.iter().map(|i| {
       let inst_ref = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
