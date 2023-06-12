@@ -250,6 +250,18 @@ impl<'ctx> Builder {
     return self.create_binary_op(BinaryOp::Sub, lhs, rhs)
   }
 
+  pub fn create_mul(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::Mul, lhs, rhs)
+  }
+
+  pub fn create_sdiv(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::SDiv, lhs, rhs)
+  }
+
+  pub fn create_srem(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::SRem, lhs, rhs)
+  }
+
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
