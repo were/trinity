@@ -65,6 +65,11 @@ impl<'ctx> Builder {
     func.as_super()
   }
 
+  /// Get the current function to insert.
+  pub fn get_current_function(&self) -> Option<ValueRef> {
+    self.func.clone()
+  }
+
   /// Set the current function to insert.
   pub fn set_current_function(&mut self, func: ValueRef) {
     assert!(func.kind == VKindCode::Function, "Given value is not a function");
