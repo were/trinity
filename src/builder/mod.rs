@@ -201,7 +201,15 @@ impl<'ctx> Builder {
   }
 
   // TODO(@were): Add alignment
-  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> ValueRef {
+  pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> Result<ValueRef, String> {
+    let ptr_ty = ptr.get_type(&self.context());
+    let pointee_ty = ptr_ty.as_ref::<PointerType>(&self.context()).unwrap().get_pointee_ty();
+    let value_ty = value.get_type(&self.context());
+    if pointee_ty != value_ty {
+      let pointee_ty = pointee_ty.to_string(&self.module.context);
+      let value_ty = value_ty.to_string(&self.module.context);
+      return Err(format!("PointerType: {} mismatches ValueType: {}", pointee_ty, value_ty))
+    }
     let inst = instruction::Instruction {
       skey: None,
       ty: self.context().void_type(),
@@ -210,7 +218,7 @@ impl<'ctx> Builder {
       operands: vec![value, ptr],
       parent: None
     };
-    self.add_instruction(inst)
+    Ok(self.add_instruction(inst))
   }
 
   pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
