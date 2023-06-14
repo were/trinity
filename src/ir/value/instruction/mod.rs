@@ -126,14 +126,23 @@ impl CastOp {
 #[derive(Clone, PartialEq)]
 pub enum CmpPred {
   /// Signed less than.
-  SLT
+  SLT,
+  /// Signed greater than.
+  SGT,
+  /// Signed less equal.
+  SLE,
+  /// Signed greater equal.
+  SGE
 }
 
 impl CmpPred {
 
   pub fn to_string(&self) -> String {
     match self {
-      CmpPred::SLT => "slt".to_string()
+      CmpPred::SLT => "slt".to_string(),
+      CmpPred::SGT => "sgt".to_string(),
+      CmpPred::SLE => "sle".to_string(),
+      CmpPred::SGE => "sge".to_string(),
     }
   }
 

@@ -368,16 +368,32 @@ impl<'ctx> Builder {
     self.create_op_cast(cast_op, val, dest)
   }
 
-  pub fn create_slt(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+  pub fn create_compare(&mut self, pred: CmpPred, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
     let inst = instruction::Instruction {
       skey: None,
       ty: self.context().int_type(1),
-      opcode: instruction::InstOpcode::ICompare(CmpPred::SLT),
+      opcode: instruction::InstOpcode::ICompare(pred),
       name_prefix: "slt".to_string(),
       operands: vec![lhs, rhs],
       parent: None
     };
     self.add_instruction(inst)
+  }
+
+  pub fn create_slt(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_compare(CmpPred::SLT, lhs, rhs)
+  }
+
+  pub fn create_sgt(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_compare(CmpPred::SGT, lhs, rhs)
+  }
+
+  pub fn create_sle(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_compare(CmpPred::SLE, lhs, rhs)
+  }
+
+  pub fn create_sge(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_compare(CmpPred::SGE, lhs, rhs)
   }
 
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
