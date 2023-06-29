@@ -72,7 +72,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstArray => {
         let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
-        format!("{}@{}", self.type_to_string(ctx, with_type), const_array.name)
+        format!("{}@{}", self.type_to_string(ctx, with_type), const_array.get_name())
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
@@ -80,7 +80,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
-        format!("{}@{}", self.type_to_string(ctx, with_type), const_object.name)
+        format!("{}@{}", self.type_to_string(ctx, with_type), const_object.get_name())
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);

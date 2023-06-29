@@ -298,7 +298,7 @@ impl<'ctx> Builder {
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
     let gvs = ConstObject {
       skey: None,
-      name: "globalobj".to_string(),
+      name_prefix: "globalobj".to_string(),
       ty: ty.ptr_type(self.context()),
       value: init
     };

@@ -31,17 +31,21 @@ impl ConstScalar {
 
 pub struct ConstArray {
   pub(crate) skey: Option<usize>,
-  pub(crate) name: String,
+  pub(crate) name_prefix: String,
   pub(crate) ty: TypeRef,
   pub(crate) value: Vec<ValueRef>
 }
 
 impl ConstArray {
 
+  pub fn get_name(&self) -> String {
+    format!("{}.{}", self.name_prefix, self.skey.unwrap())
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
     let literal = self.value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     let pty = self.ty.as_ref::<PointerType>(ctx).unwrap();
-    format!("@{} = private unnamed_addr constant {} [{}], align 1", self.name, pty.get_pointee_ty().to_string(ctx), literal)
+    format!("@{} = private unnamed_addr constant {} [{}], align 1", self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
   }
 
 }
@@ -72,12 +76,16 @@ impl ConstExpr {
 
 pub struct ConstObject {
   pub(crate) skey: Option<usize>,
-  pub(crate) name: String,
+  pub(crate) name_prefix: String,
   pub(crate) ty: TypeRef,
   pub(crate) value: Vec<ValueRef>
 }
 
 impl ConstObject {
+
+  pub fn get_name(&self) -> String {
+    format!("{}.{}", self.name_prefix, self.skey.unwrap())
+  }
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let pty = self.ty.as_ref::<PointerType>(ctx).unwrap();
@@ -86,7 +94,7 @@ impl ConstObject {
     } else {
       "zeroinitializer".to_string()
     };
-    format!("@{} = dso_local global {} {}, align 8", self.name, pty.get_pointee_ty().to_string(ctx), initializer)
+    format!("@{} = dso_local global {} {}, align 8", self.get_name(), pty.get_pointee_ty().to_string(ctx), initializer)
   }
 
 }
