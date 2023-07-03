@@ -306,18 +306,22 @@ impl <'inst> BranchInst <'inst> {
   }
 
   pub fn cond(&self) -> Option<&ValueRef> {
+    assert!(self.is_cond_br());
     self.base.operands.get(0)
   }
 
   pub fn true_label(&self) -> Option<&ValueRef> {
+    assert!(self.is_cond_br());
     self.base.operands.get(1)
   }
 
   pub fn false_label(&self) -> Option<&ValueRef> {
+    assert!(self.is_cond_br());
     self.base.operands.get(2)
   }
 
   pub fn dest_label(&self) -> Option<&ValueRef> {
+    assert!(!self.is_cond_br());
     self.base.operands.get(0)
   }
 

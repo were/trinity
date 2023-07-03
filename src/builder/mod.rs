@@ -32,6 +32,24 @@ impl<'ctx> Builder {
     Builder { module, func: None, block: None, inst_idx: None }
   }
 
+  pub fn get_current_block(&self) -> Option<ValueRef> {
+    self.block.clone()
+  }
+
+  pub fn get_insert_before(&self) -> Option<ValueRef> {
+    if let Some(idx) = self.inst_idx {
+      let inst = self.block
+        .clone()
+        .unwrap()
+        .as_ref::<Block>(&self.module.context)
+        .unwrap()
+        .get_inst(idx);
+      Some(inst)
+    } else {
+      None
+    }
+  }
+
   pub fn context(&mut self) -> &mut Context {
     &mut self.module.context
   }
@@ -84,6 +102,7 @@ impl<'ctx> Builder {
       name_prefix: if name.len() != 0 { name } else { "".to_string() },
       insts: Vec::new(),
       parent: func_ref.skey,
+      predecessors: Vec::new(),
     };
     let block_ref = self.context().add_instance(block);
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
@@ -106,7 +125,7 @@ impl<'ctx> Builder {
   }
 
   /// Set the instruction as the insert point.
-  pub fn set_insert_point(&mut self, inst_ref: ValueRef) {
+  pub fn set_insert_before(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let block = inst.get_parent();
@@ -396,16 +415,24 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::SGE, lhs, rhs)
   }
 
+  fn add_block_predecessor(&mut self, bb: &ValueRef, pred: &ValueRef) {
+    let bb = bb.as_mut::<Block>(&mut self.module.context).unwrap();
+    bb.predecessors.push(pred.skey);
+  }
+
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
+    assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction {
       skey: None,
       ty: self.context().void_type(),
       opcode: instruction::InstOpcode::Branch,
       name_prefix: "br".to_string(),
-      operands: vec![bb],
+      operands: vec![bb.clone()],
       parent: None
     };
-    self.add_instruction(inst)
+    let res = self.add_instruction(inst);
+    self.add_block_predecessor(&bb, &res);
+    res
   }
 
   pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef) -> ValueRef {
@@ -414,10 +441,13 @@ impl<'ctx> Builder {
       ty: self.context().void_type(),
       opcode: instruction::InstOpcode::Branch,
       name_prefix: "br".to_string(),
-      operands: vec![cond, true_bb, false_bb],
+      operands: vec![cond, true_bb.clone(), false_bb.clone()],
       parent: None
     };
-    self.add_instruction(inst)
+    let res = self.add_instruction(inst);
+    self.add_block_predecessor(&true_bb, &res);
+    self.add_block_predecessor(&false_bb, &res);
+    res
   }
 
 }

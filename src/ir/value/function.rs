@@ -1,3 +1,4 @@
+use super::block;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
@@ -21,6 +22,14 @@ pub struct Function {
 }
 
 impl Function {
+
+  pub fn get_name(&self) -> &String {
+    &self.name
+  }
+
+  pub fn basic_blocks(&self) -> &Vec<usize> {
+    &self.blocks
+  }
 
   pub fn get_num_args(&self) -> usize {
     return self.args.len();
