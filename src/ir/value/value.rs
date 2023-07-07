@@ -4,7 +4,7 @@ use crate::ir::ConstExpr;
 use crate::ir::types::{TypeRef, TKindCode};
 use crate::ir::module::{Module, namify};
 
-use super::consts::ConstObject;
+use super::consts::{ConstObject, Undef};
 use super::block::Block;
 use super::function::{Function, Argument};
 use super::instruction::Instruction;
@@ -17,10 +17,6 @@ pub struct ValueRef {
 }
 
 impl<'ctx> ValueRef {
-
-  pub fn undef() -> Self {
-    Self { skey: 0, kind: VKindCode::Unknown }
-  }
 
   pub fn as_ref<T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey>(&'ctx self, context: &'ctx Context) -> Option<&'ctx T> {
     if self.kind == T::kind_code() {
@@ -86,6 +82,9 @@ impl<'ctx> ValueRef {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
         inline_asm.to_string(ctx)
       },
+      VKindCode::Undef => {
+        format!("[undef]")
+      },
       VKindCode::Unknown => {
         format!("[unknown]")
       }
@@ -129,6 +128,10 @@ impl<'ctx> ValueRef {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
         inline_asm.ty.clone()
       },
+      VKindCode::Undef => {
+        let undef = ctx.get_value_ref::<Undef>(self.skey);
+        undef.ty.clone()
+      },
       VKindCode::Unknown => {
         panic!("Unknown value type")
       }
@@ -164,7 +167,8 @@ pub enum VKindCode {
   ConstExpr,
   ConstObject,
   InlineAsm,
-  Unknown
+  Undef,
+  Unknown,
 }
 
 pub trait FindInstance<'ctx, T> {

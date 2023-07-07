@@ -1,4 +1,3 @@
-use super::block;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
@@ -43,8 +42,12 @@ impl Function {
     return self.blocks.len();
   }
 
-  pub fn get_block(&self, i: usize) -> ValueRef {
-    return ValueRef{skey: self.blocks[i], kind: VKindCode::Block};
+  pub fn get_block(&self, i: usize) -> Option<ValueRef> {
+    if i < self.blocks.len() {
+      Some(ValueRef{skey: self.blocks[i], kind: VKindCode::Block})
+    } else {
+      None
+    }
   }
 
   pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
@@ -102,13 +105,9 @@ impl <'ctx>Iterator for FuncBlockIter<'ctx> {
   type Item = ValueRef;
 
   fn next(&mut self) -> Option<Self::Item> {
-    if self.i < self.func.blocks.len() {
-      let res = self.func.get_block(self.i);
-      self.i += 1;
-      Some(res)
-    } else {
-      None
-    }
+    let res = self.func.get_block(self.i);
+    self.i += 1;
+    res
   }
 
 }

@@ -1,6 +1,7 @@
 pub mod instructions;
 
 pub use instructions::*;
+use types::TypeRef;
 
 use crate::ir::value::ValueRef;
 use crate::ir::types;
@@ -13,6 +14,7 @@ pub struct Instruction {
   pub(crate) name_prefix: String,
   pub(crate) operands: Vec<ValueRef>,
   pub(crate) parent: Option<usize>,
+  pub(crate) comment: String,
 }
 
 // TODO(@were): Revisit this idea of code organization.
@@ -38,8 +40,10 @@ pub enum InstOpcode {
   CastInst(CastOp),
   /// Int value comparison.
   ICompare(CmpPred),
-  /// Branch instruction
-  Branch
+  /// Branch instruction.
+  Branch,
+  /// Phi node for SSA.
+  Phi,
 }
 
 impl ToString for InstOpcode {
@@ -59,6 +63,7 @@ impl ToString for InstOpcode {
       InstOpcode::CastInst(cast) => {
         cast.to_string().to_string()
       }
+      InstOpcode::Phi => "phi".to_string(),
     }
   }
 }
@@ -150,6 +155,18 @@ impl CmpPred {
 
 impl Instruction {
 
+  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
+    Instruction {
+      skey: None,
+      ty,
+      opcode,
+      name_prefix,
+      operands,
+      parent: None,
+      comment: "".to_string(),
+    }
+  }
+
   pub fn get_opcode(&self) -> &InstOpcode {
     &self.opcode
   }
@@ -166,12 +183,24 @@ impl Instruction {
     self.operands.len()
   }
 
-  pub fn get_operand(&self, idx: usize) -> ValueRef {
-    self.operands[idx].clone()
+  pub fn get_operand(&self, idx: usize) -> Option<ValueRef> {
+    if idx < self.operands.len() {
+      Some(self.operands[idx].clone())
+    } else {
+      None
+    }
   }
 
   pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) {
     self.operands[idx] = new_value;
+  }
+
+  pub fn set_comment(&mut self, comment: String) {
+    self.comment = comment;
+  }
+
+  pub fn add_operand(&mut self, new_value: ValueRef) {
+    self.operands.push(new_value);
   }
 
   pub fn get_parent(&self) -> ValueRef {
@@ -179,17 +208,23 @@ impl Instruction {
   }
 
   pub fn to_string(&self, ctx: &crate::context::Context) -> String {
-    match self.opcode {
-      InstOpcode::Alloca(align) => { Alloca::new(self, align).to_string(ctx) },
+    let res = match self.opcode {
+      InstOpcode::Alloca(_) => { Alloca::new(self).to_string(ctx) },
       InstOpcode::Return => { Return::new(self).to_string(ctx) },
       InstOpcode::GetElementPtr(inbounds) => { GetElementPtr::new(self, inbounds).to_string(ctx) },
-      InstOpcode::Load(align) => { Load::new(self, align).to_string(ctx) },
-      InstOpcode::Store(align) => { Store::new(self, align).to_string(ctx) },
+      InstOpcode::Load(_) => { Load::new(self).to_string(ctx) },
+      InstOpcode::Store(_) => { Store::new(self).to_string(ctx) },
       InstOpcode::Call => { Call::new(self).to_string(ctx) },
       InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(ctx) },
       InstOpcode::CastInst(_) => { CastInst::new(self).to_string(ctx) }
       InstOpcode::ICompare(_) => { CompareInst::new(self).to_string(ctx) }
       InstOpcode::Branch => { BranchInst::new(self).to_string(ctx) }
+      InstOpcode::Phi => { PhiNode::new(self).to_string(ctx) }
+    };
+    if self.comment.len() != 0 {
+      format!("; {}\n  {}", self.comment, res)
+    } else {
+      res
     }
   }
 

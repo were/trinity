@@ -33,11 +33,11 @@ impl<'ctx> Context {
     self.slab.remove(skey);
   }
 
-  pub(crate) fn get_value_ref<T: ComponentToRef<T> + GetSlabKey>(&'ctx self, skey: usize) -> &'ctx T {
+  pub fn get_value_ref<T: ComponentToRef<T> + GetSlabKey>(&'ctx self, skey: usize) -> &'ctx T {
     T::instance_to_self(&self.slab[skey])
   }
 
-  pub(crate) fn get_value_mut<T: ComponentToMut<T> + GetSlabKey>(&'ctx mut self, skey: usize) -> &'ctx mut T {
+  pub fn get_value_mut<T: ComponentToMut<T> + GetSlabKey>(&'ctx mut self, skey: usize) -> &'ctx mut T {
     T::instance_to_self_mut(&mut self.slab[skey])
   }
 
@@ -92,6 +92,10 @@ impl<'ctx> Context {
     //   value: value as u64
     // };
     // self.add_instance(instance)
+  }
+
+  pub fn undef(&mut self, ty: TypeRef) -> ValueRef {
+    pod::Cache::undef(self, ty)
   }
 
 

@@ -44,7 +44,7 @@ impl<'ctx> Builder {
         .as_ref::<Block>(&self.module.context)
         .unwrap()
         .get_inst(idx);
-      Some(inst)
+      inst
     } else {
       None
     }
@@ -137,40 +137,51 @@ impl<'ctx> Builder {
   fn add_instruction(&mut self, mut inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
     inst.parent = Some(block_ref.skey);
-    let inst_ref = self.context().add_instance(inst);
-    let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
-    if let Some(inst_idx) = self.inst_idx {
-      block.insts.insert(inst_idx, inst_ref.skey);
+    let (insert_idx, closed) = {
+      let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
+      let (idx, last)  = if let Some(inst_idx) = self.inst_idx {
+        (inst_idx, inst_idx == block.insts.len() - 1)
+      } else {
+        (block.insts.len(), true)
+      };
+      let closed_block = if last {
+        block.closed(&self.module.context)
+      } else {
+        false
+      };
+      (idx, closed_block)
+    };
+    if closed {
+      eprintln!("Instruction abandoned, because the block already has an end, branch instruction");
+      ValueRef { skey: 0, kind: VKindCode::Unknown }
     } else {
-      block.insts.push(inst_ref.skey);
+      let inst_ref = self.context().add_instance(inst);
+      let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
+      block.insts.insert(insert_idx, inst_ref.skey);
+      inst_ref
     }
-    inst_ref
   }
 
   pub fn create_return(&mut self, val: Option<ValueRef>) -> ValueRef {
     let ret_ty = self.context().void_type();
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: ret_ty,
-      opcode: instruction::InstOpcode::Return,
-      name_prefix: "ret".to_string(),
-      operands: if let None = val { vec![] } else {vec![val.unwrap()]},
-      parent: None
-    };
+    let inst = instruction::Instruction::new(
+      ret_ty,
+      instruction::InstOpcode::Return,
+      "ret".to_string(),
+      if let None = val { vec![] } else {vec![val.unwrap()]},
+    );
     self.add_instruction(inst)
   }
 
   pub fn create_alloca(&mut self, ty: types::TypeRef) -> ValueRef {
     let ptr_ty = ty.ptr_type(self.context());
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: ptr_ty,
+    let inst = instruction::Instruction::new(
+      ptr_ty,
       // TODO(@were): Make this alignment better
-      opcode: instruction::InstOpcode::Alloca(8),
-      name_prefix: "alloca".to_string(),
-      operands: Vec::new(),
-      parent: None
-    };
+      instruction::InstOpcode::Alloca(8),
+      "alloca".to_string(),
+      Vec::new(),
+    );
     self.add_instruction(inst)
   }
 
@@ -200,14 +211,12 @@ impl<'ctx> Builder {
       let expr = self.context().add_instance::<ConstExpr, _>(res);
       return expr
     } else {
-      let inst = instruction::Instruction {
-        skey: None,
+      let inst = instruction::Instruction::new(
         ty,
-        opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-        name_prefix: "gep".to_string(),
+        instruction::InstOpcode::GetElementPtr(inbounds),
+        "gep".to_string(),
         operands,
-        parent: None
-      };
+      );
       self.add_instruction(inst)
     }
   }
@@ -229,28 +238,24 @@ impl<'ctx> Builder {
       let value_ty = value_ty.to_string(&self.module.context);
       return Err(format!("PointerType: {} mismatches ValueType: {}", pointee_ty, value_ty))
     }
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: self.context().void_type(),
-      opcode: instruction::InstOpcode::Store(8),
-      name_prefix: "store".to_string(),
-      operands: vec![value, ptr],
-      parent: None
-    };
+    let inst = instruction::Instruction::new(
+      self.context().void_type(),
+      instruction::InstOpcode::Store(8),
+      "store".to_string(),
+      vec![value, ptr],
+    );
     Ok(self.add_instruction(inst))
   }
 
   pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
     let mut args = args.clone();
     args.push(callee);
-    let inst = instruction::Instruction{
-      skey: None,
+    let inst = instruction::Instruction::new(
       ty,
-      opcode: instruction::InstOpcode::Call,
-      name_prefix: "call".to_string(),
-      operands: args,
-      parent: None
-    };
+      instruction::InstOpcode::Call,
+      "call".to_string(),
+      args,
+    );
     self.add_instruction(inst)
   }
 
@@ -263,14 +268,12 @@ impl<'ctx> Builder {
   pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
     // @were: Check type equality.
     let ty = lhs.get_type(self.context());
-    let inst = instruction::Instruction {
-      skey: None,
+    let inst = instruction::Instruction::new(
       ty,
-      opcode: instruction::InstOpcode::BinaryOp(op),
-      name_prefix: "binop".to_string(),
-      operands: vec![lhs, rhs],
-      parent: None
-    };
+      instruction::InstOpcode::BinaryOp(op),
+      "binop".to_string(),
+      vec![lhs, rhs],
+    );
     self.add_instruction(inst)
   }
 
@@ -303,14 +306,12 @@ impl<'ctx> Builder {
 
   // TODO(@were): Add alignment
   pub fn create_typed_load(&mut self, ty: TypeRef, ptr: ValueRef) -> ValueRef {
-    let inst = instruction::Instruction {
-      skey: None,
+    let inst = instruction::Instruction::new(
       ty,
-      opcode: instruction::InstOpcode::Load(8),
-      name_prefix: "load".to_string(),
-      operands: vec![ptr],
-      parent: None
-    };
+      instruction::InstOpcode::Load(8),
+      "load".to_string(),
+      vec![ptr],
+    );
     self.add_instruction(inst)
   }
 
@@ -349,14 +350,12 @@ impl<'ctx> Builder {
       return val;
     }
     let op = InstOpcode::CastInst(cast_op);
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: dest,
-      opcode: op,
-      name_prefix: "cast".to_string(),
-      operands: vec![val],
-      parent: None
-    };
+    let inst = instruction::Instruction::new(
+      dest,
+      op,
+      "cast".to_string(),
+      vec![val],
+    );
     self.add_instruction(inst)
   }
 
@@ -388,14 +387,12 @@ impl<'ctx> Builder {
   }
 
   pub fn create_compare(&mut self, pred: CmpPred, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: self.context().int_type(1),
-      opcode: instruction::InstOpcode::ICompare(pred),
-      name_prefix: "slt".to_string(),
-      operands: vec![lhs, rhs],
-      parent: None
-    };
+    let inst = instruction::Instruction::new(
+      self.context().int_type(1),
+      instruction::InstOpcode::ICompare(pred),
+      "slt".to_string(),
+      vec![lhs, rhs],
+    );
     self.add_instruction(inst)
   }
 
@@ -422,32 +419,46 @@ impl<'ctx> Builder {
 
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: self.context().void_type(),
-      opcode: instruction::InstOpcode::Branch,
-      name_prefix: "br".to_string(),
-      operands: vec![bb.clone()],
-      parent: None
-    };
+    let inst = instruction::Instruction::new(
+      self.context().void_type(),
+      instruction::InstOpcode::Branch,
+      "br".to_string(),
+      vec![bb.clone()],
+    );
     let res = self.add_instruction(inst);
-    self.add_block_predecessor(&bb, &res);
+    match res.kind {
+      VKindCode::Unknown => {},
+      _ => { self.add_block_predecessor(&bb, &res); }
+    }
     res
   }
 
   pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef) -> ValueRef {
-    let inst = instruction::Instruction {
-      skey: None,
-      ty: self.context().void_type(),
-      opcode: instruction::InstOpcode::Branch,
-      name_prefix: "br".to_string(),
-      operands: vec![cond, true_bb.clone(), false_bb.clone()],
-      parent: None
-    };
+    let inst = instruction::Instruction::new(
+      self.context().void_type(),
+      instruction::InstOpcode::Branch,
+      "br".to_string(),
+      vec![cond, true_bb.clone(), false_bb.clone()],
+    );
     let res = self.add_instruction(inst);
-    self.add_block_predecessor(&true_bb, &res);
-    self.add_block_predecessor(&false_bb, &res);
+    match res.kind {
+      VKindCode::Unknown => {},
+      _ => {
+        self.add_block_predecessor(&true_bb, &res);
+        self.add_block_predecessor(&false_bb, &res);
+      }
+    }
     res
+  }
+
+  pub fn create_phi(&mut self, ty: TypeRef, operands: Vec<ValueRef>) -> ValueRef {
+    let inst = instruction::Instruction::new(
+      ty,
+      instruction::InstOpcode::Phi,
+      "phi".to_string(),
+      operands,
+    );
+    self.add_instruction(inst)
   }
 
 }

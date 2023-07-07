@@ -3,7 +3,7 @@ use crate::ir::{
   value::function::{Function, Argument},
   value::instruction::Instruction,
   value::block::Block,
-  value::consts::{ConstScalar, ConstArray, ConstExpr, ConstObject, InlineAsm},
+  value::consts::{ConstScalar, ConstArray, ConstExpr, ConstObject, InlineAsm, Undef},
   ValueRef,
 };
 use crate::ir::value::VKindCode;
@@ -29,6 +29,7 @@ pub enum Component {
   ConstExpr(ConstExpr),
   ConstObject(ConstObject),
   InlineAsm(InlineAsm),
+  Undef(Undef),
 }
 
 impl Component {
@@ -50,6 +51,7 @@ impl Component {
       Component::ConstExpr(v) => v.skey = Some(skey),
       Component::ConstObject(v) => v.skey = Some(skey),
       Component::InlineAsm(v) => v.skey = Some(skey),
+      Component::Undef(v) => v.skey = Some(skey),
     }
   }
 
@@ -107,6 +109,12 @@ macro_rules! impl_component_to_xx {
 
     }
 
+    impl $type {
+      pub fn from(skey: usize) -> $super {
+        $super { skey: skey, kind: $code_type::$type }
+      }
+    }
+
     impl From<$type> for Component {
       fn from(value: $type) -> Self {
         Component::$type(value)
@@ -145,5 +153,6 @@ impl_component_to_xx!(ValueRef, VKindCode, ConstArray);
 impl_component_to_xx!(ValueRef, VKindCode, ConstExpr);
 impl_component_to_xx!(ValueRef, VKindCode, ConstObject);
 impl_component_to_xx!(ValueRef, VKindCode, InlineAsm);
+impl_component_to_xx!(ValueRef, VKindCode, Undef);
 
 

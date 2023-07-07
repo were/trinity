@@ -5,14 +5,21 @@ use super::{Instruction, CmpPred};
 /// Stack memory allocation.
 pub struct Alloca<'inst> {
   inst: &'inst Instruction,
-  align: usize,
 }
 
 impl<'inst> Alloca <'inst> {
 
-  pub fn new(inst: &'inst Instruction, align: usize) -> Self {
+  pub fn new(inst: &'inst Instruction) -> Self {
     if let InstOpcode::Alloca(_) = inst.opcode {
-      Self { inst, align, }
+      Self { inst, }
+    } else {
+      panic!("Invalid opcode for Alloca instruction.");
+    }
+  }
+
+  pub fn get_align(&self) -> usize {
+    if let InstOpcode::Alloca(align) = self.inst.opcode {
+      align
     } else {
       panic!("Invalid opcode for Alloca instruction.");
     }
@@ -21,7 +28,7 @@ impl<'inst> Alloca <'inst> {
   pub fn to_string(&self, ctx: &Context) -> String {
     let ptr_ty = self.inst.ty.as_ref::<PointerType>(ctx).unwrap();
     let ptr_str = ptr_ty.get_pointee_ty().to_string(ctx);
-    return format!("%{} = alloca {}, align {}", self.inst.get_name(), ptr_str, self.align);
+    return format!("%{} = alloca {}, align {}", self.inst.get_name(), ptr_str, self.get_align());
   }
 
 }
@@ -29,14 +36,13 @@ impl<'inst> Alloca <'inst> {
 /// Load instruction.
 pub struct Load<'inst> {
   inst: &'inst Instruction,
-  align: usize,
 }
 
 impl <'inst> Load <'inst> {
 
-  pub fn new(inst: &'inst Instruction, align: usize) -> Self {
+  pub fn new(inst: &'inst Instruction) -> Self {
     if let InstOpcode::Load(_) = inst.opcode {
-      Self { inst, align, }
+      Self { inst, }
     } else {
       panic!("Invalid opcode for Load instruction.");
     }
@@ -46,11 +52,19 @@ impl <'inst> Load <'inst> {
     &self.inst.operands[0]
   }
 
+  pub fn get_align(&self) -> usize {
+    if let InstOpcode::Load(align) = self.inst.opcode {
+      align
+    } else {
+      panic!("Invalid opcode for Load instruction.");
+    }
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
     let inst = ctx.get_value_ref::<Instruction>(self.inst.skey.unwrap());
     format!("%{} = load {}, {}, align {}",
       inst.get_name(), inst.ty.to_string(ctx),
-      self.get_ptr().to_string(ctx, true), self.align)
+      self.get_ptr().to_string(ctx, true), self.get_align())
   }
 
 }
@@ -59,14 +73,13 @@ impl <'inst> Load <'inst> {
 /// Store instruction.
 pub struct Store<'inst> {
   inst: &'inst Instruction,
-  align: usize,
 }
 
 impl <'inst> Store <'inst> {
 
-  pub fn new(inst: &'inst Instruction, align: usize) -> Self {
+  pub fn new(inst: &'inst Instruction) -> Self {
     if let InstOpcode::Store(_) = inst.opcode {
-      Self { inst, align, }
+      Self { inst, }
     } else {
       panic!("Invalid opcode for Store instruction.");
     }
@@ -80,8 +93,16 @@ impl <'inst> Store <'inst> {
     &self.inst.operands[1]
   }
 
+  pub fn get_align(&self) -> usize {
+    if let InstOpcode::Store(align) = self.inst.opcode {
+      align
+    } else {
+      panic!("Invalid opcode for Store instruction.");
+    }
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
-    format!("store {}, {}, align {}", self.get_value().to_string(ctx, true), self.get_ptr().to_string(ctx, true), self.align)
+    format!("store {}, {}, align {}", self.get_value().to_string(ctx, true), self.get_ptr().to_string(ctx, true), self.get_align())
   }
 
 }
@@ -113,7 +134,7 @@ impl <'inst>GetElementPtr<'inst> {
     let ty_str = ptr_scalar.to_string(ctx);
 
     let operands = (0..self.inst.get_num_operands()).map(|i| {
-      format!("{}", &self.inst.get_operand(i).to_string(ctx, true))
+      format!("{}", &self.inst.get_operand(i).unwrap().to_string(ctx, true))
     }).collect::<Vec<_>>().join(", ");
     format!("%{} = getelementptr {} {}, {}", self.inst.get_name(), inbounds, ty_str, operands)
   }
@@ -325,6 +346,14 @@ impl <'inst> BranchInst <'inst> {
     self.base.operands.get(0)
   }
 
+  pub fn get_successors(&self) -> Vec<ValueRef> {
+    if self.is_cond_br() {
+      vec![self.base.get_operand(1).unwrap(), self.base.get_operand(2).unwrap()]
+    } else {
+      vec![self.base.get_operand(0).unwrap()]
+    }
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
     if self.base.get_num_operands() == 3 {
       let cond = self.base.operands.get(0).unwrap();
@@ -338,4 +367,50 @@ impl <'inst> BranchInst <'inst> {
       format!("br label {}", self.base.operands.get(0).unwrap().to_string(ctx, false))
     }
   }
+}
+
+/// The PHI node for SSA form.
+/// 0-based, each even operand is the incoming value, and each odd one is the incoming block.
+pub struct PhiNode<'inst> {
+  pub(super) base: &'inst Instruction
+}
+
+impl <'inst>PhiNode<'inst> {
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    let ty = self.base.ty.to_string(ctx);
+    let mut res = format!("%{} = phi {} ", self.base.get_name(), ty);
+    for i in (0..self.base.operands.len()).step_by(2) {
+      if i != 0 {
+        res.push_str(", ");
+      }
+      let operand = self.base.operands.get(i).unwrap();
+      res.push_str(&format!("[ {}, ", operand.to_string(ctx, false)));
+      let operand = self.base.operands.get(i + 1).unwrap();
+      res.push_str(&format!("{} ]", operand.to_string(ctx, false)));
+    }
+    res
+  }
+
+  pub fn new(inst: &'inst Instruction) -> Self {
+    if let InstOpcode::Phi = inst.opcode {
+      PhiNode { base: inst }
+    } else {
+      panic!("Invalid opcode!")
+    }
+  }
+
+  pub fn get_num_incomings(&self) -> usize {
+    assert_eq!(self.base.operands.len() % 2, 0);
+    self.base.operands.len() / 2
+  }
+
+  pub fn get_incoming_block(&self, index: usize) -> Option<&ValueRef> {
+    if index < self.get_num_incomings() {
+      self.base.operands.get(index * 2 + 1)
+    } else {
+      None
+    }
+  }
+
 }

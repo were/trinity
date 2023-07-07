@@ -49,8 +49,14 @@ struct ConstScalar {
 }
 
 #[derive(Hash, PartialEq, Eq)]
+struct Undef {
+  ty: TypeRef,
+}
+
+#[derive(Hash, PartialEq, Eq)]
 enum ConstHash {
   ConstScalar(ConstScalar),
+  Undef(Undef),
 }
 
 pub(super) struct Cache {
@@ -158,6 +164,18 @@ impl Cache {
       res.clone()
     } else {
       let instance = consts::ConstScalar::new(ty, value);
+      let res = ctx.add_instance(instance);
+      ctx.pod_cache.insert_const(key, res.clone());
+      res
+    }
+  }
+
+  pub fn undef(ctx: &mut Context, ty: TypeRef) -> ValueRef {
+    let key = ConstHash::Undef(Undef{ ty: ty.clone() });
+    if let Some(res) = ctx.pod_cache.get_const(&key) {
+      res.clone()
+    } else {
+      let instance = consts::Undef::new(ty);
       let res = ctx.add_instance(instance);
       ctx.pod_cache.insert_const(key, res.clone());
       res

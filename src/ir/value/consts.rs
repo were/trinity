@@ -9,6 +9,26 @@ pub struct ConstScalar {
   pub(crate) value: u64
 }
 
+pub struct Undef {
+  pub(crate) skey: Option<usize>,
+  pub(crate) ty: TypeRef
+}
+
+impl Undef {
+
+  pub(crate) fn new(ty: TypeRef) -> Self {
+    Self {
+      skey: None,
+      ty
+    }
+  }
+
+  pub fn to_string(&self, ctx: &Context) -> String {
+    format!("undef {}", self.ty.to_string(ctx))
+  }
+
+}
+
 fn str2display(s: &String) -> String {
   s.chars().map(|c| if ('\x20'..'\x7e').contains(&c) { c.to_string() } else { format!("\\{:02x}", c as u8) }).collect::<Vec<String>>().join("")
 }

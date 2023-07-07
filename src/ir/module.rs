@@ -60,11 +60,16 @@ impl<'ctx> Module {
   }
 
   /// Remove the given instruction.
-  pub fn remove_inst(&'ctx mut self, v: ValueRef) {
+  pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
     let block = v.as_ref::<Instruction>(&self.context).unwrap().get_parent();
     let block = block.as_mut::<Block>(&mut self.context).unwrap();
     block.insts.retain(|x| *x != v.skey);
-    self.context.dispose(v.skey);
+    if dispose {
+      self.context.dispose(v.skey);
+      None
+    } else {
+      Some(v)
+    }
   }
 
   /// The number of functions in the module.
@@ -93,6 +98,39 @@ impl<'ctx> Module {
 
   pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {
     return ModuleFuncIter{i: 0, module: self}
+  }
+
+
+  /// Replace old instruction with new value.
+  pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
+    let func = old
+      .as_ref::<Instruction>(&self.context)
+      .unwrap()
+      .get_parent()
+      .as_ref::<Block>(&self.context)
+      .unwrap()
+      .get_parent();
+    let func =func.as_ref::<Function>(&self.context).unwrap();
+    let mut to_replace = Vec::new();
+    eprintln!("[replace.init] {} with {}", old.to_string(&self.context, true), new.to_string(&self.context, true));
+    for block in func.iter() {
+      let block = block.as_ref::<Block>(&self.context).unwrap();
+      for inst in block.iter() {
+        let inst = inst.as_ref::<Instruction>(&self.context).unwrap();
+        for i in 0..inst.get_num_operands() {
+          if inst.get_operand(i).unwrap().skey == old.skey {
+            to_replace.push((inst.skey, i));
+            eprintln!("[replace.exec] {}'s operand {}", inst.to_string(&self.context), i);
+          }
+        }
+      }
+    }
+    for (skey, idx) in to_replace.iter() {
+      let inst = ValueRef{ skey: skey.unwrap(), kind: super::VKindCode::Instruction };
+      let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
+      inst.set_operand(*idx, new.clone());
+    }
+    to_replace.len() > 0
   }
 
 }
