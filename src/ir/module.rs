@@ -112,7 +112,6 @@ impl<'ctx> Module {
       .get_parent();
     let func =func.as_ref::<Function>(&self.context).unwrap();
     let mut to_replace = Vec::new();
-    eprintln!("[replace.init] {} with {}", old.to_string(&self.context, true), new.to_string(&self.context, true));
     for block in func.iter() {
       let block = block.as_ref::<Block>(&self.context).unwrap();
       for inst in block.iter() {
@@ -120,7 +119,6 @@ impl<'ctx> Module {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
             to_replace.push((inst.skey, i));
-            eprintln!("[replace.exec] {}'s operand {}", inst.to_string(&self.context), i);
           }
         }
       }
