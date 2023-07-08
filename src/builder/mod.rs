@@ -412,6 +412,10 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::SGE, lhs, rhs)
   }
 
+  pub fn create_eq(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_compare(CmpPred::EQ, lhs, rhs)
+  }
+
   fn add_block_predecessor(&mut self, bb: &ValueRef, pred: &ValueRef) {
     let bb = bb.as_mut::<Block>(&mut self.module.context).unwrap();
     bb.predecessors.push(pred.skey);

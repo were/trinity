@@ -137,7 +137,9 @@ pub enum CmpPred {
   /// Signed less equal.
   SLE,
   /// Signed greater equal.
-  SGE
+  SGE,
+  /// Int equal.
+  EQ,
 }
 
 impl CmpPred {
@@ -148,6 +150,7 @@ impl CmpPred {
       CmpPred::SGT => "sgt".to_string(),
       CmpPred::SLE => "sle".to_string(),
       CmpPred::SGE => "sge".to_string(),
+      CmpPred::EQ => "eq".to_string(),
     }
   }
 

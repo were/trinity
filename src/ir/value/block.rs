@@ -81,10 +81,9 @@ impl Block {
   /// Iterate over each instruction belongs to this block.
   pub fn inst_iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
     BlockInstIter {
-      i: 0,
+      idx: [0, self.get_num_insts()],
       block: self,
       ctx,
-      num_inst: Block::get_num_insts,
       get_inst: Block::get_inst,
     }
   }
@@ -92,10 +91,9 @@ impl Block {
   /// Iterate over each branch instruction destinated to this block.
   pub fn pred_iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
     BlockInstIter {
-      i: 0,
+      idx: [0, self.get_num_predecessors()],
       block: self,
       ctx,
-      num_inst: Block::get_num_predecessors,
       get_inst: Block::get_predecessor,
     }
   }
@@ -103,25 +101,44 @@ impl Block {
 }
 
 pub struct BlockInstIter <'ctx> {
-  i: usize,
+  idx: [usize; 2],
   block: &'ctx Block,
   ctx: &'ctx Context,
-  num_inst: fn(&'ctx Block) -> usize,
   get_inst: fn(&'ctx Block, usize) -> Option<ValueRef>,
+}
+
+impl <'ctx> BlockInstIter <'ctx> {
+
+  pub fn tick(&mut self, which: usize) -> Option<&'ctx Instruction> {
+    if self.idx[0] < self.idx[1] {
+      let inst = (self.get_inst)(self.block, self.idx[which] - which).unwrap();
+      let res = inst.as_ref::<Instruction>(self.ctx).unwrap();
+      if which == 0 {
+        self.idx[which] += 1;
+      } else {
+        self.idx[which] -= 1;
+      }
+      Some(res)
+    } else {
+      None
+    }
+  }
+
 }
 
 impl <'ctx> Iterator for BlockInstIter <'ctx> {
   type Item = &'ctx Instruction;
 
   fn next(&mut self) -> Option<Self::Item> {
-    if self.i < (self.num_inst)(self.block) {
-      let inst = (self.get_inst)(self.block, self.i).unwrap();
-      let res = inst.as_ref::<Instruction>(self.ctx).unwrap();
-      self.i += 1;
-      Some(res)
-    } else {
-      None
-    }
+    self.tick(0)
+  }
+
+}
+
+impl <'ctx> DoubleEndedIterator for BlockInstIter <'ctx> {
+
+  fn next_back(&mut self) -> Option<Self::Item> {
+    self.tick(1)
   }
 
 }
