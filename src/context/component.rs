@@ -12,6 +12,7 @@ use crate::ir::types::TKindCode;
 /// Manage the slab pointer of each IR component.
 pub struct Ptr<T: Sized> {
   ptr: Option<usize>,
+  // TODO(@were): Make this private later.
   pub(crate) instance: T,
 }
 
@@ -217,7 +218,6 @@ impl_component_legacy!(TypeRef, TKindCode, PointerType);
 impl_component_legacy!(TypeRef, TKindCode, FunctionType);
 impl_component_legacy!(TypeRef, TKindCode, ArrayType);
 // Values
-impl_component_legacy!(ValueRef, VKindCode, Block);
 impl_component_legacy!(ValueRef, VKindCode, ConstScalar);
 impl_component_legacy!(ValueRef, VKindCode, ConstArray);
 impl_component_legacy!(ValueRef, VKindCode, ConstExpr);
@@ -228,4 +228,5 @@ impl_component_legacy!(ValueRef, VKindCode, Undef);
 impl_component!(ValueRef, VKindCode, Function);
 impl_component!(ValueRef, VKindCode, Argument);
 impl_component!(ValueRef, VKindCode, Instruction);
+impl_component!(ValueRef, VKindCode, Block);
 

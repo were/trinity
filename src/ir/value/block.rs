@@ -1,10 +1,8 @@
-use crate::context::Context;
+use crate::context::{Context, Ptr};
 
 use super::{ValueRef, instruction::{Instruction, InstOpcode}};
 
-pub struct Block {
-  /// The slab key of this block.
-  pub(crate) skey: Option<usize>,
+pub struct BlockImpl {
   /// The name prefix of this block.
   pub(crate) name_prefix: String,
   /// The slab keys of the instructions in this block.
@@ -15,23 +13,42 @@ pub struct Block {
   pub(crate) predecessors: Vec<usize>,
 }
 
+pub type Block = Ptr<BlockImpl>;
+
+impl BlockImpl {
+
+  fn new(name_prefix: String, parent: usize) -> Self {
+    Self {
+      name_prefix,
+      insts: Vec::new(),
+      parent,
+      predecessors: Vec::new(),
+    }
+  }
+
+}
+
 impl Block {
 
+  pub fn new(name_prefix: String, parent: &ValueRef) -> Self {
+    Block::from(BlockImpl::new(name_prefix, parent.skey))
+  }
+
   pub fn get_parent(&self) -> ValueRef {
-    ValueRef{skey: self.parent, kind: super::VKindCode::Function}
+    ValueRef{skey: self.instance.parent, kind: super::VKindCode::Function}
   }
 
   pub fn get_num_insts(&self) -> usize {
-    return self.insts.len();
+    return self.instance.insts.len();
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.name_prefix, self.skey.unwrap())
+    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
   }
 
   /// If this block is closed, i.e. ends with a branch.
   pub fn closed(&self, ctx: &Context) -> bool {
-    if let Some(inst_ref) = self.insts.last() {
+    if let Some(inst_ref) = self.instance.insts.last() {
       let inst = ValueRef{ skey: *inst_ref, kind: crate::ir::VKindCode::Instruction };
       let inst = inst.as_ref::<Instruction>(ctx).unwrap();
       match inst.get_opcode() {
@@ -44,33 +61,32 @@ impl Block {
   }
 
   pub fn get_inst(&self, i: usize) -> Option<ValueRef> {
-    if i < self.insts.len() {
-      let res = ValueRef{skey: self.insts[i], kind: super::VKindCode::Instruction};
-      Some(res)
+    if i < self.get_num_insts() {
+      Some(Instruction::from_skey(self.instance.insts[i]))
     } else {
       None
     }
   }
 
   pub fn get_num_predecessors(&self) -> usize {
-    return self.predecessors.len();
+    return self.instance.predecessors.len();
   }
 
   pub fn get_predecessor(&self, i: usize) -> Option<ValueRef> {
     if i < self.get_num_predecessors() {
-      Some(ValueRef{skey: self.predecessors[i], kind: super::VKindCode::Instruction})
+      Some(ValueRef{skey: self.instance.predecessors[i], kind: super::VKindCode::Instruction})
     } else {
       None
     }
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let insts = self.insts.iter().map(|i| {
+    let insts = self.instance.insts.iter().map(|i| {
       let inst_ref = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
       let inst = inst_ref.as_ref::<Instruction>(ctx).unwrap();
       format!("  {}", inst.to_string(ctx))
     }).collect::<Vec<String>>().join("\n");
-    let pred_comments = self.predecessors.iter().enumerate().map(|(i, _)| {
+    let pred_comments = self.instance.predecessors.iter().enumerate().map(|(i, _)| {
       let pred_block = self.get_predecessor(i).unwrap().as_ref::<Instruction>(ctx).unwrap().get_parent();
       let block_name = pred_block.as_ref::<Block>(ctx).unwrap().get_name();
       format!("{}", block_name)

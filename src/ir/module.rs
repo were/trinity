@@ -64,7 +64,7 @@ impl<'ctx> Module {
   pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
     let block = v.as_ref::<Instruction>(&self.context).unwrap().get_parent();
     let block = block.as_mut::<Block>(&mut self.context).unwrap();
-    block.insts.retain(|x| *x != v.skey);
+    block.instance.insts.retain(|x| *x != v.skey);
     if dispose {
       self.context.dispose(v.skey);
       None

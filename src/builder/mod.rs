@@ -13,8 +13,6 @@ use crate::ir::{
   value::consts::{ConstExpr, ConstObject}
 };
 
-
-
 use crate::context::Context;
 
 pub struct Builder {
@@ -89,13 +87,7 @@ impl<'ctx> Builder {
   /// Add a block to the current function.
   pub fn add_block(&mut self, name: String) -> ValueRef {
     let func_ref = self.func.clone().unwrap();
-    let block = Block{
-      skey: None,
-      name_prefix: if name.len() != 0 { name } else { "".to_string() },
-      insts: Vec::new(),
-      parent: func_ref.skey,
-      predecessors: Vec::new(),
-    };
+    let block = Block::new(name, &func_ref);
     let block_ref = self.context().add_instance(block);
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.basic_blocks_mut().push(block_ref.skey);
@@ -122,7 +114,7 @@ impl<'ctx> Builder {
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let block = inst.get_parent();
     let block = block.as_ref::<Block>(&self.module.context).unwrap();
-    let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
+    let idx = block.inst_iter(&self.module.context).position(|i| i.get_ptr() == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
 
@@ -132,9 +124,9 @@ impl<'ctx> Builder {
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
       let (idx, last)  = if let Some(inst_idx) = self.inst_idx {
-        (inst_idx, inst_idx == block.insts.len() - 1)
+        (inst_idx, inst_idx == block.get_num_insts() - 1)
       } else {
-        (block.insts.len(), true)
+        (block.get_num_insts(), true)
       };
       let closed_block = if last {
         block.closed(&self.module.context)
@@ -149,7 +141,7 @@ impl<'ctx> Builder {
     } else {
       let inst_ref = self.context().add_instance(inst);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
-      block.insts.insert(insert_idx, inst_ref.skey);
+      block.instance.insts.insert(insert_idx, inst_ref.skey);
       inst_ref
     }
   }
@@ -410,7 +402,7 @@ impl<'ctx> Builder {
 
   fn add_block_predecessor(&mut self, bb: &ValueRef, pred: &ValueRef) {
     let bb = bb.as_mut::<Block>(&mut self.module.context).unwrap();
-    bb.predecessors.push(pred.skey);
+    bb.instance.predecessors.push(pred.skey);
   }
 
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
