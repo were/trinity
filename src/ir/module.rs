@@ -114,8 +114,7 @@ impl<'ctx> Module {
     let mut to_replace = Vec::new();
     for block in func.iter() {
       let block = block.as_ref::<Block>(&self.context).unwrap();
-      for inst in block.iter() {
-        let inst = inst.as_ref::<Instruction>(&self.context).unwrap();
+      for inst in block.iter(&self.context) {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
             to_replace.push((inst.skey, i));

@@ -18,7 +18,7 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
-  pub fn as_ref<T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey>(&'ctx self, context: &'ctx Context) -> Option<&'ctx T> {
+  pub fn as_ref<T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey>(&self, context: &'ctx Context) -> Option<&'ctx T> {
     if self.kind == T::kind_code() {
       Some(context.get_value_ref::<T>(self.skey))
     } else {
@@ -26,7 +26,7 @@ impl<'ctx> ValueRef {
     }
   }
 
-  pub fn as_mut<T>(&'ctx self, context: &'ctx mut Context) -> Option<&'ctx mut T> 
+  pub fn as_mut<T>(&self, context: &'ctx mut Context) -> Option<&'ctx mut T> 
     where T: WithKindCode<VKindCode> + ComponentToMut<T> + GetSlabKey {
     if self.kind == T::kind_code() {
       Some(context.get_value_mut::<T>(self.skey))

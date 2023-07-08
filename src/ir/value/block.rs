@@ -78,24 +78,26 @@ impl Block {
     format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)
   }
 
-  pub fn iter(&self) -> BlockInstIter {
-    BlockInstIter { i: 0, block: self }
+  pub fn iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
+    BlockInstIter { i: 0, block: self, ctx }
   }
 }
 
 pub struct BlockInstIter <'ctx> {
   i: usize,
-  block: &'ctx Block
+  block: &'ctx Block,
+  ctx: &'ctx Context,
 }
 
 impl <'ctx> Iterator for BlockInstIter <'ctx> {
-  type Item = ValueRef;
+  type Item = &'ctx Instruction;
 
   fn next(&mut self) -> Option<Self::Item> {
     if self.i < self.block.insts.len() {
-      let res = self.block.get_inst(self.i);
+      let inst = self.block.get_inst(self.i).unwrap();
+      let res = inst.as_ref::<Instruction>(self.ctx).unwrap();
       self.i += 1;
-      res
+      Some(res)
     } else {
       None
     }
