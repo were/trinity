@@ -78,8 +78,7 @@ impl Function {
     res.push_str(")");
     if !self.is_declaration() {
       res.push_str(" {\n");
-      for block in self.iter() {
-        let block = block.as_ref::<Block>(ctx).unwrap();
+      for block in self.iter(ctx) {
         res.push_str(block.to_string(&ctx).as_str());
       }
       res.push_str("}");
@@ -89,8 +88,8 @@ impl Function {
     return res;
   }
 
-  pub fn iter(&self) -> FuncBlockIter {
-    FuncBlockIter{ i: 0, func: self }
+  pub fn iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> FuncBlockIter {
+    FuncBlockIter{ i: 0, func: self, ctx }
   }
 
 }
@@ -98,16 +97,21 @@ impl Function {
 pub struct FuncBlockIter<'ctx> {
   i: usize,
   func: &'ctx Function,
+  ctx: &'ctx Context
 }
 
 impl <'ctx>Iterator for FuncBlockIter<'ctx> {
 
-  type Item = ValueRef;
+  type Item = &'ctx Block;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let res = self.func.get_block(self.i);
-    self.i += 1;
-    res
+    if self.i < self.func.get_num_blocks() {
+      let res = self.func.get_block(self.i).unwrap();
+      self.i += 1;
+      res.as_ref::<Block>(self.ctx)
+    } else {
+      None
+    }
   }
 
 }

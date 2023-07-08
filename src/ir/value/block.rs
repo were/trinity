@@ -78,23 +78,44 @@ impl Block {
     format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)
   }
 
-  pub fn iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
-    BlockInstIter { i: 0, block: self, ctx }
+  /// Iterate over each instruction belongs to this block.
+  pub fn inst_iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
+    BlockInstIter {
+      i: 0,
+      block: self,
+      ctx,
+      num_inst: Block::get_num_insts,
+      get_inst: Block::get_inst,
+    }
   }
+
+  /// Iterate over each branch instruction destinated to this block.
+  pub fn pred_iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
+    BlockInstIter {
+      i: 0,
+      block: self,
+      ctx,
+      num_inst: Block::get_num_predecessors,
+      get_inst: Block::get_predecessor,
+    }
+  }
+
 }
 
 pub struct BlockInstIter <'ctx> {
   i: usize,
   block: &'ctx Block,
   ctx: &'ctx Context,
+  num_inst: fn(&'ctx Block) -> usize,
+  get_inst: fn(&'ctx Block, usize) -> Option<ValueRef>,
 }
 
 impl <'ctx> Iterator for BlockInstIter <'ctx> {
   type Item = &'ctx Instruction;
 
   fn next(&mut self) -> Option<Self::Item> {
-    if self.i < self.block.insts.len() {
-      let inst = self.block.get_inst(self.i).unwrap();
+    if self.i < (self.num_inst)(self.block) {
+      let inst = (self.get_inst)(self.block, self.i).unwrap();
       let res = inst.as_ref::<Instruction>(self.ctx).unwrap();
       self.i += 1;
       Some(res)
@@ -102,5 +123,6 @@ impl <'ctx> Iterator for BlockInstIter <'ctx> {
       None
     }
   }
+
 }
 
