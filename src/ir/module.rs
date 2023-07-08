@@ -2,6 +2,7 @@ use std::fmt;
 
 
 use crate::context::Context;
+use crate::context::component::AsSuper;
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::{Function, Instruction, Block};
@@ -111,22 +112,23 @@ impl<'ctx> Module {
       .unwrap()
       .get_parent();
     let func =func.as_ref::<Function>(&self.context).unwrap();
-    let mut to_replace = Vec::new();
-    for block in func.iter(&self.context) {
+    let to_replace = func.iter(&self.context).map(|block| {
       for inst in block.inst_iter(&self.context) {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
-            to_replace.push((inst.skey, i));
+            return Some((inst.as_super(), i))
           }
         }
       }
-    }
-    for (skey, idx) in to_replace.iter() {
-      let inst = ValueRef{ skey: skey.unwrap(), kind: super::VKindCode::Instruction };
-      let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
-      inst.set_operand(*idx, new.clone());
-    }
-    to_replace.len() > 0
+      None
+    }).collect::<Vec<_>>();
+    to_replace.iter().fold(false, |_, elem| {
+      if let Some((inst, idx)) = elem {
+        let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
+        inst.set_operand(*idx, new.clone());
+      }
+      true
+    })
   }
 
 }

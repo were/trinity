@@ -69,12 +69,7 @@ impl<'ctx> Builder {
     let fidx = self.module.get_num_functions() - 1;
     // Generate the arguments.
     let fargs: Vec<usize> = args.iter().enumerate().map(|(i, ty)| {
-       let arg = Argument {
-         skey: None,
-         ty: ty.clone(),
-         arg_idx: i,
-         parent: func_ref.skey
-       };
+       let arg = Argument::new(ty.clone(), i, func_ref.skey);
        self.context().add_instance(arg).skey
     }).collect();
     // Finalize the arguments.

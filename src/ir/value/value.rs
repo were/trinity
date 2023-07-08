@@ -52,7 +52,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);
-        format!("{}%arg.{}", self.type_to_string(ctx, with_type), arg.arg_idx)
+        format!("{}%arg.{}", self.type_to_string(ctx, with_type), arg.get_name())
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
@@ -98,7 +98,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);
-        arg.ty.clone()
+        arg.instance.ty.clone()
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);

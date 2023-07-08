@@ -9,6 +9,31 @@ use crate::ir::{
 use crate::ir::value::VKindCode;
 use crate::ir::types::TKindCode;
 
+/// Manage the slab pointer of each IR component.
+pub struct Ptr<T: Sized> {
+  ptr: Option<usize>,
+  pub(crate) instance: T,
+}
+
+impl<T> Ptr<T> {
+
+  pub(crate) fn set_ptr(&mut self, ptr: usize) {
+    self.ptr = Some(ptr);
+  }
+
+  pub fn get_ptr(&self) -> usize {
+    self.ptr.unwrap()
+  }
+
+}
+
+impl <T>From<T> for Ptr<T> {
+
+  fn from(value: T) -> Self {
+    Ptr { ptr: None, instance: value }
+  }
+
+}
 
 // TODO(@were): Make this private later.
 pub enum Component {
@@ -32,32 +57,6 @@ pub enum Component {
   Undef(Undef),
 }
 
-impl Component {
-
-  pub(crate) fn set_skey(&mut self, skey: usize) {
-    match self {
-      Component::IntType(v) => v.skey = Some(skey),
-      Component::VoidType(v) => v.skey = Some(skey),
-      Component::StructType(v) => v.skey = Some(skey),
-      Component::PointerType(v) => v.skey = Some(skey),
-      Component::FunctionType(v) => v.skey = Some(skey),
-      Component::Function(v) => v.skey = Some(skey),
-      Component::Argument(v) => v.skey = Some(skey),
-      Component::Instruction(v) => v.skey = Some(skey),
-      Component::Block(v) => v.skey = Some(skey),
-      Component::ConstScalar(v) => v.skey = Some(skey),
-      Component::ArrayType(v) => v.skey = Some(skey),
-      Component::ConstArray(v) => v.skey = Some(skey),
-      Component::ConstExpr(v) => v.skey = Some(skey),
-      Component::ConstObject(v) => v.skey = Some(skey),
-      Component::InlineAsm(v) => v.skey = Some(skey),
-      Component::Undef(v) => v.skey = Some(skey),
-    }
-  }
-
-}
-
-
 pub trait WithKindCode<T> {
   fn kind_code() -> T;
 }
@@ -71,6 +70,10 @@ pub trait GetSlabKey {
   fn get_skey(&self) -> usize;
 }
 
+pub(crate) trait SetSlabKey {
+  fn set_skey(&mut self, skey: usize);
+}
+
 pub trait ComponentToRef<T> {
   fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;
 }
@@ -79,7 +82,7 @@ pub trait ComponentToMut<T> {
   fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut T;
 }
 
-macro_rules! impl_component_to_xx {
+macro_rules! impl_component_legacy {
   ($super:tt, $code_type:tt, $type:tt) => {
 
     impl ComponentToRef<$type> for $type {
@@ -110,7 +113,7 @@ macro_rules! impl_component_to_xx {
     }
 
     impl $type {
-      pub fn from(skey: usize) -> $super {
+      pub fn from_skey(skey: usize) -> $super {
         $super { skey: skey, kind: $code_type::$type }
       }
     }
@@ -133,26 +136,96 @@ macro_rules! impl_component_to_xx {
       }
     }
 
+    impl SetSlabKey for $type {
+      fn set_skey(&mut self, skey: usize) {
+        self.skey = Some(skey);
+      }
+    }
+
   };
 }
 
-// Types
-impl_component_to_xx!(TypeRef, TKindCode, IntType);
-impl_component_to_xx!(TypeRef, TKindCode, VoidType);
-impl_component_to_xx!(TypeRef, TKindCode, StructType);
-impl_component_to_xx!(TypeRef, TKindCode, PointerType);
-impl_component_to_xx!(TypeRef, TKindCode, FunctionType);
-impl_component_to_xx!(TypeRef, TKindCode, ArrayType);
-// Values
-impl_component_to_xx!(ValueRef, VKindCode, Function);
-impl_component_to_xx!(ValueRef, VKindCode, Argument);
-impl_component_to_xx!(ValueRef, VKindCode, Instruction);
-impl_component_to_xx!(ValueRef, VKindCode, Block);
-impl_component_to_xx!(ValueRef, VKindCode, ConstScalar);
-impl_component_to_xx!(ValueRef, VKindCode, ConstArray);
-impl_component_to_xx!(ValueRef, VKindCode, ConstExpr);
-impl_component_to_xx!(ValueRef, VKindCode, ConstObject);
-impl_component_to_xx!(ValueRef, VKindCode, InlineAsm);
-impl_component_to_xx!(ValueRef, VKindCode, Undef);
+macro_rules! impl_component {
+  ($super:tt, $code_type:tt, $type:tt) => {
 
+    impl ComponentToRef<$type> for $type {
+      fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx $type {
+        match value {
+          Component::$type(v) => v,
+          _ => panic!("Invalid type"),
+        }
+      }
+    }
+
+    impl ComponentToMut<$type> for $type {
+      fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut $type {
+        match value {
+          Component::$type(v) => v,
+          _ => panic!("Invalid type"),
+        }
+      }
+    }
+
+    impl AsSuper<$super> for $type {
+      type SuperType = $super;
+
+      fn as_super(&self) -> Self::SuperType {
+        $super{ skey: self.ptr.unwrap(), kind: $code_type::$type }
+      }
+
+    }
+
+    impl $type {
+      pub fn from_skey(skey: usize) -> $super {
+        $super { skey: skey, kind: $code_type::$type }
+      }
+    }
+
+    impl From<$type> for Component {
+      fn from(value: $type) -> Self {
+        Component::$type(value)
+      }
+    }
+
+    impl WithKindCode<$code_type> for $type {
+      fn kind_code() -> $code_type {
+        $code_type::$type
+      }
+    }
+
+    impl GetSlabKey for $type {
+      fn get_skey(&self) -> usize {
+        self.get_ptr()
+      }
+    }
+
+    impl SetSlabKey for $type {
+      fn set_skey(&mut self, skey: usize) {
+        self.set_ptr(skey);
+      }
+    }
+
+  };
+}
+
+
+// Types
+impl_component_legacy!(TypeRef, TKindCode, IntType);
+impl_component_legacy!(TypeRef, TKindCode, VoidType);
+impl_component_legacy!(TypeRef, TKindCode, StructType);
+impl_component_legacy!(TypeRef, TKindCode, PointerType);
+impl_component_legacy!(TypeRef, TKindCode, FunctionType);
+impl_component_legacy!(TypeRef, TKindCode, ArrayType);
+// Values
+impl_component_legacy!(ValueRef, VKindCode, Function);
+impl_component_legacy!(ValueRef, VKindCode, Instruction);
+impl_component_legacy!(ValueRef, VKindCode, Block);
+impl_component_legacy!(ValueRef, VKindCode, ConstScalar);
+impl_component_legacy!(ValueRef, VKindCode, ConstArray);
+impl_component_legacy!(ValueRef, VKindCode, ConstExpr);
+impl_component_legacy!(ValueRef, VKindCode, ConstObject);
+impl_component_legacy!(ValueRef, VKindCode, InlineAsm);
+impl_component_legacy!(ValueRef, VKindCode, Undef);
+
+impl_component!(ValueRef, VKindCode, Argument);
 

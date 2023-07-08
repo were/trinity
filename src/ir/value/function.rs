@@ -1,16 +1,17 @@
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
+use crate::context::Ptr;
 
 use crate::context::Context;
 
-#[derive(Clone)]
-pub struct Argument {
-  pub(crate) skey: Option<usize>,
+pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
   pub(crate) arg_idx: usize,
   pub(crate) parent: usize
 }
+
+pub type Argument = Ptr<ArgumentImpl>;
 
 pub struct Function {
   pub(crate) skey: Option<usize>,
@@ -120,16 +121,20 @@ impl <'ctx>Iterator for FuncBlockIter<'ctx> {
 impl Argument {
 
   pub fn get_parent(&self) -> ValueRef {
-    return ValueRef{ skey: self.parent, kind: VKindCode::Function };
+    return Function::from_skey(self.instance.parent);
   }
 
-  pub fn name(&self) -> String {
-    format!("%arg.{}", self.arg_idx)
+  pub fn get_name(&self) -> String {
+    format!("%arg.{}", self.get_ptr())
   }
 
   pub fn to_string(&self, context: &Context) -> String {
-    format!("{} {}", self.ty.to_string(context), self.name())
+    format!("{} {}", self.instance.ty.to_string(context), self.get_name())
   }
 
+  pub fn new(ty: TypeRef, arg_idx: usize, parent: usize) -> Self {
+    let instance = ArgumentImpl{ty, arg_idx, parent};
+    Argument::from(instance)
+  }
 }
 

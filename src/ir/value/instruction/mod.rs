@@ -6,6 +6,8 @@ use types::TypeRef;
 use crate::ir::value::ValueRef;
 use crate::ir::types;
 
+use super::Block;
+
 #[derive(Clone)]
 pub struct Instruction {
   pub(crate) skey: Option<usize>,
@@ -57,12 +59,8 @@ impl ToString for InstOpcode {
       InstOpcode::Call => "call".to_string(),
       InstOpcode::ICompare(_) => "icmp".to_string(),
       InstOpcode::Branch => "br".to_string(),
-      InstOpcode::BinaryOp(binop) => {
-        binop.to_string().to_string()
-      }
-      InstOpcode::CastInst(cast) => {
-        cast.to_string().to_string()
-      }
+      InstOpcode::BinaryOp(binop) => binop.to_string().to_string(),
+      InstOpcode::CastInst(cast) => cast.to_string().to_string(),
       InstOpcode::Phi => "phi".to_string(),
     }
   }
@@ -207,7 +205,7 @@ impl Instruction {
   }
 
   pub fn get_parent(&self) -> ValueRef {
-    ValueRef{skey: self.parent.unwrap(), kind: super::VKindCode::Block}
+    Block::from_skey(self.parent.unwrap())
   }
 
   pub fn to_string(&self, ctx: &crate::context::Context) -> String {
