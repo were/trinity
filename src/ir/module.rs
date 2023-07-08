@@ -93,10 +93,6 @@ impl<'ctx> Module {
     self.context.get_value_ref::<function::Function>(self.functions[idx])
   }
 
-  pub fn get_function_mut(&'ctx mut self, idx: usize) -> &'ctx mut function::Function {
-    self.context.get_value_mut::<function::Function>(self.functions[idx])
-  }
-
   pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {
     return ModuleFuncIter{i: 0, module: self}
   }

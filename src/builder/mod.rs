@@ -1,5 +1,3 @@
-use crate::context::component::AsSuper;
-
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
@@ -55,27 +53,26 @@ impl<'ctx> Builder {
   }
 
   /// Add a function to the module
-  pub fn create_function(&mut self, name: String, fty_ref: TypeRef) -> ValueRef {
+  pub fn create_function(&mut self, name: String, fty: TypeRef) -> ValueRef {
+    // Generate the arguments.
+    let fty_ref = fty.as_mut::<FunctionType>(self.context()).unwrap();
+    let fargs = Argument::from_fty(fty_ref);
+    let mut arg_ptrs = Vec::new();
+    for arg in fargs {
+      arg_ptrs.push(self.context().add_instance(arg).skey);
+    }
     // Create the function.
-    let func = function::Function {
-      skey: None,
-      name, args: Vec::new(), fty: fty_ref.clone(),
-      blocks: Vec::new(),
-    };
+    let func = function::Function::new(name, fty, arg_ptrs);
     // Add the function to module.
     let func_ref = self.context().add_instance(func);
-    let args = fty_ref.as_ref::<FunctionType>(self.context()).unwrap().args.clone();
     self.module.functions.push(func_ref.skey);
-    let fidx = self.module.get_num_functions() - 1;
-    // Generate the arguments.
-    let fargs: Vec<usize> = args.iter().enumerate().map(|(i, ty)| {
-       let arg = Argument::new(ty.clone(), i, func_ref.skey);
-       self.context().add_instance(arg).skey
-    }).collect();
     // Finalize the arguments.
-    let func = self.module.get_function_mut(fidx);
-    func.args = fargs;
-    func.as_super()
+    {
+      let func = func_ref.as_ref::<Function>(&self.module.context).unwrap();
+      let args = (0..func.get_num_args()).map(|i| { func.get_arg(i) }).collect::<Vec<_>>();
+      args.iter().for_each(|arg| arg.as_mut::<Argument>(self.context()).unwrap().instance.parent = func_ref.skey);
+    }
+    func_ref
   }
 
   /// Get the current function to insert.
@@ -101,7 +98,7 @@ impl<'ctx> Builder {
     };
     let block_ref = self.context().add_instance(block);
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
-    func.blocks.push(block_ref.skey);
+    func.basic_blocks_mut().push(block_ref.skey);
     block_ref
   }
 

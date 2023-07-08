@@ -217,7 +217,6 @@ impl_component_legacy!(TypeRef, TKindCode, PointerType);
 impl_component_legacy!(TypeRef, TKindCode, FunctionType);
 impl_component_legacy!(TypeRef, TKindCode, ArrayType);
 // Values
-impl_component_legacy!(ValueRef, VKindCode, Function);
 impl_component_legacy!(ValueRef, VKindCode, Instruction);
 impl_component_legacy!(ValueRef, VKindCode, Block);
 impl_component_legacy!(ValueRef, VKindCode, ConstScalar);
@@ -227,5 +226,6 @@ impl_component_legacy!(ValueRef, VKindCode, ConstObject);
 impl_component_legacy!(ValueRef, VKindCode, InlineAsm);
 impl_component_legacy!(ValueRef, VKindCode, Undef);
 
+impl_component!(ValueRef, VKindCode, Function);
 impl_component!(ValueRef, VKindCode, Argument);
 
