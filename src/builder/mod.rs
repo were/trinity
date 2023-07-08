@@ -128,7 +128,7 @@ impl<'ctx> Builder {
 
   fn add_instruction(&mut self, mut inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
-    inst.parent = Some(block_ref.skey);
+    inst.instance.parent = Some(block_ref.skey);
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
       let (idx, last)  = if let Some(inst_idx) = self.inst_idx {

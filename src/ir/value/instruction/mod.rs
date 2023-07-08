@@ -3,14 +3,13 @@ pub mod instructions;
 pub use instructions::*;
 use types::TypeRef;
 
+use crate::context::Ptr;
 use crate::ir::value::ValueRef;
 use crate::ir::types;
 
 use super::Block;
 
-#[derive(Clone)]
-pub struct Instruction {
-  pub(crate) skey: Option<usize>,
+pub struct InstructionImpl {
   pub(crate) ty: types::TypeRef,
   pub(crate) opcode: InstOpcode,
   pub(crate) name_prefix: String,
@@ -18,6 +17,8 @@ pub struct Instruction {
   pub(crate) parent: Option<usize>,
   pub(crate) comment: String,
 }
+
+pub type Instruction = Ptr<InstructionImpl>;
 
 // TODO(@were): Revisit this idea of code organization.
 /// This is not only the opcode, but also the additional information of
@@ -154,11 +155,9 @@ impl CmpPred {
 
 }
 
-impl Instruction {
-
+impl InstructionImpl {
   pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
-    Instruction {
-      skey: None,
+    InstructionImpl {
       ty,
       opcode,
       name_prefix,
@@ -167,49 +166,57 @@ impl Instruction {
       comment: "".to_string(),
     }
   }
+}
+
+impl Instruction {
+
+  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
+    let instance = InstructionImpl::new(ty, opcode, name_prefix, operands);
+    Instruction::from(instance)
+  }
 
   pub fn get_opcode(&self) -> &InstOpcode {
-    &self.opcode
+    &self.instance.opcode
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.name_prefix, self.skey.unwrap())
+    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
   }
 
   pub fn get_type(&self) -> &types::TypeRef {
-    &self.ty
+    &self.instance.ty
   }
 
   pub fn get_num_operands(&self) -> usize {
-    self.operands.len()
+    self.instance.operands.len()
   }
 
-  pub fn get_operand(&self, idx: usize) -> Option<ValueRef> {
-    if idx < self.operands.len() {
-      Some(self.operands[idx].clone())
+  pub fn get_operand(&self, idx: usize) -> Option<&ValueRef> {
+    if idx < self.instance.operands.len() {
+      Some(&self.instance.operands[idx])
     } else {
       None
     }
   }
 
   pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) {
-    self.operands[idx] = new_value;
+    self.instance.operands[idx] = new_value;
   }
 
   pub fn set_comment(&mut self, comment: String) {
-    self.comment = comment;
+    self.instance.comment = comment;
   }
 
   pub fn add_operand(&mut self, new_value: ValueRef) {
-    self.operands.push(new_value);
+    self.instance.operands.push(new_value);
   }
 
   pub fn get_parent(&self) -> ValueRef {
-    Block::from_skey(self.parent.unwrap())
+    Block::from_skey(self.instance.parent.unwrap())
   }
 
   pub fn to_string(&self, ctx: &crate::context::Context) -> String {
-    let res = match self.opcode {
+    let res = match self.instance.opcode {
       InstOpcode::Alloca(_) => { Alloca::new(self).to_string(ctx) },
       InstOpcode::Return => { Return::new(self).to_string(ctx) },
       InstOpcode::GetElementPtr(inbounds) => { GetElementPtr::new(self, inbounds).to_string(ctx) },
@@ -222,8 +229,8 @@ impl Instruction {
       InstOpcode::Branch => { BranchInst::new(self).to_string(ctx) }
       InstOpcode::Phi => { PhiNode::new(self).to_string(ctx) }
     };
-    if self.comment.len() != 0 {
-      format!("; {}\n  {}", self.comment, res)
+    if self.instance.comment.len() != 0 {
+      format!("; {}\n  {}", self.instance.comment, res)
     } else {
       res
     }
