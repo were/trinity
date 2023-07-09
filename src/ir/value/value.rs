@@ -118,19 +118,23 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        const_expr.ty.clone()
+        const_expr
+          .instance
+          .inst
+          .get_type()
+          .clone()
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
-        const_object.ty.clone()
+        const_object.get_type().clone()
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
-        inline_asm.ty.clone()
+        inline_asm.get_type().clone()
       },
       VKindCode::Undef => {
         let undef = ctx.get_value_ref::<Undef>(self.skey);
-        undef.ty.clone()
+        undef.get_type().clone()
       },
       VKindCode::Unknown => {
         panic!("Unknown value type")

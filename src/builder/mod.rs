@@ -186,12 +186,7 @@ impl<'ctx> Builder {
     operands.extend(indices);
     // All constants
     if operands.iter().fold(true, |acc, val| acc && val.is_const()) {
-      let res = ConstExpr{
-        skey: None,
-        ty,
-        opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-        operands,
-      };
+      let res = ConstExpr::new(ty, instruction::InstOpcode::GetElementPtr(inbounds), operands);
       let expr = self.context().add_instance::<ConstExpr, _>(res);
       return expr
     } else {
@@ -245,7 +240,7 @@ impl<'ctx> Builder {
 
   pub fn create_func_call(&mut self, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
     let fty = callee.get_type(self.context());
-    let ty = fty.as_ref::<FunctionType>(self.context()).unwrap().ret_ty.clone();
+    let ty = fty.as_ref::<FunctionType>(self.context()).unwrap().ret_ty().clone();
     self.create_typed_call(ty, callee, args)
   }
 
@@ -300,12 +295,10 @@ impl<'ctx> Builder {
   }
 
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
-    let gvs = ConstObject {
-      skey: None,
-      name_prefix: "globalobj".to_string(),
-      ty: ty.ptr_type(self.context()),
-      value: init
-    };
+    let gvs = ConstObject::new(
+      "globalobj".to_string(),
+      ty.ptr_type(self.context()),
+      init);
     let gvs_ref = self.context().add_instance(gvs);
     self.module.global_values.push(gvs_ref.clone());
     gvs_ref
@@ -317,13 +310,12 @@ impl<'ctx> Builder {
     if let Some(_) = ty.as_ref::<VoidType>(self.context()) {
       sideeffect = true;
     }
-    let asm = InlineAsm {
-      skey: None,
+    let asm = InlineAsm::new(
       ty,
       sideeffect,
       mnemonic,
       operands,
-    };
+    );
     self.context().add_instance(asm)
   }
 

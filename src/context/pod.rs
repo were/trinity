@@ -115,7 +115,7 @@ impl Cache {
     if let Some(res) = ctx.pod_cache.get_type(&key) {
       res.clone()
     } else {
-      let instance = types::VoidType{skey: None};
+      let instance = types::VoidType::from(());
       let res = ctx.add_instance(instance);
       ctx.pod_cache.insert_type(key, res.clone());
       res

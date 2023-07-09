@@ -18,11 +18,6 @@ pub struct Ptr<T: Sized> {
   pub(crate) instance: T,
 }
 
-pub struct MutPtr<'ctx, T: Sized> {
-  mutable: &'ctx mut Ptr<T>,
-  ctx: &'ctx mut Context
-}
-
 impl<T> Ptr<T> {
 
   pub(crate) fn set_ptr(&mut self, ptr: usize) {
@@ -90,69 +85,6 @@ pub trait ComponentToMut<T> {
   fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut T;
 }
 
-macro_rules! impl_component_legacy {
-  ($super:tt, $code_type:tt, $type:tt) => {
-
-    impl ComponentToRef<$type> for $type {
-      fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx $type {
-        match value {
-          Component::$type(v) => v,
-          _ => panic!("Invalid type"),
-        }
-      }
-    }
-
-    impl ComponentToMut<$type> for $type {
-      fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut $type {
-        match value {
-          Component::$type(v) => v,
-          _ => panic!("Invalid type"),
-        }
-      }
-    }
-
-    impl AsSuper<$super> for $type {
-      type SuperType = $super;
-
-      fn as_super(&self) -> Self::SuperType {
-        $super{ skey: self.skey.clone().unwrap(), kind: $code_type::$type }
-      }
-
-    }
-
-    impl $type {
-      pub fn from_skey(skey: usize) -> $super {
-        $super { skey: skey, kind: $code_type::$type }
-      }
-    }
-
-    impl From<$type> for Component {
-      fn from(value: $type) -> Self {
-        Component::$type(value)
-      }
-    }
-
-    impl WithKindCode<$code_type> for $type {
-      fn kind_code() -> $code_type {
-        $code_type::$type
-      }
-    }
-
-    impl GetSlabKey for $type {
-      fn get_skey(&self) -> usize {
-        self.skey.unwrap()
-      }
-    }
-
-    impl SetSlabKey for $type {
-      fn set_skey(&mut self, skey: usize) {
-        self.skey = Some(skey);
-      }
-    }
-
-  };
-}
-
 macro_rules! impl_component {
   ($super:tt, $code_type:tt, $type:tt) => {
 
@@ -218,22 +150,21 @@ macro_rules! impl_component {
 
 
 // Types
-impl_component_legacy!(TypeRef, TKindCode, IntType);
-impl_component_legacy!(TypeRef, TKindCode, VoidType);
-impl_component_legacy!(TypeRef, TKindCode, StructType);
-impl_component_legacy!(TypeRef, TKindCode, PointerType);
-impl_component_legacy!(TypeRef, TKindCode, FunctionType);
-impl_component_legacy!(TypeRef, TKindCode, ArrayType);
+impl_component!(TypeRef, TKindCode, IntType);
+impl_component!(TypeRef, TKindCode, VoidType);
+impl_component!(TypeRef, TKindCode, StructType);
+impl_component!(TypeRef, TKindCode, PointerType);
+impl_component!(TypeRef, TKindCode, FunctionType);
+impl_component!(TypeRef, TKindCode, ArrayType);
 // Values
-impl_component_legacy!(ValueRef, VKindCode, ConstExpr);
-impl_component_legacy!(ValueRef, VKindCode, ConstObject);
-impl_component_legacy!(ValueRef, VKindCode, InlineAsm);
-impl_component_legacy!(ValueRef, VKindCode, Undef);
-
 impl_component!(ValueRef, VKindCode, Function);
 impl_component!(ValueRef, VKindCode, Argument);
 impl_component!(ValueRef, VKindCode, Instruction);
 impl_component!(ValueRef, VKindCode, Block);
 impl_component!(ValueRef, VKindCode, ConstScalar);
 impl_component!(ValueRef, VKindCode, ConstArray);
+impl_component!(ValueRef, VKindCode, ConstExpr);
+impl_component!(ValueRef, VKindCode, ConstObject);
+impl_component!(ValueRef, VKindCode, InlineAsm);
+impl_component!(ValueRef, VKindCode, Undef);
 

@@ -60,7 +60,7 @@ impl Function {
   }
 
   pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
-    return self.instance.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty.clone();
+    return self.instance.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty().clone();
   }
 
   pub fn is_declaration(&self) -> bool {
@@ -75,7 +75,7 @@ impl Function {
     } else {
       "define dso_local"
     };
-    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty.to_string(&ctx), namify(&self.get_name())).as_str());
+    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), namify(&self.get_name())).as_str());
     for i in 0..self.get_num_args() {
       if i != 0 {
         res.push_str(", ");
@@ -146,7 +146,7 @@ impl Argument {
   }
 
   pub fn from_fty(fty: &FunctionType) -> Vec<Self> {
-    fty.args.iter().map(|ty| {
+    fty.instance.args.iter().map(|ty| {
       let instance = ArgumentImpl{ty: ty.clone(), parent: 0};
       Argument::from(instance)
     }).collect()

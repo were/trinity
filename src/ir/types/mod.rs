@@ -6,7 +6,7 @@ pub mod functype;
 pub use arraytype::{PointerType, ArrayType};
 pub use functype::FunctionType;
 
-use crate::context::Context;
+use crate::context::{Context, Ptr};
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::value::consts::ConstArray;
 
@@ -28,22 +28,22 @@ pub enum TKindCode {
 
 
 /// Very basic integer type
-#[derive(Clone)]
-pub struct IntType {
-  pub(crate) skey: Option<usize>,
+pub struct IntImpl {
   bits: usize,
 }
+
+pub type IntType = Ptr<IntImpl>;
 
 impl IntType {
   
   /// Construct an integer type
   pub(crate) fn new(bits: usize) -> Self {
-    IntType { skey: None, bits }
+    Self::from(IntImpl { bits })
   }
 
   /// Return the number of bits
   pub fn get_bits(&self) -> usize {
-    self.bits
+    self.instance.bits
   }
 
 }
@@ -51,15 +51,13 @@ impl IntType {
 impl fmt::Display for IntType {
 
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "i{}", self.bits)
+    write!(f, "i{}", self.get_bits())
   }
 
 }
 
 /// Void type
-pub struct VoidType {
-  pub(crate) skey: Option<usize>,
-}
+pub type VoidType = Ptr<()>;
 
 impl fmt::Display for VoidType {
 
@@ -70,41 +68,41 @@ impl fmt::Display for VoidType {
 }
 
 /// Struct type
-pub struct StructType {
-  pub(crate) skey: Option<usize>,
+pub struct StructImpl {
   pub(crate) name: String,
   pub(crate) attrs: Vec<TypeRef>,
 }
 
+pub type StructType = Ptr<StructImpl>;
+
 impl StructType {
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let attrs = self.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ");
-    format!("%{} = type {{ {} }}", self.name, attrs)
+    let attrs = self.instance.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ");
+    format!("%{} = type {{ {} }}", self.get_name(), attrs)
   }
 
   pub fn get_num_attrs(&self) -> usize {
-    self.attrs.len()
+    self.instance.attrs.len()
   }
 
   pub fn get_attr(&self, i: usize) -> TypeRef {
-    self.attrs[i].clone()
+    self.instance.attrs[i].clone()
   }
 
   pub fn new(name: String) -> Self {
-    StructType {
-      skey: None,
+    Self::from(StructImpl {
       name,
       attrs: Vec::new(),
-    }
+    })
   }
 
   pub fn get_name(&self) -> &str {
-    &self.name
+    &self.instance.name
   }
 
   pub fn set_body(&mut self, elements: Vec<TypeRef>) {
-    self.attrs = elements;
+    self.instance.attrs = elements;
   }
 
 }
@@ -186,18 +184,18 @@ impl<'ctx> TypeRef {
     match self.kind {
       TKindCode::IntType => {
         let it = self.as_ref::<IntType>(ctx).unwrap();
-        it.bits
+        it.get_bits()
       }
       TKindCode::VoidType => {
         1
       }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
-        st.attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
+        st.instance.attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();
-        at.elem_ty.get_scalar_size_in_bits(module)
+        at.get_elem_ty().get_scalar_size_in_bits(module)
       }
       TKindCode::PointerType => {
         tm.get_pointer_size_in_bits()
