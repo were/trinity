@@ -60,7 +60,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        format!("{}{}", self.type_to_string(ctx, with_type), const_scalar.value)
+        format!("{}{}", self.type_to_string(ctx, with_type), const_scalar.get_value())
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
@@ -106,15 +106,15 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        const_scalar.ty.clone()
+        const_scalar.get_type().clone()
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
         func.get_type()
       },
       VKindCode::ConstArray => {
-        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
-        const_array.ty.clone()
+        let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
+        const_array.get_type().clone()
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);

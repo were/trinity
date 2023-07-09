@@ -216,12 +216,7 @@ impl<'ctx> TypeRef {
   pub fn const_array(&self, ctx: &mut Context, name_prefix: String, value: Vec<ValueRef>) -> ValueRef {
     assert!(self.kind == TKindCode::ArrayType);
     // TODO(@were): Check the types.
-    let const_array = ConstArray {
-      skey: None,
-      name_prefix,
-      ty: self.ptr_type(ctx),
-      value
-    };
+    let const_array = ConstArray::new(name_prefix, self.ptr_type(ctx), value);
     ctx.add_instance(const_array)
   }
 

@@ -1,13 +1,14 @@
-use crate::{context::Context, ir::types::{PointerType, StructType}};
+use crate::{context::{Context, Ptr}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
 use super::{ValueRef, instruction::InstOpcode};
 
-pub struct ConstScalar {
-  pub(crate) skey: Option<usize>,
+pub struct ConstScalarImpl {
   pub(crate) ty: TypeRef,
   pub(crate) value: u64
 }
+
+pub type ConstScalar = Ptr<ConstScalarImpl>;
 
 pub struct Undef {
   pub(crate) skey: Option<usize>,
@@ -33,38 +34,69 @@ fn str2display(s: &String) -> String {
   s.chars().map(|c| if ('\x20'..'\x7e').contains(&c) { c.to_string() } else { format!("\\{:02x}", c as u8) }).collect::<Vec<String>>().join("")
 }
 
-impl ConstScalar {
-
+impl ConstScalarImpl {
   pub(crate) fn new(ty: TypeRef, value: u64) -> Self {
     Self {
-      skey: None,
       ty,
       value
     }
   }
 
+}
+
+impl ConstScalar {
+
+  pub(crate) fn new(ty: TypeRef, value: u64) -> Self {
+    ConstScalar::from(ConstScalarImpl::new(ty, value))
+  }
+
   pub fn to_string(&self, ctx: &Context) -> String {
-    format!("{} = {}", self.ty.to_string(ctx), self.value)
+    format!("{} = {}", self.instance.ty.to_string(ctx), self.instance.value)
+  }
+
+  pub fn get_value(&self) -> u64 {
+    self.instance.value
+  }
+
+  pub fn get_type(&self) -> &TypeRef {
+    &self.instance.ty
   }
 
 }
 
-pub struct ConstArray {
-  pub(crate) skey: Option<usize>,
+pub struct ConstArrayImpl {
   pub(crate) name_prefix: String,
   pub(crate) ty: TypeRef,
   pub(crate) value: Vec<ValueRef>
 }
 
+pub type ConstArray = Ptr<ConstArrayImpl>;
+
 impl ConstArray {
 
+  pub fn new(name_prefix: String, ty: TypeRef, value: Vec<ValueRef>) -> Self {
+    Self::from(ConstArrayImpl {
+      name_prefix,
+      ty,
+      value
+    })
+  }
+
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.name_prefix, self.skey.unwrap())
+    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
+  }
+
+  pub fn get_type(&self) -> &TypeRef {
+    &self.instance.ty
+  }
+
+  pub fn get_value(&self) -> &Vec<ValueRef> {
+    &self.instance.value
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let literal = self.value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
-    let pty = self.ty.as_ref::<PointerType>(ctx).unwrap();
+    let literal = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
+    let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
     format!("@{} = private unnamed_addr constant {} [{}], align 1", self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
   }
 
