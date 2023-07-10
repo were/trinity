@@ -11,7 +11,7 @@ use crate::ir::types::TKindCode;
 
 /// Manage the slab pointer of each IR component.
 pub struct Ptr<T: Sized> {
-  ptr: Option<usize>,
+  skey: Option<usize>,
   // TODO(@were): Make this private later.
   pub(crate) instance: T,
 }
@@ -19,7 +19,7 @@ pub struct Ptr<T: Sized> {
 impl<T>GetSlabKey for Ptr<T> {
 
   fn get_skey(&self) -> usize {
-    self.ptr.unwrap()
+    self.skey.unwrap()
   }
 
 }
@@ -27,7 +27,7 @@ impl<T>GetSlabKey for Ptr<T> {
 impl<T>SetSlabKey for Ptr<T> {
 
   fn set_skey(&mut self, skey: usize) {
-    self.ptr = Some(skey);
+    self.skey = Some(skey);
   }
 
 }
@@ -35,7 +35,7 @@ impl<T>SetSlabKey for Ptr<T> {
 impl <T>From<T> for Ptr<T> {
 
   fn from(value: T) -> Self {
-    Ptr { ptr: None, instance: value }
+    Ptr { skey: None, instance: value }
   }
 
 }
@@ -105,7 +105,7 @@ macro_rules! impl_component {
       fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut $type {
         match value {
           Component::$type(v) => v,
-          _ => panic!("Invalid type"),
+          _ => panic!("Invalid type, expect {}", stringify!($type)),
         }
       }
     }
@@ -114,14 +114,14 @@ macro_rules! impl_component {
       type SuperType = $super;
 
       fn as_super(&self) -> Self::SuperType {
-        $super{ skey: self.ptr.unwrap(), kind: $code_type::$type }
+        $super{ skey: self.skey.unwrap(), kind: $code_type::$type }
       }
 
     }
 
     impl $type {
       pub fn from_skey(skey: usize) -> $super {
-        $super { skey: skey, kind: $code_type::$type }
+        $super { skey, kind: $code_type::$type }
       }
     }
 
@@ -136,18 +136,6 @@ macro_rules! impl_component {
         $code_type::$type
       }
     }
-
-    // impl GetSlabKey for $type {
-    //   fn get_skey(&self) -> usize {
-    //     self.get_ptr()
-    //   }
-    // }
-
-    // impl SetSlabKey for $type {
-    //   fn set_skey(&mut self, skey: usize) {
-    //     self.set_ptr(skey);
-    //   }
-    // }
 
   };
 }
