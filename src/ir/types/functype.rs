@@ -1,26 +1,25 @@
+use crate::context::Ptr;
+
 use super::TypeRef;
 
 /// A function signature type
-pub struct FunctionType {
-  pub(crate) skey: Option<usize>,
+pub struct FuncTypeImpl {
   pub(crate) args: Vec<TypeRef>,
   pub(crate) ret_ty: TypeRef,
 }
 
+pub type FunctionType = Ptr<FuncTypeImpl>;
+
 impl FunctionType {
   pub(crate) fn new(ret_ty: TypeRef, args: Vec<TypeRef>) -> Self {
-    FunctionType {
-      skey: None,
-      args,
-      ret_ty,
-    }
+    Self::from(FuncTypeImpl { args, ret_ty, })
   }
 
   pub fn ret_ty(&self) -> &TypeRef {
-    &self.ret_ty
+    &self.instance.ret_ty
   }
 
   pub fn args(&self) -> &[TypeRef] {
-    &self.args
+    &self.instance.args
   }
 }

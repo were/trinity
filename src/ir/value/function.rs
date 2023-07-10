@@ -1,72 +1,84 @@
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
+use crate::context::Ptr;
 
-use crate::context::Context;
+use crate::context::{
+  Context,
+  component::GetSlabKey
+};
 
-#[derive(Clone)]
-pub struct Argument {
-  pub(crate) skey: Option<usize>,
+pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
-  pub(crate) arg_idx: usize,
   pub(crate) parent: usize
 }
 
-pub struct Function {
-  pub(crate) skey: Option<usize>,
+pub struct FunctionImpl {
   pub(crate) name: String,
   pub(crate) args: Vec<usize>,
   pub(crate) fty: TypeRef,
   pub(crate) blocks: Vec<usize>,
 }
 
+pub type Argument = Ptr<ArgumentImpl>;
+pub type Function = Ptr<FunctionImpl>;
+
 impl Function {
 
   pub fn get_name(&self) -> &String {
-    &self.name
+    &self.instance.name
   }
 
   pub fn basic_blocks(&self) -> &Vec<usize> {
-    &self.blocks
+    &self.instance.blocks
+  }
+
+  pub fn basic_blocks_mut(&mut self) -> &mut Vec<usize> {
+    &mut self.instance.blocks
   }
 
   pub fn get_num_args(&self) -> usize {
-    return self.args.len();
+    return self.instance.args.len();
   }
 
   pub fn get_arg(&self, i: usize) -> ValueRef {
-    return ValueRef{skey: self.args[i], kind: VKindCode::Argument};
+    return Argument::from_skey(self.instance.args[i]);
   }
 
   pub fn get_num_blocks(&self) -> usize {
-    return self.blocks.len();
+    return self.instance.blocks.len();
+  }
+
+  /// Get the type of the function.
+  pub fn get_type(&self) -> TypeRef {
+    return self.instance.fty.clone();
   }
 
   pub fn get_block(&self, i: usize) -> Option<ValueRef> {
-    if i < self.blocks.len() {
-      Some(ValueRef{skey: self.blocks[i], kind: VKindCode::Block})
+    if i < self.instance.blocks.len() {
+      Some(ValueRef{skey: self.instance.blocks[i], kind: VKindCode::Block})
     } else {
       None
     }
   }
 
   pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
-    return self.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty.clone();
+    return self.instance.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty().clone();
   }
 
   pub fn is_declaration(&self) -> bool {
-    return self.blocks.len() == 0;
+    return self.instance.blocks.len() == 0;
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let mut res = String::new();
-    let fty = self.fty.as_ref::<FunctionType>(ctx).unwrap();
+    let fty = self.instance.fty.as_ref::<FunctionType>(ctx).unwrap();
     let prefix = if self.is_declaration() {
       "declare"
     } else {
       "define dso_local"
     };
-    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty.to_string(&ctx), namify(&self.name)).as_str());
+    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), namify(&self.get_name())).as_str());
     for i in 0..self.get_num_args() {
       if i != 0 {
         res.push_str(", ");
@@ -90,6 +102,11 @@ impl Function {
 
   pub fn iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> FuncBlockIter {
     FuncBlockIter{ i: 0, func: self, ctx }
+  }
+
+  pub(crate) fn new(name: String, fty: TypeRef, args: Vec<usize>) -> Self {
+    let instance = FunctionImpl{name, args, fty, blocks: Vec::new()};
+    Function::from(instance)
   }
 
 }
@@ -120,15 +137,22 @@ impl <'ctx>Iterator for FuncBlockIter<'ctx> {
 impl Argument {
 
   pub fn get_parent(&self) -> ValueRef {
-    return ValueRef{ skey: self.parent, kind: VKindCode::Function };
+    return Function::from_skey(self.instance.parent);
   }
 
-  pub fn name(&self) -> String {
-    format!("%arg.{}", self.arg_idx)
+  pub fn get_name(&self) -> String {
+    format!("arg.{}", self.get_skey())
   }
 
   pub fn to_string(&self, context: &Context) -> String {
-    format!("{} {}", self.ty.to_string(context), self.name())
+    format!("{} %{}", self.instance.ty.to_string(context), self.get_name())
+  }
+
+  pub fn from_fty(fty: &FunctionType) -> Vec<Self> {
+    fty.instance.args.iter().map(|ty| {
+      let instance = ArgumentImpl{ty: ty.clone(), parent: 0};
+      Argument::from(instance)
+    }).collect()
   }
 
 }

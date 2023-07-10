@@ -33,11 +33,13 @@ impl<'ctx> Context {
     self.slab.remove(skey);
   }
 
-  pub fn get_value_ref<T: ComponentToRef<T> + GetSlabKey>(&'ctx self, skey: usize) -> &'ctx T {
+  pub fn get_value_ref<T>(&'ctx self, skey: usize) -> &'ctx T
+    where T: ComponentToRef<T> + GetSlabKey {
     T::instance_to_self(&self.slab[skey])
   }
 
-  pub fn get_value_mut<T: ComponentToMut<T> + GetSlabKey>(&'ctx mut self, skey: usize) -> &'ctx mut T {
+  pub fn get_value_mut<T>(&'ctx mut self, skey: usize) -> &'ctx mut T
+    where T: ComponentToMut<T> + GetSlabKey {
     T::instance_to_self_mut(&mut self.slab[skey])
   }
 
@@ -45,17 +47,12 @@ impl<'ctx> Context {
     self.slab.capacity()
   }
 
-  fn add_component(&mut self, instance: Component) -> usize {
-    let res = self.slab.insert(instance);
-    res
-  }
-
-  pub(super) fn add_instance<T, U>(&mut self, instance: T) -> T::SuperType
-    where T: Into<Component> + AsSuper<U> + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey {
-    let skey = self.add_component(instance.into());
-    self.slab[skey].set_skey(skey);
-    let instance_ref = self.get_value_ref::<T>(skey);
-    instance_ref.as_super()
+  pub(super) fn add_instance<T>(&mut self, instance: T) -> T::SuperType
+    where T: Into<Component> + AsSuper + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey + SetSlabKey {
+    let skey = self.slab.insert(instance.into());
+    let instance_mut = self.get_value_mut::<T>(skey);
+    instance_mut.set_skey(skey);
+    instance_mut.as_super()
   }
 
   // TODO(@were): Move these to the context.
@@ -87,11 +84,6 @@ impl<'ctx> Context {
   pub fn const_value(&mut self, ty: TypeRef, value: u64) -> ValueRef {
     assert!(pod::is_pod(&ty));
     pod::Cache::const_scalar(self, ty, value)
-    // let instance = ConstScalar{
-    //   skey: None, ty,
-    //   value: value as u64
-    // };
-    // self.add_instance(instance)
   }
 
   pub fn undef(&mut self, ty: TypeRef) -> ValueRef {

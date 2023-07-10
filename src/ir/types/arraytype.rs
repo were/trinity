@@ -1,60 +1,62 @@
-use crate::context::Context;
+use crate::context::{Context, Ptr};
 
 use super::TypeRef;
 
 /// Pointer type
 #[derive(Clone)]
-pub struct PointerType {
-  pub(crate) skey: Option<usize>,
+pub struct PointerImpl {
   pub(super) scalar_ty: TypeRef,
 }
+
+pub type PointerType = Ptr<PointerImpl>;
 
 impl PointerType {
 
   pub(crate) fn new(scalar_ty: TypeRef) -> Self {
-    PointerType {
-      skey: None,
-      scalar_ty,
-    }
+    Self::from(PointerImpl { scalar_ty, })
   }
 
   pub fn to_string(&self, context: &Context) -> String {
-    format!("{}*", self.scalar_ty.to_string(context))
+    format!("{}*", self.get_pointee_ty().to_string(context))
   }
 
   pub fn get_pointee_ty(&self) -> TypeRef {
-    self.scalar_ty.clone()
+    self.instance.scalar_ty.clone()
   }
 
 }
 
 /// Array type
 #[derive(Clone)]
-pub struct ArrayType {
-  pub(crate) skey: Option<usize>,
+pub struct ArrayTypeImpl {
   pub(crate) elem_ty: TypeRef,
   pub(crate) size: usize,
 }
 
+pub type ArrayType = Ptr<ArrayTypeImpl>;
+
 impl ArrayType {
 
   pub(crate) fn new(elem_ty: TypeRef, size: usize) -> Self {
-    ArrayType {
-      skey: None,
+    Self::from(ArrayTypeImpl {
       elem_ty,
       size,
-    }
+    })
+  }
+
+  pub fn get_size(&self) -> usize {
+    self.instance.size
   }
 
   pub fn to_string(&self, context: &Context) -> String {
-    format!("[{} x {}]", self.size, self.elem_ty.to_string(context))
+    format!("[{} x {}]", self.get_size(), self.get_elem_ty().to_string(context))
   }
 
   pub fn get_elem_ty(&self) -> TypeRef {
-    self.elem_ty.clone()
+    self.instance.elem_ty.clone()
   }
 
   pub fn to_pointer(&self, ctx: &mut Context) -> TypeRef {
-    self.elem_ty.ptr_type(ctx)
+    self.get_elem_ty().ptr_type(ctx)
   }
 }

@@ -10,7 +10,7 @@ pub struct Alloca<'inst> {
 impl<'inst> Alloca <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Alloca(_) = inst.opcode {
+    if let InstOpcode::Alloca(_) = inst.get_opcode() {
       Self { inst, }
     } else {
       panic!("Invalid opcode for Alloca instruction.");
@@ -18,15 +18,15 @@ impl<'inst> Alloca <'inst> {
   }
 
   pub fn get_align(&self) -> usize {
-    if let InstOpcode::Alloca(align) = self.inst.opcode {
-      align
+    if let InstOpcode::Alloca(align) = self.inst.get_opcode() {
+      *align
     } else {
       panic!("Invalid opcode for Alloca instruction.");
     }
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let ptr_ty = self.inst.ty.as_ref::<PointerType>(ctx).unwrap();
+    let ptr_ty = self.inst.get_type().as_ref::<PointerType>(ctx).unwrap();
     let ptr_str = ptr_ty.get_pointee_ty().to_string(ctx);
     return format!("%{} = alloca {}, align {}", self.inst.get_name(), ptr_str, self.get_align());
   }
@@ -41,7 +41,7 @@ pub struct Load<'inst> {
 impl <'inst> Load <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Load(_) = inst.opcode {
+    if let InstOpcode::Load(_) = inst.get_opcode() {
       Self { inst, }
     } else {
       panic!("Invalid opcode for Load instruction.");
@@ -49,21 +49,20 @@ impl <'inst> Load <'inst> {
   }
 
   pub fn get_ptr(&self) -> &ValueRef {
-    &self.inst.operands[0]
+    &self.inst.get_operand(0).unwrap()
   }
 
   pub fn get_align(&self) -> usize {
-    if let InstOpcode::Load(align) = self.inst.opcode {
-      align
+    if let InstOpcode::Load(align) = self.inst.get_opcode() {
+      *align
     } else {
       panic!("Invalid opcode for Load instruction.");
     }
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let inst = ctx.get_value_ref::<Instruction>(self.inst.skey.unwrap());
     format!("%{} = load {}, {}, align {}",
-      inst.get_name(), inst.ty.to_string(ctx),
+      self.inst.get_name(), self.inst.get_type().to_string(ctx),
       self.get_ptr().to_string(ctx, true), self.get_align())
   }
 
@@ -78,7 +77,7 @@ pub struct Store<'inst> {
 impl <'inst> Store <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Store(_) = inst.opcode {
+    if let InstOpcode::Store(_) = inst.get_opcode() {
       Self { inst, }
     } else {
       panic!("Invalid opcode for Store instruction.");
@@ -86,16 +85,16 @@ impl <'inst> Store <'inst> {
   }
   
   pub fn get_value(&self) -> &ValueRef {
-    &self.inst.operands[0]
+    &self.inst.get_operand(0).unwrap()
   }
 
   pub fn get_ptr(&self) -> &ValueRef {
-    &self.inst.operands[1]
+    &self.inst.get_operand(1).unwrap()
   }
 
   pub fn get_align(&self) -> usize {
-    if let InstOpcode::Store(align) = self.inst.opcode {
-      align
+    if let InstOpcode::Store(align) = self.inst.get_opcode() {
+      *align
     } else {
       panic!("Invalid opcode for Store instruction.");
     }
@@ -116,7 +115,7 @@ pub struct GetElementPtr<'inst> {
 impl <'inst>GetElementPtr<'inst> {
 
   pub fn new(inst: &'inst Instruction, inbounds: bool) -> Self {
-    if let InstOpcode::GetElementPtr(_) = inst.opcode {
+    if let InstOpcode::GetElementPtr(_) = inst.get_opcode() {
       Self { inst, inbounds, }
     } else {
       panic!("Invalid opcode for GetElementPtr instruction.");
@@ -130,7 +129,7 @@ impl <'inst>GetElementPtr<'inst> {
       ""
     };
     // TODO(@were): What if this is not a pointer?
-    let ptr_scalar = self.inst.operands[0].get_type(ctx).as_ref::<PointerType>(ctx).unwrap().get_pointee_ty();
+    let ptr_scalar = self.inst.get_operand(0).unwrap().get_type(ctx).as_ref::<PointerType>(ctx).unwrap().get_pointee_ty();
     let ty_str = ptr_scalar.to_string(ctx);
 
     let operands = (0..self.inst.get_num_operands()).map(|i| {
@@ -149,7 +148,7 @@ pub struct Call<'inst> {
 impl <'inst> Call<'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Call = inst.opcode {
+    if let InstOpcode::Call = inst.get_opcode() {
       Self { inst, }
     } else {
       panic!("Invalid opcode for Call instruction.");
@@ -157,15 +156,15 @@ impl <'inst> Call<'inst> {
   }
 
   pub fn get_callee(&self) -> &ValueRef {
-    self.inst.operands.last().unwrap()
+    &self.inst.get_operand(self.inst.get_num_operands() - 1).unwrap()
   }
 
   pub fn get_num_args(&self) -> usize {
-    self.inst.operands.len() - 1
+    self.inst.get_num_operands() - 1
   }
 
   pub fn get_arg(&self, idx: usize) -> &ValueRef {
-    &self.inst.operands[idx]
+    &self.inst.get_operand(idx).unwrap()
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
@@ -190,7 +189,7 @@ pub struct Return <'inst> {
 impl <'inst> Return <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Return = inst.opcode {
+    if let InstOpcode::Return = inst.get_opcode() {
       Self { base: inst, }
     } else {
       panic!("Invalid opcode for Return instruction.");
@@ -198,7 +197,11 @@ impl <'inst> Return <'inst> {
   }
 
   pub fn get_ret_val(&self) -> Option<&ValueRef> {
-    self.base.operands.get(0)
+    if let Some(ret) = self.base.get_operand(0) {
+      Some(&ret)
+    } else {
+      None
+    }
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
@@ -219,7 +222,7 @@ pub struct BinaryInst <'inst> {
 impl<'inst> BinaryInst <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::BinaryOp(_) = inst.opcode {
+    if let InstOpcode::BinaryOp(_) = inst.get_opcode() {
       Self { base: inst, }
     } else {
       panic!("Invalid opcode for BinaryOp instruction.");
@@ -229,17 +232,17 @@ impl<'inst> BinaryInst <'inst> {
   pub fn to_string(&self, ctx: &Context) -> String {
     let lhs = self.lhs();
     let rhs = self.rhs();
-    let op = self.base.opcode.to_string();
-    let ty = self.base.ty.to_string(ctx);
+    let op = self.base.get_opcode().to_string();
+    let ty = self.base.get_type().to_string(ctx);
     format!("%{} = {} {} {}, {}", self.base.get_name(), op, ty, lhs.to_string(ctx, false), rhs.to_string(ctx, false))
   }
 
   pub fn lhs(&self) -> &ValueRef {
-    &self.base.operands[0]
+    self.base.get_operand(0).unwrap()
   }
 
   pub fn rhs(&self) -> &ValueRef {
-    &self.base.operands[1]
+    self.base.get_operand(1).unwrap()
   }
 
 }
@@ -251,7 +254,7 @@ pub struct CastInst <'inst> {
 impl<'inst> CastInst <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::CastInst(_) = inst.opcode {
+    if let InstOpcode::CastInst(_) = inst.get_opcode() {
       Self { base: inst }
     } else {
       panic!("Not a cast instruction!");
@@ -259,13 +262,13 @@ impl<'inst> CastInst <'inst> {
   }
 
   pub fn dest_ty(&self) -> TypeRef {
-    return self.base.ty.clone()
+    return self.base.get_type().clone()
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let operand = self.base.operands[0].to_string(ctx, true);
+    let operand = self.base.get_operand(0).unwrap().to_string(ctx, true);
     let dest_type = self.dest_ty().to_string(ctx);
-    format!("%{} = {} {} to {}", self.base.get_name(), self.base.opcode.to_string(), operand, dest_type)
+    format!("%{} = {} {} to {}", self.base.get_name(), self.base.get_opcode().to_string(), operand, dest_type)
   }
 
 }
@@ -277,7 +280,7 @@ pub struct CompareInst <'inst> {
 impl <'inst> CompareInst<'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::ICompare(_) = inst.opcode {
+    if let InstOpcode::ICompare(_) = inst.get_opcode()  {
       CompareInst { base: inst }
     } else {
       panic!("Invalid opcode!")
@@ -292,13 +295,13 @@ impl <'inst> CompareInst<'inst> {
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let opcode = self.base.opcode.to_string();
+    let opcode = self.base.get_opcode().to_string();
     let pred = self.get_pred().to_string();
-    let lhs = self.base.operands.get(0).unwrap();
+    let lhs = self.base.get_operand(0).unwrap();
     let ty = lhs.get_type(ctx).to_string(ctx);
     let lhs = lhs.to_string(ctx, false);
     let res = format!("%{} = {} {} {} {}", self.base.get_name(), opcode, pred, ty, lhs);
-    if let Some(rhs) = self.base.operands.get(1) {
+    if let Some(rhs) = self.base.get_operand(1) {
       let rhs = rhs.to_string(ctx, false);
       format!("{}, {}", res, rhs)
     } else {
@@ -315,7 +318,7 @@ pub struct BranchInst<'inst> {
 impl <'inst> BranchInst <'inst> {
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Branch = inst.opcode {
+    if let InstOpcode::Branch = inst.get_opcode()  {
       BranchInst { base: inst }
     } else {
       panic!("Invalid opcode!")
@@ -328,43 +331,43 @@ impl <'inst> BranchInst <'inst> {
 
   pub fn cond(&self) -> Option<&ValueRef> {
     assert!(self.is_cond_br());
-    self.base.operands.get(0)
+    self.base.get_operand(0)
   }
 
   pub fn true_label(&self) -> Option<&ValueRef> {
     assert!(self.is_cond_br());
-    self.base.operands.get(1)
+    self.base.get_operand(1)
   }
 
   pub fn false_label(&self) -> Option<&ValueRef> {
     assert!(self.is_cond_br());
-    self.base.operands.get(2)
+    self.base.get_operand(2)
   }
 
   pub fn dest_label(&self) -> Option<&ValueRef> {
     assert!(!self.is_cond_br());
-    self.base.operands.get(0)
+    self.base.get_operand(0)
   }
 
   pub fn get_successors(&self) -> Vec<ValueRef> {
     if self.is_cond_br() {
-      vec![self.base.get_operand(1).unwrap(), self.base.get_operand(2).unwrap()]
+      vec![self.base.get_operand(1).unwrap().clone(), self.base.get_operand(2).unwrap().clone()]
     } else {
-      vec![self.base.get_operand(0).unwrap()]
+      vec![self.base.get_operand(0).unwrap().clone()]
     }
   }
 
   pub fn to_string(&self, ctx: &Context) -> String {
     if self.base.get_num_operands() == 3 {
-      let cond = self.base.operands.get(0).unwrap();
+      let cond = self.base.get_operand(0).unwrap();
       let cond = cond.to_string(ctx, true);
-      let true_label = self.base.operands.get(1).unwrap();
+      let true_label = self.base.get_operand(1).unwrap();
       let true_label = true_label.to_string(ctx, false);
-      let false_label = self.base.operands.get(2).unwrap();
+      let false_label = self.base.get_operand(2).unwrap();
       let false_label = false_label.to_string(ctx, false);
       format!("br {}, label {}, label {}", cond, true_label, false_label)
     } else {
-      format!("br label {}", self.base.operands.get(0).unwrap().to_string(ctx, false))
+      format!("br label {}", self.base.get_operand(0).unwrap().to_string(ctx, false))
     }
   }
 }
@@ -378,22 +381,22 @@ pub struct PhiNode<'inst> {
 impl <'inst>PhiNode<'inst> {
 
   pub fn to_string(&self, ctx: &Context) -> String {
-    let ty = self.base.ty.to_string(ctx);
+    let ty = self.base.get_type().to_string(ctx);
     let mut res = format!("%{} = phi {} ", self.base.get_name(), ty);
-    for i in (0..self.base.operands.len()).step_by(2) {
+    for i in (0..self.base.get_num_operands()).step_by(2) {
       if i != 0 {
         res.push_str(", ");
       }
-      let operand = self.base.operands.get(i).unwrap();
+      let operand = self.base.get_operand(i).unwrap();
       res.push_str(&format!("[ {}, ", operand.to_string(ctx, false)));
-      let operand = self.base.operands.get(i + 1).unwrap();
+      let operand = self.base.get_operand(i + 1).unwrap();
       res.push_str(&format!("{} ]", operand.to_string(ctx, false)));
     }
     res
   }
 
   pub fn new(inst: &'inst Instruction) -> Self {
-    if let InstOpcode::Phi = inst.opcode {
+    if let InstOpcode::Phi = inst.get_opcode()  {
       PhiNode { base: inst }
     } else {
       panic!("Invalid opcode!")
@@ -401,13 +404,13 @@ impl <'inst>PhiNode<'inst> {
   }
 
   pub fn get_num_incomings(&self) -> usize {
-    assert_eq!(self.base.operands.len() % 2, 0);
-    self.base.operands.len() / 2
+    assert_eq!(self.base.get_num_operands() % 2, 0);
+    self.base.get_num_operands() / 2
   }
 
   pub fn get_incoming_block(&self, index: usize) -> Option<&ValueRef> {
     if index < self.get_num_incomings() {
-      self.base.operands.get(index * 2 + 1)
+      Some(&self.base.get_operand(index * 2 + 1).unwrap())
     } else {
       None
     }

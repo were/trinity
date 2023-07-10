@@ -1,5 +1,4 @@
-use crate::context::component::AsSuper;
-
+use crate::context::component::GetSlabKey;
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
@@ -14,8 +13,6 @@ use crate::ir::{
   value::instruction::{self, Instruction, BinaryOp},
   value::consts::{ConstExpr, ConstObject}
 };
-
-
 
 use crate::context::Context;
 
@@ -55,32 +52,26 @@ impl<'ctx> Builder {
   }
 
   /// Add a function to the module
-  pub fn create_function(&mut self, name: String, fty_ref: TypeRef) -> ValueRef {
+  pub fn create_function(&mut self, name: String, fty: TypeRef) -> ValueRef {
+    // Generate the arguments.
+    let fty_ref = fty.as_mut::<FunctionType>(self.context()).unwrap();
+    let fargs = Argument::from_fty(fty_ref);
+    let mut arg_ptrs = Vec::new();
+    for arg in fargs {
+      arg_ptrs.push(self.context().add_instance(arg).skey);
+    }
     // Create the function.
-    let func = function::Function {
-      skey: None,
-      name, args: Vec::new(), fty: fty_ref.clone(),
-      blocks: Vec::new(),
-    };
+    let func = function::Function::new(name, fty, arg_ptrs);
     // Add the function to module.
     let func_ref = self.context().add_instance(func);
-    let args = fty_ref.as_ref::<FunctionType>(self.context()).unwrap().args.clone();
     self.module.functions.push(func_ref.skey);
-    let fidx = self.module.get_num_functions() - 1;
-    // Generate the arguments.
-    let fargs: Vec<usize> = args.iter().enumerate().map(|(i, ty)| {
-       let arg = Argument {
-         skey: None,
-         ty: ty.clone(),
-         arg_idx: i,
-         parent: func_ref.skey
-       };
-       self.context().add_instance(arg).skey
-    }).collect();
     // Finalize the arguments.
-    let func = self.module.get_function_mut(fidx);
-    func.args = fargs;
-    func.as_super()
+    {
+      let func = func_ref.as_ref::<Function>(&self.module.context).unwrap();
+      let args = (0..func.get_num_args()).map(|i| { func.get_arg(i) }).collect::<Vec<_>>();
+      args.iter().for_each(|arg| arg.as_mut::<Argument>(self.context()).unwrap().instance.parent = func_ref.skey);
+    }
+    func_ref
   }
 
   /// Get the current function to insert.
@@ -97,16 +88,10 @@ impl<'ctx> Builder {
   /// Add a block to the current function.
   pub fn add_block(&mut self, name: String) -> ValueRef {
     let func_ref = self.func.clone().unwrap();
-    let block = Block{
-      skey: None,
-      name_prefix: if name.len() != 0 { name } else { "".to_string() },
-      insts: Vec::new(),
-      parent: func_ref.skey,
-      predecessors: Vec::new(),
-    };
+    let block = Block::new(name, &func_ref);
     let block_ref = self.context().add_instance(block);
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
-    func.blocks.push(block_ref.skey);
+    func.basic_blocks_mut().push(block_ref.skey);
     block_ref
   }
 
@@ -130,19 +115,19 @@ impl<'ctx> Builder {
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let block = inst.get_parent();
     let block = block.as_ref::<Block>(&self.module.context).unwrap();
-    let idx = block.insts.iter().position(|i| *i == inst_ref.skey).unwrap();
+    let idx = block.inst_iter(&self.module.context).position(|i| i.get_skey() == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
 
   fn add_instruction(&mut self, mut inst: instruction::Instruction) -> ValueRef {
     let block_ref = self.block.clone().unwrap();
-    inst.parent = Some(block_ref.skey);
+    inst.instance.parent = Some(block_ref.skey);
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
       let (idx, last)  = if let Some(inst_idx) = self.inst_idx {
-        (inst_idx, inst_idx == block.insts.len() - 1)
+        (inst_idx, inst_idx == block.get_num_insts() - 1)
       } else {
-        (block.insts.len(), true)
+        (block.get_num_insts(), true)
       };
       let closed_block = if last {
         block.closed(&self.module.context)
@@ -157,7 +142,7 @@ impl<'ctx> Builder {
     } else {
       let inst_ref = self.context().add_instance(inst);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
-      block.insts.insert(insert_idx, inst_ref.skey);
+      block.instance.insts.insert(insert_idx, inst_ref.skey);
       inst_ref
     }
   }
@@ -202,13 +187,8 @@ impl<'ctx> Builder {
     operands.extend(indices);
     // All constants
     if operands.iter().fold(true, |acc, val| acc && val.is_const()) {
-      let res = ConstExpr{
-        skey: None,
-        ty,
-        opcode: instruction::InstOpcode::GetElementPtr(inbounds),
-        operands,
-      };
-      let expr = self.context().add_instance::<ConstExpr, _>(res);
+      let res = ConstExpr::new(ty, instruction::InstOpcode::GetElementPtr(inbounds), operands);
+      let expr = self.context().add_instance::<ConstExpr>(res);
       return expr
     } else {
       let inst = instruction::Instruction::new(
@@ -261,7 +241,7 @@ impl<'ctx> Builder {
 
   pub fn create_func_call(&mut self, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
     let fty = callee.get_type(self.context());
-    let ty = fty.as_ref::<FunctionType>(self.context()).unwrap().ret_ty.clone();
+    let ty = fty.as_ref::<FunctionType>(self.context()).unwrap().ret_ty().clone();
     self.create_typed_call(ty, callee, args)
   }
 
@@ -316,12 +296,10 @@ impl<'ctx> Builder {
   }
 
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
-    let gvs = ConstObject {
-      skey: None,
-      name_prefix: "globalobj".to_string(),
-      ty: ty.ptr_type(self.context()),
-      value: init
-    };
+    let gvs = ConstObject::new(
+      "globalobj".to_string(),
+      ty.ptr_type(self.context()),
+      init);
     let gvs_ref = self.context().add_instance(gvs);
     self.module.global_values.push(gvs_ref.clone());
     gvs_ref
@@ -333,13 +311,12 @@ impl<'ctx> Builder {
     if let Some(_) = ty.as_ref::<VoidType>(self.context()) {
       sideeffect = true;
     }
-    let asm = InlineAsm {
-      skey: None,
+    let asm = InlineAsm::new(
       ty,
       sideeffect,
       mnemonic,
       operands,
-    };
+    );
     self.context().add_instance(asm)
   }
 
@@ -418,7 +395,7 @@ impl<'ctx> Builder {
 
   fn add_block_predecessor(&mut self, bb: &ValueRef, pred: &ValueRef) {
     let bb = bb.as_mut::<Block>(&mut self.module.context).unwrap();
-    bb.predecessors.push(pred.skey);
+    bb.instance.predecessors.push(pred.skey);
   }
 
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {

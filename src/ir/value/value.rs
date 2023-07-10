@@ -18,7 +18,8 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
-  pub fn as_ref<T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey>(&self, context: &'ctx Context) -> Option<&'ctx T> {
+  pub fn as_ref<T>(&self, context: &'ctx Context) -> Option<&'ctx T> 
+    where T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey {
     if self.kind == T::kind_code() {
       Some(context.get_value_ref::<T>(self.skey))
     } else {
@@ -52,7 +53,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);
-        format!("{}%arg.{}", self.type_to_string(ctx, with_type), arg.arg_idx)
+        format!("{}%{}", self.type_to_string(ctx, with_type), arg.get_name())
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
@@ -60,11 +61,11 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        format!("{}{}", self.type_to_string(ctx, with_type), const_scalar.value)
+        format!("{}{}", self.type_to_string(ctx, with_type), const_scalar.get_value())
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
-        format!("{}@{}", if with_type { func.get_ret_ty(ctx).to_string(ctx) + " " } else { "".to_string() }, namify(&func.name))
+        format!("{}@{}", if with_type { func.get_ret_ty(ctx).to_string(ctx) + " " } else { "".to_string() }, namify(&func.get_name()))
       },
       VKindCode::ConstArray => {
         let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
@@ -98,7 +99,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Argument => {
         let arg = ctx.get_value_ref::<Argument>(self.skey);
-        arg.ty.clone()
+        arg.instance.ty.clone()
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
@@ -106,31 +107,35 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstScalar => {
         let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        const_scalar.ty.clone()
+        const_scalar.get_type().clone()
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
-        func.fty.clone()
+        func.get_type()
       },
       VKindCode::ConstArray => {
-        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
-        const_array.ty.clone()
+        let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
+        const_array.get_type().clone()
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        const_expr.ty.clone()
+        const_expr
+          .instance
+          .inst
+          .get_type()
+          .clone()
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
-        const_object.ty.clone()
+        const_object.get_type().clone()
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
-        inline_asm.ty.clone()
+        inline_asm.get_type().clone()
       },
       VKindCode::Undef => {
         let undef = ctx.get_value_ref::<Undef>(self.skey);
-        undef.ty.clone()
+        undef.get_type().clone()
       },
       VKindCode::Unknown => {
         panic!("Unknown value type")
