@@ -1,4 +1,4 @@
-use crate::context::{Context, Ptr};
+use crate::context::{Context, SlabEntry};
 
 use super::TypeRef;
 
@@ -8,7 +8,7 @@ pub struct PointerImpl {
   pub(super) scalar_ty: TypeRef,
 }
 
-pub type PointerType = Ptr<PointerImpl>;
+pub type PointerType = SlabEntry<PointerImpl>;
 
 impl PointerType {
 
@@ -33,7 +33,7 @@ pub struct ArrayTypeImpl {
   pub(crate) size: usize,
 }
 
-pub type ArrayType = Ptr<ArrayTypeImpl>;
+pub type ArrayType = SlabEntry<ArrayTypeImpl>;
 
 impl ArrayType {
 

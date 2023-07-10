@@ -6,7 +6,7 @@ pub mod functype;
 pub use arraytype::{PointerType, ArrayType};
 pub use functype::FunctionType;
 
-use crate::context::{Context, Ptr};
+use crate::context::{Context, SlabEntry};
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::value::consts::ConstArray;
 
@@ -32,7 +32,7 @@ pub struct IntImpl {
   bits: usize,
 }
 
-pub type IntType = Ptr<IntImpl>;
+pub type IntType = SlabEntry<IntImpl>;
 
 impl IntType {
   
@@ -57,7 +57,7 @@ impl fmt::Display for IntType {
 }
 
 /// Void type
-pub type VoidType = Ptr<()>;
+pub type VoidType = SlabEntry<()>;
 
 impl fmt::Display for VoidType {
 
@@ -73,7 +73,7 @@ pub struct StructImpl {
   pub(crate) attrs: Vec<TypeRef>,
 }
 
-pub type StructType = Ptr<StructImpl>;
+pub type StructType = SlabEntry<StructImpl>;
 
 impl StructType {
 

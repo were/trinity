@@ -141,6 +141,23 @@ impl<'ctx> Builder {
       ValueRef { skey: 0, kind: VKindCode::Unknown }
     } else {
       let inst_ref = self.context().add_instance(inst);
+      // Maintain the instruction redundancy.
+      let operands = inst_ref
+          .as_mut::<Instruction>(&mut self.module.context)
+          .unwrap()
+          .operand_iter()
+          .collect::<Vec<_>>();
+      for operand in operands.iter() {
+        if let Some(operand) = operand.as_mut::<Instruction>(&mut self.module.context) {
+          operand.add_user(inst_ref.clone());
+        }
+        if let Some(block) = operand.as_mut::<Block>(&mut self.module.context) {
+          block.add_predecessor(&inst_ref);
+        }
+        if let Some(func) = operand.as_mut::<Function>(&mut self.module.context) {
+          func.add_caller(&inst_ref);
+        }
+      }
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
       block.instance.insts.insert(insert_idx, inst_ref.skey);
       inst_ref
@@ -393,11 +410,6 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::EQ, lhs, rhs)
   }
 
-  fn add_block_predecessor(&mut self, bb: &ValueRef, pred: &ValueRef) {
-    let bb = bb.as_mut::<Block>(&mut self.module.context).unwrap();
-    bb.instance.predecessors.push(pred.skey);
-  }
-
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
@@ -407,14 +419,13 @@ impl<'ctx> Builder {
       vec![bb.clone()],
     );
     let res = self.add_instruction(inst);
-    match res.kind {
-      VKindCode::Unknown => {},
-      _ => { self.add_block_predecessor(&bb, &res); }
-    }
     res
   }
 
   pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef) -> ValueRef {
+    if true_bb == false_bb {
+      return self.create_unconditional_branch(true_bb);
+    }
     let inst = instruction::Instruction::new(
       self.context().void_type(),
       instruction::InstOpcode::Branch,
@@ -422,13 +433,6 @@ impl<'ctx> Builder {
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
     let res = self.add_instruction(inst);
-    match res.kind {
-      VKindCode::Unknown => {},
-      _ => {
-        self.add_block_predecessor(&true_bb, &res);
-        self.add_block_predecessor(&false_bb, &res);
-      }
-    }
     res
   }
 

@@ -118,13 +118,19 @@ impl<'ctx> Module {
       }
       None
     }).collect::<Vec<_>>();
-    to_replace.iter().fold(false, |_, elem| {
+    let res = to_replace.iter().fold(false, |_, elem| {
       if let Some((inst, idx)) = elem {
         let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
         inst.set_operand(*idx, new.clone());
       }
       true
-    })
+    });
+    old.as_mut::<Instruction>(&mut self.context)
+      .unwrap()
+      .instance
+      .users
+      .clear();
+    return res;
   }
 
 }

@@ -1,4 +1,4 @@
-use crate::{context::{Context, Ptr, component::GetSlabKey}, ir::types::{PointerType, StructType}};
+use crate::{context::{Context, SlabEntry, component::GetSlabKey}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
 use super::{ValueRef, instruction::InstOpcode, Instruction};
@@ -8,13 +8,13 @@ pub struct ConstScalarImpl {
   pub(crate) value: u64
 }
 
-pub type ConstScalar = Ptr<ConstScalarImpl>;
+pub type ConstScalar = SlabEntry<ConstScalarImpl>;
 
 pub struct UndefImpl {
   pub(crate) ty: TypeRef
 }
 
-pub type Undef = Ptr<UndefImpl>;
+pub type Undef = SlabEntry<UndefImpl>;
 
 impl Undef {
 
@@ -72,7 +72,7 @@ pub struct ConstArrayImpl {
   pub(crate) value: Vec<ValueRef>
 }
 
-pub type ConstArray = Ptr<ConstArrayImpl>;
+pub type ConstArray = SlabEntry<ConstArrayImpl>;
 
 impl ConstArray {
 
@@ -108,7 +108,7 @@ pub struct ConstExprImpl {
   pub(crate) inst: Instruction,
 }
 
-pub type ConstExpr = Ptr<ConstExprImpl>;
+pub type ConstExpr = SlabEntry<ConstExprImpl>;
 
 impl ConstExpr {
 
@@ -159,7 +159,7 @@ pub struct ConstObjectImpl {
   pub(crate) value: Vec<ValueRef>
 }
 
-pub type ConstObject = Ptr<ConstObjectImpl>;
+pub type ConstObject = SlabEntry<ConstObjectImpl>;
 
 impl ConstObject {
 
@@ -200,7 +200,7 @@ pub struct InlineAsmImpl {
   pub(crate) operands: String,
 }
 
-pub type InlineAsm = Ptr<InlineAsmImpl>;
+pub type InlineAsm = SlabEntry<InlineAsmImpl>;
 
 impl InlineAsm {
 

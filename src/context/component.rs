@@ -10,13 +10,13 @@ use crate::ir::value::VKindCode;
 use crate::ir::types::TKindCode;
 
 /// Manage the slab pointer of each IR component.
-pub struct Ptr<T: Sized> {
+pub struct SlabEntry<T: Sized> {
   skey: Option<usize>,
   // TODO(@were): Make this private later.
   pub(crate) instance: T,
 }
 
-impl<T>GetSlabKey for Ptr<T> {
+impl<T>GetSlabKey for SlabEntry<T> {
 
   fn get_skey(&self) -> usize {
     self.skey.unwrap()
@@ -24,7 +24,7 @@ impl<T>GetSlabKey for Ptr<T> {
 
 }
 
-impl<T>SetSlabKey for Ptr<T> {
+impl<T>SetSlabKey for SlabEntry<T> {
 
   fn set_skey(&mut self, skey: usize) {
     self.skey = Some(skey);
@@ -32,10 +32,10 @@ impl<T>SetSlabKey for Ptr<T> {
 
 }
 
-impl <T>From<T> for Ptr<T> {
+impl <T>From<T> for SlabEntry<T> {
 
   fn from(value: T) -> Self {
-    Ptr { skey: None, instance: value }
+    SlabEntry { skey: None, instance: value }
   }
 
 }

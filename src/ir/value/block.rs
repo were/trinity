@@ -1,4 +1,4 @@
-use crate::context::{Context, Ptr, component::GetSlabKey};
+use crate::context::{Context, SlabEntry, component::GetSlabKey};
 
 use super::{ValueRef, instruction::{Instruction, InstOpcode}};
 
@@ -13,7 +13,7 @@ pub struct BlockImpl {
   pub(crate) predecessors: Vec<usize>,
 }
 
-pub type Block = Ptr<BlockImpl>;
+pub type Block = SlabEntry<BlockImpl>;
 
 impl BlockImpl {
 
@@ -92,6 +92,10 @@ impl Block {
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
     format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)
+  }
+
+  pub(crate) fn add_predecessor(&mut self, br: &ValueRef) {
+    self.instance.predecessors.push(br.skey);
   }
 
   /// Iterate over each instruction belongs to this block.

@@ -3,7 +3,7 @@ pub mod instructions;
 pub use instructions::*;
 use types::TypeRef;
 
-use crate::context::Ptr;
+use crate::context::SlabEntry;
 use crate::context::component::GetSlabKey;
 use crate::ir::value::ValueRef;
 use crate::ir::types;
@@ -16,10 +16,13 @@ pub struct InstructionImpl {
   pub(crate) name_prefix: String,
   pub(crate) operands: Vec<ValueRef>,
   pub(crate) parent: Option<usize>,
+  /// Instructions uses this instruction.
+  pub(crate) users: Vec<ValueRef>,
+  /// Comment for this instruction.
   pub(crate) comment: String,
 }
 
-pub type Instruction = Ptr<InstructionImpl>;
+pub type Instruction = SlabEntry<InstructionImpl>;
 
 // TODO(@were): Revisit this idea of code organization.
 /// This is not only the opcode, but also the additional information of
@@ -165,6 +168,7 @@ impl InstructionImpl {
       operands,
       parent: None,
       comment: "".to_string(),
+      users: vec![],
     }
   }
 }
@@ -217,7 +221,7 @@ impl Instruction {
   }
 
   pub fn to_string(&self, ctx: &crate::context::Context) -> String {
-    let res = match self.instance.opcode {
+    let mut res = match self.instance.opcode {
       InstOpcode::Alloca(_) => { Alloca::new(self).to_string(ctx) },
       InstOpcode::Return => { Return::new(self).to_string(ctx) },
       InstOpcode::GetElementPtr(inbounds) => { GetElementPtr::new(self, inbounds).to_string(ctx) },
@@ -231,9 +235,56 @@ impl Instruction {
       InstOpcode::Phi => { PhiNode::new(self).to_string(ctx) }
     };
     if self.instance.comment.len() != 0 {
-      format!("; {}\n  {}", self.instance.comment, res)
+      res = format!("; {}\n  {}", self.instance.comment, res)
+    }
+    // TODO(@were): Fix the redundancy removal.
+    for user in self.instance.users.iter() {
+      res = format!("; user: {}\n  {}", user.to_string(ctx, true), res);
+    }
+    res
+  }
+
+  pub fn operand_iter(&self) -> ValueRefIter {
+    ValueRefIter {
+      idx: 0,
+      vec: &self.instance.operands,
+    }
+  }
+
+  pub(crate) fn add_user(&mut self, user: ValueRef) -> bool {
+    let pos = self.instance.users.iter().position(|x| x.skey == user.skey);
+    if pos.is_none() {
+      self.instance.users.push(user);
+      true
     } else {
-      res
+      false
+    }
+  }
+
+  pub fn user_iter(&self) -> ValueRefIter {
+    ValueRefIter {
+      idx: 0,
+      vec: &self.instance.users,
+    }
+  }
+
+}
+
+pub struct ValueRefIter<'inst> {
+  idx: usize,
+  vec: &'inst Vec<ValueRef>,
+}
+
+impl Iterator for ValueRefIter<'_> {
+  type Item = ValueRef;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.idx < self.vec.len() {
+      let res = &self.vec[self.idx];
+      self.idx += 1;
+      Some(res.clone())
+    } else {
+      None
     }
   }
 

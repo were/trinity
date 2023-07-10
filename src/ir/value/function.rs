@@ -1,7 +1,10 @@
+use std::collections::HashSet;
+
+use super::Instruction;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
-use crate::context::Ptr;
+use crate::context::SlabEntry;
 
 use crate::context::{
   Context,
@@ -18,10 +21,11 @@ pub struct FunctionImpl {
   pub(crate) args: Vec<usize>,
   pub(crate) fty: TypeRef,
   pub(crate) blocks: Vec<usize>,
+  pub(crate) callers: HashSet<usize>,
 }
 
-pub type Argument = Ptr<ArgumentImpl>;
-pub type Function = Ptr<FunctionImpl>;
+pub type Argument = SlabEntry<ArgumentImpl>;
+pub type Function = SlabEntry<FunctionImpl>;
 
 impl Function {
 
@@ -72,6 +76,10 @@ impl Function {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let mut res = String::new();
+    for elem in self.instance.callers.iter() {
+      let caller = Instruction::from_skey(*elem);
+      res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
+    }
     let fty = self.instance.fty.as_ref::<FunctionType>(ctx).unwrap();
     let prefix = if self.is_declaration() {
       "declare"
@@ -105,8 +113,16 @@ impl Function {
   }
 
   pub(crate) fn new(name: String, fty: TypeRef, args: Vec<usize>) -> Self {
-    let instance = FunctionImpl{name, args, fty, blocks: Vec::new()};
+    let instance = FunctionImpl{name, args, fty, blocks: Vec::new(), callers: HashSet::new()};
     Function::from(instance)
+  }
+
+  pub(crate) fn add_caller(&mut self, caller: &ValueRef) {
+    self.instance.callers.insert(caller.skey);
+  }
+
+  pub(crate) fn remove_caller(&mut self, caller: ValueRef) {
+    self.instance.callers.remove(&caller.skey);
   }
 
 }
