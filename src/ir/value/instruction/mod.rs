@@ -4,6 +4,7 @@ pub use instructions::*;
 use types::TypeRef;
 
 use crate::context::Ptr;
+use crate::context::component::GetSlabKey;
 use crate::ir::value::ValueRef;
 use crate::ir::types;
 
@@ -180,7 +181,7 @@ impl Instruction {
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
+    format!("{}.{}", self.instance.name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &types::TypeRef {

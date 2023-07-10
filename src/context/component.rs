@@ -9,8 +9,6 @@ use crate::ir::{
 use crate::ir::value::VKindCode;
 use crate::ir::types::TKindCode;
 
-use super::Context;
-
 /// Manage the slab pointer of each IR component.
 pub struct Ptr<T: Sized> {
   ptr: Option<usize>,
@@ -18,14 +16,18 @@ pub struct Ptr<T: Sized> {
   pub(crate) instance: T,
 }
 
-impl<T> Ptr<T> {
+impl<T>GetSlabKey for Ptr<T> {
 
-  pub(crate) fn set_ptr(&mut self, ptr: usize) {
-    self.ptr = Some(ptr);
+  fn get_skey(&self) -> usize {
+    self.ptr.unwrap()
   }
 
-  pub fn get_ptr(&self) -> usize {
-    self.ptr.unwrap()
+}
+
+impl<T>SetSlabKey for Ptr<T> {
+
+  fn set_skey(&mut self, skey: usize) {
+    self.ptr = Some(skey);
   }
 
 }
@@ -64,7 +66,7 @@ pub trait WithKindCode<T> {
   fn kind_code() -> T;
 }
 
-pub trait AsSuper<T> {
+pub trait AsSuper {
   type SuperType;
   fn as_super(&self) -> Self::SuperType;
 }
@@ -89,6 +91,7 @@ macro_rules! impl_component {
   ($super:tt, $code_type:tt, $type:tt) => {
 
     impl ComponentToRef<$type> for $type {
+
       fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx $type {
         match value {
           Component::$type(v) => v,
@@ -98,6 +101,7 @@ macro_rules! impl_component {
     }
 
     impl ComponentToMut<$type> for $type {
+
       fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut $type {
         match value {
           Component::$type(v) => v,
@@ -106,7 +110,7 @@ macro_rules! impl_component {
       }
     }
 
-    impl AsSuper<$super> for $type {
+    impl AsSuper for $type {
       type SuperType = $super;
 
       fn as_super(&self) -> Self::SuperType {
@@ -133,17 +137,17 @@ macro_rules! impl_component {
       }
     }
 
-    impl GetSlabKey for $type {
-      fn get_skey(&self) -> usize {
-        self.get_ptr()
-      }
-    }
+    // impl GetSlabKey for $type {
+    //   fn get_skey(&self) -> usize {
+    //     self.get_ptr()
+    //   }
+    // }
 
-    impl SetSlabKey for $type {
-      fn set_skey(&mut self, skey: usize) {
-        self.set_ptr(skey);
-      }
-    }
+    // impl SetSlabKey for $type {
+    //   fn set_skey(&mut self, skey: usize) {
+    //     self.set_ptr(skey);
+    //   }
+    // }
 
   };
 }

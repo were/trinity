@@ -3,7 +3,10 @@ use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
 use crate::context::Ptr;
 
-use crate::context::Context;
+use crate::context::{
+  Context,
+  component::GetSlabKey
+};
 
 pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
@@ -138,7 +141,7 @@ impl Argument {
   }
 
   pub fn get_name(&self) -> String {
-    format!("arg.{}", self.get_ptr())
+    format!("arg.{}", self.get_skey())
   }
 
   pub fn to_string(&self, context: &Context) -> String {

@@ -1,3 +1,4 @@
+use crate::context::component::GetSlabKey;
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
@@ -114,7 +115,7 @@ impl<'ctx> Builder {
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let block = inst.get_parent();
     let block = block.as_ref::<Block>(&self.module.context).unwrap();
-    let idx = block.inst_iter(&self.module.context).position(|i| i.get_ptr() == inst_ref.skey).unwrap();
+    let idx = block.inst_iter(&self.module.context).position(|i| i.get_skey() == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
 
@@ -187,7 +188,7 @@ impl<'ctx> Builder {
     // All constants
     if operands.iter().fold(true, |acc, val| acc && val.is_const()) {
       let res = ConstExpr::new(ty, instruction::InstOpcode::GetElementPtr(inbounds), operands);
-      let expr = self.context().add_instance::<ConstExpr, _>(res);
+      let expr = self.context().add_instance::<ConstExpr>(res);
       return expr
     } else {
       let inst = instruction::Instruction::new(

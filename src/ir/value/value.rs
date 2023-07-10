@@ -18,7 +18,8 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
-  pub fn as_ref<T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey>(&self, context: &'ctx Context) -> Option<&'ctx T> {
+  pub fn as_ref<T>(&self, context: &'ctx Context) -> Option<&'ctx T> 
+    where T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey {
     if self.kind == T::kind_code() {
       Some(context.get_value_ref::<T>(self.skey))
     } else {

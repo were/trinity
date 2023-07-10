@@ -1,4 +1,4 @@
-use crate::context::{Context, Ptr};
+use crate::context::{Context, Ptr, component::GetSlabKey};
 
 use super::{ValueRef, instruction::{Instruction, InstOpcode}};
 
@@ -43,7 +43,7 @@ impl Block {
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
+    format!("{}.{}", self.instance.name_prefix, self.get_skey())
   }
 
   /// If this block is closed, i.e. ends with a branch.

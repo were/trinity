@@ -1,4 +1,4 @@
-use crate::{context::{Context, Ptr}, ir::types::{PointerType, StructType}};
+use crate::{context::{Context, Ptr, component::GetSlabKey}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
 use super::{ValueRef, instruction::InstOpcode, Instruction};
@@ -85,7 +85,7 @@ impl ConstArray {
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
+    format!("{}.{}", self.instance.name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &TypeRef {
@@ -172,7 +172,7 @@ impl ConstObject {
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_ptr())
+    format!("{}.{}", self.instance.name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &TypeRef {

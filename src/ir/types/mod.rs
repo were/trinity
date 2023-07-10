@@ -150,7 +150,8 @@ impl<'ctx> TypeRef {
     }
   }
 
-  pub fn as_ref<T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey>(&'ctx self, ctx: &'ctx Context) -> Option<&'ctx T> {
+  pub fn as_ref<T>(&'ctx self, ctx: &'ctx Context) -> Option<&'ctx T>
+    where T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey {
     if self.kind == T::kind_code() {
       Some(ctx.get_value_ref::<T>(self.skey))
     } else {
@@ -158,7 +159,8 @@ impl<'ctx> TypeRef {
     }
   }
 
-  pub fn as_mut<T: WithKindCode<TKindCode> + ComponentToMut<T> + GetSlabKey>(&'ctx self, ctx: &'ctx mut Context) -> Option<&'ctx mut T> {
+  pub fn as_mut<T>(&'ctx self, ctx: &'ctx mut Context) -> Option<&'ctx mut T>
+    where T: WithKindCode<TKindCode> + ComponentToMut<T> + GetSlabKey {
     if self.kind == T::kind_code() {
       Some(ctx.get_value_mut::<T>(self.skey))
     } else {
