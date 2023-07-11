@@ -181,11 +181,13 @@ impl fmt::Display for Module {
       match elem.kind {
         super::VKindCode::ConstArray => {
           let array = elem.as_ref::<ConstArray>(&self.context).unwrap();
-          write!(f, "{}\n", array.to_string(&self.context)).unwrap();
+          let array = Reference::new(&self.context, array);
+          write!(f, "{}\n", array.to_string()).unwrap();
         }
         super::VKindCode::ConstObject => {
           let obj = elem.as_ref::<ConstObject>(&self.context).unwrap();
-          write!(f, "{}\n", obj.to_string(&self.context)).unwrap();
+          let obj = Reference::new(&self.context, obj);
+          write!(f, "{}\n", obj.to_string()).unwrap();
         }
         _ => (),
       }

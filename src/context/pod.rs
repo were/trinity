@@ -151,7 +151,8 @@ impl Cache {
     if let Some(res) = ctx.pod_cache.get_type(&key) {
       res.clone()
     } else {
-      let instance = types::ArrayType::new(element, num_elements);
+      let ptr_ty = Self::pointer_type(ctx, element.clone());
+      let instance = types::ArrayType::new(element, ptr_ty, num_elements);
       let res = ctx.add_instance(instance);
       ctx.pod_cache.insert_type(key, res.clone());
       res

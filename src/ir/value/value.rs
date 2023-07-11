@@ -74,19 +74,23 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstArray => {
         let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
+        let const_array = Reference::new(ctx, const_array);
         format!("{}@{}", self.type_to_string(ctx, with_type), const_array.get_name())
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        format!("{}", const_expr.to_string(ctx))
+        let const_expr = Reference::new(ctx, const_expr);
+        format!("{}", const_expr.to_string())
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
+        let const_object = Reference::new(ctx, const_object);
         format!("{}@{}", self.type_to_string(ctx, with_type), const_object.get_name())
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
-        inline_asm.to_string(ctx)
+        let inline_asm = Reference::new(ctx, inline_asm);
+        inline_asm.to_string()
       },
       VKindCode::Undef => {
         format!("[undef]")
@@ -123,6 +127,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstArray => {
         let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
+        let const_array = Reference::new(ctx, const_array);
         const_array.get_type().clone()
       },
       VKindCode::ConstExpr => {
@@ -133,10 +138,12 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
+        let const_object = Reference::new(ctx, const_object);
         const_object.get_type().clone()
       },
       VKindCode::InlineAsm => {
         let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
+        let inline_asm = Reference::new(ctx, inline_asm);
         inline_asm.get_type().clone()
       },
       VKindCode::Undef => {

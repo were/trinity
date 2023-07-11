@@ -1,4 +1,4 @@
-use crate::{context::{Context, SlabEntry, component::GetSlabKey, Reference}, ir::types::{PointerType, StructType}};
+use crate::{context::{SlabEntry, Reference}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
 use super::{ValueRef, instruction::InstOpcode, Instruction};
@@ -39,7 +39,13 @@ impl <'ctx> UndefRef<'ctx> {
 }
 
 fn str2display(s: &String) -> String {
-  s.chars().map(|c| if ('\x20'..'\x7e').contains(&c) { c.to_string() } else { format!("\\{:02x}", c as u8) }).collect::<Vec<String>>().join("")
+  s.chars().map(|c| {
+    if ('\x20'..'\x7e').contains(&c) {
+      c.to_string()
+    } else {
+      format!("\\{:02x}", c as u8)
+    }
+  }).collect::<Vec<String>>().join("")
 }
 
 impl ConstScalarImpl {
@@ -82,6 +88,7 @@ pub struct ConstArrayImpl {
 }
 
 pub type ConstArray = SlabEntry<ConstArrayImpl>;
+pub type ConstArrayRef<'ctx> = Reference<'ctx, ConstArrayImpl>;
 
 impl ConstArray {
 
@@ -93,21 +100,27 @@ impl ConstArray {
     })
   }
 
+}
+
+impl <'ctx> ConstArrayRef<'ctx> {
+
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_skey())
+    format!("{}.{}", self.instance().name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance.ty
+    &self.instance().ty
   }
 
   pub fn get_value(&self) -> &Vec<ValueRef> {
-    &self.instance.value
+    &self.instance().value
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
+  pub fn to_string(&self) -> String {
+    let ctx = self.ctx;
     let literal = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
+    let pty = Reference::new(ctx, pty);
     format!("@{} = private unnamed_addr constant {} [{}], align 1", self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
   }
 
@@ -118,6 +131,7 @@ pub struct ConstExprImpl {
 }
 
 pub type ConstExpr = SlabEntry<ConstExprImpl>;
+pub type ConstExprRef<'ctx> = Reference<'ctx, ConstExprImpl>;
 
 impl ConstExpr {
 
@@ -127,28 +141,29 @@ impl ConstExpr {
     })
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
+}
+
+impl <'ctx> ConstExprRef<'ctx> {
+
+  pub fn to_string(&self) -> String {
+    let ctx = self.ctx;
     let operands = self
-      .instance
+      .instance()
       .inst
       .instance
       .operands
       .iter()
       .map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     // Wow, this instruction has no slab key!
-    let inst = Reference::new(ctx, &self.instance.inst);
+    let inst = Reference::new(ctx, &self.instance().inst);
     match inst.get_opcode() {
       InstOpcode::GetElementPtr(_) => {
         let ty = inst.get_type();
-        let ptr_scalar = self
-          .instance
-          .inst
-          .instance
-          .operands[0]
-          .get_type(ctx)
-          .as_ref::<PointerType>(ctx)
-          .unwrap()
-          .get_pointee_ty();
+        let ptr_inst = &self.instance().inst.instance;
+        let ptr_ty = ptr_inst.operands[0].get_type(ctx);
+        let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
+        let ptr_ty = Reference::new(ctx, ptr_ty);
+        let ptr_scalar = ptr_ty.get_pointee_ty();
         let opcode = inst.get_opcode();
         format!("{} {} ( {}, {} )", ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
       }
@@ -167,6 +182,7 @@ pub struct ConstObjectImpl {
 }
 
 pub type ConstObject = SlabEntry<ConstObjectImpl>;
+pub type ConstObjectRef<'ctx> = Reference<'ctx, ConstObjectImpl>;
 
 impl ConstObject {
 
@@ -178,18 +194,24 @@ impl ConstObject {
     })
   }
 
+}
+
+impl <'ctx> ConstObjectRef<'ctx> {
+
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_skey())
+    format!("{}.{}", self.instance().name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance.ty
+    &self.instance().ty
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
+  pub fn to_string(&self) -> String {
+    let ctx = self.ctx;
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
-    let initializer = if self.instance.value.len() != 0 {
-      format!("{{ {} }}", self.instance.value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", "))
+    let pty = Reference::new(ctx, pty);
+    let initializer = if self.instance().value.len() != 0 {
+      format!("{{ {} }}", self.instance().value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", "))
     } else {
       "zeroinitializer".to_string()
     };
@@ -208,6 +230,7 @@ pub struct InlineAsmImpl {
 }
 
 pub type InlineAsm = SlabEntry<InlineAsmImpl>;
+pub type InlineAsmRef<'ctx> = Reference<'ctx, InlineAsmImpl>;
 
 impl InlineAsm {
 
@@ -220,23 +243,28 @@ impl InlineAsm {
     })
   }
 
+}
+
+impl <'ctx> InlineAsmRef<'ctx> {
+
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance.ty
+    &self.instance().ty
   }
 
   pub fn get_sideeffect(&self) -> bool {
-    self.instance.sideeffect
+    self.instance().sideeffect
   }
 
   pub fn get_mnemonic(&self) -> &String {
-    &self.instance.mnemonic
+    &self.instance().mnemonic
   }
 
   pub fn get_operands(&self) -> &String {
-    &self.instance.operands
+    &self.instance().operands
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
+  pub fn to_string(&self) -> String {
+    let ctx = self.ctx;
     let ty = if let Some(sty) = self.get_type().as_ref::<StructType>(ctx) {
       sty.instance.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
     } else {

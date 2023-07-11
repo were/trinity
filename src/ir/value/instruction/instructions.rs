@@ -1,4 +1,4 @@
-use crate::{context::Context, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef}};
+use crate::{context::{Context, Reference}, ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef}};
 
 use super::{CmpPred, InstructionRef};
 
@@ -52,6 +52,7 @@ impl<'inst> Alloca <'inst> {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let ptr_ty = self.inst.get_type().as_ref::<PointerType>(ctx).unwrap();
+    let ptr_ty = Reference::new(ctx, ptr_ty);
     let ptr_str = ptr_ty.get_pointee_ty().to_string(ctx);
     return format!("%{} = alloca {}, align {}", self.inst.get_name(), ptr_str, self.get_align());
   }
@@ -129,15 +130,10 @@ impl <'inst>GetElementPtr<'inst> {
       ""
     };
     // TODO(@were): What if this is not a pointer?
-    let ptr_scalar = self
-      .inst
-      .get_operand(0)
-      .unwrap()
-      .get_type(ctx)
-      .as_ref::<PointerType>(ctx)
-      .unwrap()
-      .get_pointee_ty();
-    let ty_str = ptr_scalar.to_string(ctx);
+    let ptr_ty = self.inst.get_operand(0).unwrap().get_type(ctx);
+    let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
+    let ptr_ty = Reference::new(ctx, ptr_ty);
+    let ty_str = ptr_ty.get_pointee_ty().to_string(ctx);
 
     let operands = (0..self.inst.get_num_operands()).map(|i| {
       format!("{}", &self.inst.get_operand(i).unwrap().to_string(ctx, true))

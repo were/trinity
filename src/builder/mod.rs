@@ -220,15 +220,18 @@ impl<'ctx> Builder {
 
   pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
     let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
+    let pty = Reference::new(&self.module.context, pty);
     let res_ty = pty.get_pointee_ty();
     self.create_gep(res_ty, ptr, indices, true)
   }
 
   // TODO(@were): Add alignment
   pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> Result<ValueRef, String> {
-    let ptr_ty = ptr.get_type(&self.context());
-    let pointee_ty = ptr_ty.as_ref::<PointerType>(&self.context()).unwrap().get_pointee_ty();
+    let ptr_ty = ptr.get_type(&self.module.context);
+    let ptr_ty = ptr_ty.as_ref::<PointerType>(&self.module.context).unwrap();
+    let ptr_ty = Reference::new(&self.module.context, ptr_ty);
+    let pointee_ty = ptr_ty.get_pointee_ty();
     let value_ty = value.get_type(&self.context());
     if pointee_ty != value_ty {
       let pointee_ty = pointee_ty.to_string(&self.module.context);
@@ -296,7 +299,8 @@ impl<'ctx> Builder {
 
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
+    let pty = Reference::new(&self.module.context, pty);
     let res_ty = pty.get_pointee_ty();
     self.create_typed_load(res_ty, ptr)
   }

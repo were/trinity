@@ -6,7 +6,7 @@ pub mod functype;
 pub use arraytype::{PointerType, ArrayType};
 pub use functype::FunctionType;
 
-use crate::context::{Context, SlabEntry};
+use crate::context::{Context, SlabEntry, Reference};
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::value::consts::ConstArray;
 
@@ -33,6 +33,7 @@ pub struct IntImpl {
 }
 
 pub type IntType = SlabEntry<IntImpl>;
+pub type IntTypeRef<'ctx> = Reference<'ctx, IntImpl>;
 
 impl IntType {
   
@@ -41,14 +42,18 @@ impl IntType {
     Self::from(IntImpl { bits })
   }
 
+}
+
+impl <'ctx>IntTypeRef<'ctx> {
+
   /// Return the number of bits
   pub fn get_bits(&self) -> usize {
-    self.instance.bits
+    self.instance().bits
   }
 
 }
 
-impl fmt::Display for IntType {
+impl fmt::Display for IntTypeRef<'_> {
 
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "i{}", self.get_bits())
@@ -123,6 +128,7 @@ impl<'ctx> TypeRef {
     match &self.kind {
       TKindCode::IntType => {
         let ty = ctx.get_value_ref::<IntType>(self.skey);
+        let ty = Reference::new(ctx, ty);
         ty.to_string()
       },
       TKindCode::VoidType => {
@@ -135,11 +141,13 @@ impl<'ctx> TypeRef {
       },
       TKindCode::PointerType => {
         let ty = ctx.get_value_ref::<PointerType>(self.skey);
-        ty.to_string(ctx)
+        let ty = Reference::new(ctx, ty);
+        ty.to_string()
       },
       TKindCode::ArrayType => {
         let ty = ctx.get_value_ref::<ArrayType>(self.skey);
-        ty.to_string(ctx)
+        let ty = Reference::new(ctx, ty);
+        ty.to_string()
       },
       TKindCode::BlockType => {
         String::from("")
@@ -186,17 +194,17 @@ impl<'ctx> TypeRef {
     match self.kind {
       TKindCode::IntType => {
         let it = self.as_ref::<IntType>(ctx).unwrap();
+        let it = Reference::new(ctx, it);
         it.get_bits()
       }
-      TKindCode::VoidType => {
-        1
-      }
+      TKindCode::VoidType => { 1 }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
         st.instance.attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();
+        let at = Reference::new(ctx, at);
         at.get_elem_ty().get_scalar_size_in_bits(module)
       }
       TKindCode::PointerType => {
