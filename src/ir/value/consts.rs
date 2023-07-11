@@ -9,12 +9,14 @@ pub struct ConstScalarImpl {
 }
 
 pub type ConstScalar = SlabEntry<ConstScalarImpl>;
+pub type ConstScalarRef<'ctx> = Reference<'ctx, ConstScalarImpl>;
 
 pub struct UndefImpl {
   pub(crate) ty: TypeRef
 }
 
 pub type Undef = SlabEntry<UndefImpl>;
+pub type UndefRef<'ctx> = Reference<'ctx, UndefImpl>;
 
 impl Undef {
 
@@ -22,12 +24,16 @@ impl Undef {
     Self::from(UndefImpl { ty })
   }
 
+}
+
+impl <'ctx> UndefRef<'ctx> {
+
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance.ty
+    &self.instance().ty
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
-    format!("undef {}", self.get_type().to_string(ctx))
+  pub fn to_string(&self) -> String {
+    format!("undef {}", self.get_type().to_string(self.ctx))
   }
 
 }
@@ -43,7 +49,6 @@ impl ConstScalarImpl {
       value
     }
   }
-
 }
 
 impl ConstScalar {
@@ -52,16 +57,20 @@ impl ConstScalar {
     ConstScalar::from(ConstScalarImpl::new(ty, value))
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
-    format!("{} = {}", self.instance.ty.to_string(ctx), self.instance.value)
+}
+
+impl <'ctx>ConstScalarRef<'ctx> {
+
+  pub fn to_string(&self) -> String {
+    format!("{} = {}", self.instance.instance.ty.to_string(self.ctx), self.instance.instance.value)
   }
 
   pub fn get_value(&self) -> u64 {
-    self.instance.value
+    self.instance.instance.value
   }
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance.ty
+    &self.instance.instance.ty
   }
 
 }
@@ -127,7 +136,7 @@ impl ConstExpr {
       .iter()
       .map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     // Wow, this instruction has no slab key!
-    let inst = Reference::new(0, ctx, &self.instance.inst);
+    let inst = Reference::new(ctx, &self.instance.inst);
     match inst.get_opcode() {
       InstOpcode::GetElementPtr(_) => {
         let ty = inst.get_type();

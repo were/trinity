@@ -1,6 +1,6 @@
-use crate::{context::{Context, SlabEntry, component::GetSlabKey, Reference}, ir::value::instruction::InstructionRef};
+use crate::{context::{Context, SlabEntry, Reference}, ir::value::instruction::InstructionRef};
 
-use super::{ValueRef, instruction::{Instruction, InstOpcode}};
+use super::{ValueRef, instruction::{Instruction, InstOpcode}, Function, function::FunctionRef};
 
 pub struct BlockImpl {
   /// The name prefix of this block.
@@ -14,7 +14,7 @@ pub struct BlockImpl {
 }
 
 pub type Block = SlabEntry<BlockImpl>;
-pub type BlockRef<'ctx> = Reference<'ctx, Block>;
+pub type BlockRef<'ctx> = Reference<'ctx, BlockImpl>;
 
 impl BlockImpl {
 
@@ -44,25 +44,27 @@ impl Block {
 
 impl <'ctx> BlockRef<'ctx> {
 
-  pub fn get_parent(&self) -> ValueRef {
-    ValueRef{skey: self.instance.instance.parent, kind: super::VKindCode::Function}
+  pub fn get_parent(&self) -> FunctionRef<'ctx> {
+    let func = Function::from_skey(self.instance().parent);
+    let func = func.as_ref::<Function>(self.ctx).unwrap();
+    Reference::new(self.ctx, func)
   }
 
   pub fn get_num_insts(&self) -> usize {
-    return self.instance.instance.insts.len();
+    return self.instance().insts.len();
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.instance.name_prefix, self.skey)
+    format!("{}.{}", self.instance().name_prefix, self.get_skey())
   }
 
   /// If this block is closed, i.e. ends with a branch.
   pub fn closed(&self) -> bool {
     let ctx = self.ctx;
-    if let Some(inst_ref) = self.instance.instance.insts.last() {
+    if let Some(inst_ref) = self.instance().insts.last() {
       let inst = ValueRef{ skey: *inst_ref, kind: crate::ir::VKindCode::Instruction };
       let inst = inst.as_ref::<Instruction>(ctx).unwrap();
-      let inst = InstructionRef::new(inst.get_skey(), ctx, inst);
+      let inst = InstructionRef::new(ctx, inst);
       match inst.get_opcode() {
         InstOpcode::Branch | InstOpcode::Return => true,
         _ => false
@@ -74,36 +76,36 @@ impl <'ctx> BlockRef<'ctx> {
 
   pub fn get_inst(&'ctx self, i: usize) -> Option<ValueRef> {
     if i < self.get_num_insts() {
-      Some(Instruction::from_skey(self.instance.instance.insts[i]))
+      Some(Instruction::from_skey(self.instance().insts[i]))
     } else {
       None
     }
   }
 
   pub fn get_num_predecessors(&self) -> usize {
-    return self.instance.instance.predecessors.len();
+    return self.instance().predecessors.len();
   }
 
   pub fn get_predecessor(&'ctx self, i: usize) -> Option<ValueRef> {
     if i < self.get_num_predecessors() {
-      Some(ValueRef{skey: self.instance.instance.predecessors[i], kind: super::VKindCode::Instruction})
+      Some(ValueRef{skey: self.instance().predecessors[i], kind: super::VKindCode::Instruction})
     } else {
       None
     }
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
-    let insts = self.instance.instance.insts.iter().map(|i| {
+  pub fn to_string(&self) -> String {
+    let ctx = self.ctx;
+    let insts = self.instance().insts.iter().map(|i| {
       let inst_value = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
       let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
-      let inst_ref = InstructionRef::new(inst.get_skey(), ctx, inst);
+      let inst_ref = InstructionRef::new(ctx, inst);
       format!("  {}", inst_ref.to_string())
     }).collect::<Vec<String>>().join("\n");
-    let pred_comments = self.instance.instance.predecessors.iter().enumerate().map(|(i, _)| {
+    let pred_comments = self.instance().predecessors.iter().enumerate().map(|(i, _)| {
       let pred_br = self.get_predecessor(i).unwrap().as_ref::<Instruction>(ctx).unwrap();
-      let pred_ref = Reference::new(pred_br.get_skey(), ctx, pred_br);
+      let pred_ref = Reference::new(ctx, pred_br);
       let pred_block = pred_ref.get_parent();
-      let pred_block = Reference::new(pred_block.get_skey(), ctx, pred_block);
       let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
@@ -114,14 +116,14 @@ impl <'ctx> BlockRef<'ctx> {
   pub fn inst_iter(&'ctx self) -> BlockInstIter<'ctx> {
     BlockInstIter {
       ctx: self.ctx,
-      iter: self.instance.instance.insts.iter()
+      iter: self.instance().insts.iter()
     }
   }
 
   /// Iterate over each branch instruction destinated to this block.
   pub fn pred_iter(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
     BlockInstIter {
-      ctx, iter: self.instance.instance.predecessors.iter(),
+      ctx, iter: self.instance().predecessors.iter(),
     }
   }
 
@@ -140,7 +142,7 @@ impl <'ctx> Iterator for BlockInstIter <'ctx> {
       let v = *value;
       let inst = Instruction::from_skey(v);
       let inst = inst.as_ref::<Instruction>(self.ctx).unwrap();
-      let res = InstructionRef::new(inst.get_skey(), self.ctx, inst);
+      let res = Reference::new(self.ctx, inst);
       Some(res)
     } else {
       None
@@ -156,7 +158,7 @@ impl <'ctx> DoubleEndedIterator for BlockInstIter <'ctx> {
       let v = *value;
       let inst = Instruction::from_skey(v);
       let inst = inst.as_ref::<Instruction>(self.ctx).unwrap();
-      let res = InstructionRef::new(inst.get_skey(), self.ctx, inst);
+      let res = Reference::new(self.ctx, inst);
       Some(res)
     } else {
       None

@@ -8,6 +8,7 @@ use crate::ir::value::ValueRef;
 use crate::ir::types;
 
 use super::Block;
+use super::block::BlockRef;
 
 pub struct InstructionImpl {
   pub(crate) ty: types::TypeRef,
@@ -211,41 +212,42 @@ impl Instruction {
 
 }
 
-pub type InstructionRef<'ctx> = Reference<'ctx, Instruction>;
+pub type InstructionRef<'ctx> = Reference<'ctx, InstructionImpl>;
 
 impl <'ctx>InstructionRef<'ctx> {
 
   pub fn get_opcode(&self) -> &InstOpcode {
-    &self.instance.instance.opcode
+    &self.instance().opcode
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.instance.name_prefix, self.skey)
+    format!("{}.{}", self.instance().name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &types::TypeRef {
-    &self.instance.instance.ty
+    &self.instance().ty
   }
 
   pub fn get_num_operands(&self) -> usize {
-    self.instance.instance.operands.len()
+    self.instance().operands.len()
   }
 
   pub fn get_operand(&self, idx: usize) -> Option<&ValueRef> {
-    if idx < self.instance.instance.operands.len() {
-      Some(&self.instance.instance.operands[idx])
+    if idx < self.instance().operands.len() {
+      Some(&self.instance().operands[idx])
     } else {
       None
     }
   }
 
-  pub fn get_parent(&self) -> &'ctx Block {
-    let block = Block::from_skey(self.instance.instance.parent.unwrap());
-    block.as_ref::<Block>(self.ctx).unwrap()
+  pub fn get_parent(&self) -> BlockRef<'ctx> {
+    let block = Block::from_skey(self.instance().parent.unwrap());
+    let block = block.as_ref::<Block>(self.ctx).unwrap();
+    Reference::new(self.ctx, block)
   }
 
   pub fn to_string(&self) -> String {
-    let mut res = match self.instance.instance.opcode {
+    let mut res = match self.instance().opcode {
       InstOpcode::Alloca(_) => { Alloca::new(self).to_string(self.ctx) },
       InstOpcode::Return => { Return::new(self).to_string(self.ctx) },
       InstOpcode::GetElementPtr(_) => { GetElementPtr::new(self).to_string(self.ctx) },
@@ -258,11 +260,11 @@ impl <'ctx>InstructionRef<'ctx> {
       InstOpcode::Branch => { BranchInst::new(self).to_string(self.ctx) }
       InstOpcode::Phi => { PhiNode::new(self).to_string(self.ctx) }
     };
-    if self.instance.instance.comment.len() != 0 {
-      res = format!("; {}\n  {}", self.instance.instance.comment, res)
+    if self.instance().comment.len() != 0 {
+      res = format!("; {}\n  {}", self.instance().comment, res)
     }
     // TODO(@were): Fix the redundancy removal.
-    // for user in self.instance.instance.users.iter() {
+    // for user in self.instance().users.iter() {
     //   res = format!("; user: {}\n  {}", user.to_string(self.ctx, true), res);
     // }
     res
@@ -271,14 +273,14 @@ impl <'ctx>InstructionRef<'ctx> {
   pub fn operand_iter(&self) -> ValueRefIter {
     ValueRefIter {
       idx: 0,
-      vec: &self.instance.instance.operands,
+      vec: &self.instance().operands,
     }
   }
 
   pub fn user_iter(&self) -> ValueRefIter {
     ValueRefIter {
       idx: 0,
-      vec: &self.instance.instance.users,
+      vec: &self.instance().users,
     }
   }
 

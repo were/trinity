@@ -2,7 +2,6 @@ use std::fmt;
 
 
 use crate::context::{Context, Reference};
-use crate::context::component::{AsSuper, GetSlabKey};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::{Function, Instruction, Block};
@@ -63,8 +62,9 @@ impl<'ctx> Module {
   /// Remove the given instruction.
   pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
     let inst = v.as_ref::<Instruction>(&self.context).unwrap();
-    let inst_ref = Reference::new(inst.get_skey(), &self.context, inst);
-    let block = inst_ref.get_parent().as_super();
+    let inst_ref = Reference::new(&self.context, inst);
+    let block = inst_ref.get_parent();
+    let block = Block::from_skey(block.get_skey());
     let block = block.as_mut::<Block>(&mut self.context).unwrap();
     block.instance.insts.retain(|x| *x != v.skey);
     if dispose {
@@ -103,18 +103,15 @@ impl<'ctx> Module {
   /// Replace old instruction with new value.
   pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
     let old_inst = old.as_ref::<Instruction>(&self.context).unwrap();
-    let old_inst_ref = Reference::new(old.skey, &self.context, old_inst);
+    let old_inst_ref = Reference::new(&self.context, old_inst);
     let old_parent = old_inst_ref.get_parent();
-    let old_parent = Reference::new(old_parent.get_skey(), &self.context, old_parent);
     let func = old_parent.get_parent();
-    let func = func.as_ref::<Function>(&self.context).unwrap();
-    let func = Reference::new(func.get_skey(), &self.context, func);
     let to_replace = func.iter().map(|block| {
-      let block = Reference::new(block.get_skey(), &self.context, block);
+      let block = Reference::new(&self.context, block);
       for inst in block.inst_iter() {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
-            return Some((Instruction::from_skey(inst.skey), i))
+            return Some((Instruction::from_skey(inst.get_skey()), i))
           }
         }
       }
@@ -196,7 +193,7 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
       let func = self.get_function(i);
-      let func = Reference::new(func.get_skey(), &self.context, func);
+      let func = Reference::new(&self.context, func);
       write!(f, "{}", func.to_string()).unwrap();
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();

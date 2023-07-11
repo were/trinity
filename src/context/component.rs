@@ -19,15 +19,24 @@ pub struct SlabEntry<T: Sized> {
 }
 
 pub struct Reference<'ctx, T> {
-  pub skey: usize,
   pub(crate) ctx: &'ctx Context,
-  pub(crate) instance: &'ctx T,
+  pub(crate) instance: &'ctx SlabEntry<T>,
 }
 
 impl <'ctx, T> Reference <'ctx, T> {
-  pub fn new(skey: usize, ctx: &'ctx Context, instance: &'ctx T) -> Self {
-    Reference { skey, ctx, instance }
+
+  pub fn new(ctx: &'ctx Context, instance: &'ctx SlabEntry<T>) -> Self {
+    Reference { ctx, instance }
   }
+
+  pub fn get_skey(&self) -> usize {
+    self.instance.get_skey()
+  }
+
+  pub fn instance(&self) -> &'ctx T {
+    &self.instance.instance
+  }
+
 }
 
 impl<T>GetSlabKey for SlabEntry<T> {
