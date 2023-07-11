@@ -104,12 +104,14 @@ impl<'ctx> Module {
   pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
     let old_inst = old.as_ref::<Instruction>(&self.context).unwrap();
     let old_inst_ref = Reference::new(old.skey, &self.context, old_inst);
-    let func = old_inst_ref.get_parent().get_parent();
+    let old_parent = old_inst_ref.get_parent();
+    let old_parent = Reference::new(old_parent.get_skey(), &self.context, old_parent);
+    let func = old_parent.get_parent();
     let func = func.as_ref::<Function>(&self.context).unwrap();
     let func = Reference::new(func.get_skey(), &self.context, func);
     let to_replace = func.iter().map(|block| {
-      for inst in block.inst_iter(&self.context) {
-        let inst = Reference::new(inst.get_skey(), &self.context, inst);
+      let block = Reference::new(block.get_skey(), &self.context, block);
+      for inst in block.inst_iter() {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
             return Some((Instruction::from_skey(inst.skey), i))
@@ -121,9 +123,6 @@ impl<'ctx> Module {
     let res = to_replace.iter().fold(false, |_, elem| {
       if let Some((inst, idx)) = elem {
         let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
-        // {
-        //   eprintln!("replace {}'s {} with {}", inst.get_skey(), idx, new.skey);
-        // }
         inst.set_operand(*idx, new.clone());
         true
       } else {

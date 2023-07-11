@@ -35,13 +35,13 @@ impl<'ctx> Builder {
 
   pub fn get_insert_before(&self) -> Option<ValueRef> {
     if let Some(idx) = self.inst_idx {
-      let inst = self.block
+      let block = self.block
         .clone()
         .unwrap()
         .as_ref::<Block>(&self.module.context)
-        .unwrap()
-        .get_inst(idx);
-      inst
+        .unwrap();
+      let block = Reference::new(block.get_skey(), &self.module.context, block);
+      block.get_inst(idx)
     } else {
       None
     }
@@ -116,7 +116,8 @@ impl<'ctx> Builder {
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let inst_ref = Reference::new(inst.get_skey(), &self.module.context, inst);
     let block = inst_ref.get_parent();
-    let idx = block.inst_iter(&self.module.context).position(|i| i.get_skey() == inst_ref.skey).unwrap();
+    let block = Reference::new(block.get_skey(), &self.module.context, block);
+    let idx = block.inst_iter().position(|i| i.skey == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
 
@@ -125,13 +126,14 @@ impl<'ctx> Builder {
     inst.instance.parent = Some(block_ref.skey);
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
+      let block = Reference::new(block.get_skey(), &self.module.context, block);
       let (idx, last)  = if let Some(inst_idx) = self.inst_idx {
         (inst_idx, inst_idx == block.get_num_insts() - 1)
       } else {
         (block.get_num_insts(), true)
       };
       let closed_block = if last {
-        block.closed(&self.module.context)
+        block.closed()
       } else {
         false
       };

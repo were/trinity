@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use super::Instruction;
 use super::{ValueRef, VKindCode, block::Block};
+use crate::context::component::GetSlabKey;
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
 use crate::context::{SlabEntry, Reference};
@@ -117,6 +118,7 @@ impl <'ctx>FunctionRef<'ctx> {
     if !self.is_declaration() {
       res.push_str(" {\n");
       for block in self.iter() {
+        let block = Reference::new(block.get_skey(), ctx, block);
         res.push_str(block.to_string(&ctx).as_str());
       }
       res.push_str("}");
