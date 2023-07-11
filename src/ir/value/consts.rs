@@ -1,4 +1,4 @@
-use crate::{context::{Context, SlabEntry, component::GetSlabKey}, ir::types::{PointerType, StructType}};
+use crate::{context::{Context, SlabEntry, component::GetSlabKey, Reference}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
 use super::{ValueRef, instruction::InstOpcode, Instruction};
@@ -123,13 +123,14 @@ impl ConstExpr {
       .instance
       .inst
       .instance
-      .operands.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
-    match self.instance.inst.get_opcode() {
+      .operands
+      .iter()
+      .map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
+    // Wow, this instruction has no slab key!
+    let inst = Reference::new(0, ctx, &self.instance.inst);
+    match inst.get_opcode() {
       InstOpcode::GetElementPtr(_) => {
-        let ty = self
-          .instance
-          .inst
-          .get_type();
+        let ty = inst.get_type();
         let ptr_scalar = self
           .instance
           .inst
@@ -139,14 +140,11 @@ impl ConstExpr {
           .as_ref::<PointerType>(ctx)
           .unwrap()
           .get_pointee_ty();
-        let opcode = self
-          .instance
-          .inst
-          .get_opcode();
+        let opcode = inst.get_opcode();
         format!("{} {} ( {}, {} )", ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
       }
       _ => {
-        panic!("ConstExpr::to_string: not a constant opcode {:?}", self.instance.inst.get_opcode().to_string());
+        panic!("ConstExpr::to_string: not a constant opcode {:?}", inst.get_opcode().to_string());
       }
     }
   }

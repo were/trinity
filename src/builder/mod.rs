@@ -14,7 +14,7 @@ use crate::ir::{
   value::consts::{ConstExpr, ConstObject}
 };
 
-use crate::context::Context;
+use crate::context::{Context, Reference};
 
 pub struct Builder {
   pub module: Module,
@@ -113,8 +113,8 @@ impl<'ctx> Builder {
   pub fn set_insert_before(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-    let block = inst.get_parent();
-    let block = block.as_ref::<Block>(&self.module.context).unwrap();
+    let inst_ref = Reference::new(inst.get_skey(), &self.module.context, inst);
+    let block = inst_ref.get_parent();
     let idx = block.inst_iter(&self.module.context).position(|i| i.get_skey() == inst_ref.skey).unwrap();
     self.inst_idx = Some(idx);
   }
@@ -141,26 +141,25 @@ impl<'ctx> Builder {
       ValueRef { skey: 0, kind: VKindCode::Unknown }
     } else {
       let inst_ref = self.context().add_instance(inst);
+      let inst_value = Instruction::from_skey(inst_ref.skey);
       // Maintain the instruction redundancy.
-      let operands = inst_ref
-          .as_mut::<Instruction>(&mut self.module.context)
-          .unwrap()
-          .operand_iter()
-          .collect::<Vec<_>>();
+      let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
+      let inst_ref = Reference::new(inst_ref.get_skey(), &self.module.context, inst_ref);
+      let operands = inst_ref.operand_iter().collect::<Vec<_>>();
       for operand in operands.iter() {
         if let Some(operand) = operand.as_mut::<Instruction>(&mut self.module.context) {
-          operand.add_user(inst_ref.clone());
+          operand.add_user(inst_value.clone());
         }
         if let Some(block) = operand.as_mut::<Block>(&mut self.module.context) {
-          block.add_predecessor(&inst_ref);
+          block.add_predecessor(&inst_value);
         }
         if let Some(func) = operand.as_mut::<Function>(&mut self.module.context) {
-          func.add_caller(&inst_ref);
+          func.add_caller(&inst_value);
         }
       }
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
-      block.instance.insts.insert(insert_idx, inst_ref.skey);
-      inst_ref
+      block.instance.insts.insert(insert_idx, inst_value.skey);
+      inst_value.clone()
     }
   }
 

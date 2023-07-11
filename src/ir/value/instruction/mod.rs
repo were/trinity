@@ -3,8 +3,7 @@ pub mod instructions;
 pub use instructions::*;
 use types::TypeRef;
 
-use crate::context::SlabEntry;
-use crate::context::component::GetSlabKey;
+use crate::context::{SlabEntry, Reference};
 use crate::ir::value::ValueRef;
 use crate::ir::types;
 
@@ -23,6 +22,20 @@ pub struct InstructionImpl {
 }
 
 pub type Instruction = SlabEntry<InstructionImpl>;
+
+impl Instruction {
+
+  pub(crate) fn add_user(&mut self, user: ValueRef) -> bool {
+    let pos = self.instance.users.iter().position(|x| x.skey == user.skey);
+    if pos.is_none() {
+      self.instance.users.push(user);
+      true
+    } else {
+      false
+    }
+  }
+
+}
 
 // TODO(@were): Revisit this idea of code organization.
 /// This is not only the opcode, but also the additional information of
@@ -171,38 +184,10 @@ impl InstructionImpl {
       users: vec![],
     }
   }
+
 }
 
 impl Instruction {
-
-  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
-    let instance = InstructionImpl::new(ty, opcode, name_prefix, operands);
-    Instruction::from(instance)
-  }
-
-  pub fn get_opcode(&self) -> &InstOpcode {
-    &self.instance.opcode
-  }
-
-  pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance.name_prefix, self.get_skey())
-  }
-
-  pub fn get_type(&self) -> &types::TypeRef {
-    &self.instance.ty
-  }
-
-  pub fn get_num_operands(&self) -> usize {
-    self.instance.operands.len()
-  }
-
-  pub fn get_operand(&self, idx: usize) -> Option<&ValueRef> {
-    if idx < self.instance.operands.len() {
-      Some(&self.instance.operands[idx])
-    } else {
-      None
-    }
-  }
 
   pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) {
     self.instance.operands[idx] = new_value;
@@ -215,57 +200,90 @@ impl Instruction {
   pub fn add_operand(&mut self, new_value: ValueRef) {
     self.instance.operands.push(new_value);
   }
+}
 
-  pub fn get_parent(&self) -> ValueRef {
-    Block::from_skey(self.instance.parent.unwrap())
+impl Instruction {
+
+  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
+    let instance = InstructionImpl::new(ty, opcode, name_prefix, operands);
+    Instruction::from(instance)
   }
 
-  pub fn to_string(&self, ctx: &crate::context::Context) -> String {
-    let mut res = match self.instance.opcode {
-      InstOpcode::Alloca(_) => { Alloca::new(self).to_string(ctx) },
-      InstOpcode::Return => { Return::new(self).to_string(ctx) },
-      InstOpcode::GetElementPtr(inbounds) => { GetElementPtr::new(self, inbounds).to_string(ctx) },
-      InstOpcode::Load(_) => { Load::new(self).to_string(ctx) },
-      InstOpcode::Store(_) => { Store::new(self).to_string(ctx) },
-      InstOpcode::Call => { Call::new(self).to_string(ctx) },
-      InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(ctx) },
-      InstOpcode::CastInst(_) => { CastInst::new(self).to_string(ctx) }
-      InstOpcode::ICompare(_) => { CompareInst::new(self).to_string(ctx) }
-      InstOpcode::Branch => { BranchInst::new(self).to_string(ctx) }
-      InstOpcode::Phi => { PhiNode::new(self).to_string(ctx) }
+}
+
+pub type InstructionRef<'ctx> = Reference<'ctx, Instruction>;
+
+impl <'ctx>InstructionRef<'ctx> {
+
+  pub fn get_opcode(&self) -> &InstOpcode {
+    &self.instance.instance.opcode
+  }
+
+  pub fn get_name(&self) -> String {
+    format!("{}.{}", self.instance.instance.name_prefix, self.skey)
+  }
+
+  pub fn get_type(&self) -> &types::TypeRef {
+    &self.instance.instance.ty
+  }
+
+  pub fn get_num_operands(&self) -> usize {
+    self.instance.instance.operands.len()
+  }
+
+  pub fn get_operand(&self, idx: usize) -> Option<&ValueRef> {
+    if idx < self.instance.instance.operands.len() {
+      Some(&self.instance.instance.operands[idx])
+    } else {
+      None
+    }
+  }
+
+  pub fn get_parent(&self) -> &'ctx Block {
+    let block = Block::from_skey(self.instance.instance.parent.unwrap());
+    block.as_ref::<Block>(self.ctx).unwrap()
+  }
+
+  pub fn to_string(&self) -> String {
+    let mut res = match self.instance.instance.opcode {
+      InstOpcode::Alloca(_) => { Alloca::new(self).to_string(self.ctx) },
+      InstOpcode::Return => { Return::new(self).to_string(self.ctx) },
+      InstOpcode::GetElementPtr(_) => { GetElementPtr::new(self).to_string(self.ctx) },
+      InstOpcode::Load(_) => { Load::new(self).to_string(self.ctx) },
+      InstOpcode::Store(_) => { Store::new(self).to_string(self.ctx) },
+      InstOpcode::Call => { Call::new(self).to_string(self.ctx) },
+      InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(self.ctx) },
+      InstOpcode::CastInst(_) => { CastInst::new(self).to_string(self.ctx) }
+      InstOpcode::ICompare(_) => { CompareInst::new(self).to_string(self.ctx) }
+      InstOpcode::Branch => { BranchInst::new(self).to_string(self.ctx) }
+      InstOpcode::Phi => { PhiNode::new(self).to_string(self.ctx) }
     };
-    if self.instance.comment.len() != 0 {
-      res = format!("; {}\n  {}", self.instance.comment, res)
+    if self.instance.instance.comment.len() != 0 {
+      res = format!("; {}\n  {}", self.instance.instance.comment, res)
     }
     // TODO(@were): Fix the redundancy removal.
-    for user in self.instance.users.iter() {
-      res = format!("; user: {}\n  {}", user.to_string(ctx, true), res);
-    }
+    // for user in self.instance.instance.users.iter() {
+    //   res = format!("; user: {}\n  {}", user.to_string(self.ctx, true), res);
+    // }
     res
   }
 
   pub fn operand_iter(&self) -> ValueRefIter {
     ValueRefIter {
       idx: 0,
-      vec: &self.instance.operands,
-    }
-  }
-
-  pub(crate) fn add_user(&mut self, user: ValueRef) -> bool {
-    let pos = self.instance.users.iter().position(|x| x.skey == user.skey);
-    if pos.is_none() {
-      self.instance.users.push(user);
-      true
-    } else {
-      false
+      vec: &self.instance.instance.operands,
     }
   }
 
   pub fn user_iter(&self) -> ValueRefIter {
     ValueRefIter {
       idx: 0,
-      vec: &self.instance.users,
+      vec: &self.instance.instance.users,
     }
+  }
+
+  pub fn as_sub<'inst, T: SubInst<'inst>>(&'inst self) -> T {
+    T::new(self)
   }
 
 }

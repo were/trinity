@@ -1,4 +1,4 @@
-use crate::context::{Context, SlabEntry, component::GetSlabKey};
+use crate::{context::{Context, SlabEntry, component::GetSlabKey, Reference}, ir::value::instruction::InstructionRef};
 
 use super::{ValueRef, instruction::{Instruction, InstOpcode}};
 
@@ -51,6 +51,7 @@ impl Block {
     if let Some(inst_ref) = self.instance.insts.last() {
       let inst = ValueRef{ skey: *inst_ref, kind: crate::ir::VKindCode::Instruction };
       let inst = inst.as_ref::<Instruction>(ctx).unwrap();
+      let inst = InstructionRef::new(inst.get_skey(), ctx, inst);
       match inst.get_opcode() {
         InstOpcode::Branch | InstOpcode::Return => true,
         _ => false
@@ -82,13 +83,16 @@ impl Block {
 
   pub fn to_string(&self, ctx: &Context) -> String {
     let insts = self.instance.insts.iter().map(|i| {
-      let inst_ref = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
-      let inst = inst_ref.as_ref::<Instruction>(ctx).unwrap();
-      format!("  {}", inst.to_string(ctx))
+      let inst_value = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
+      let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
+      let inst_ref = InstructionRef::new(inst.get_skey(), ctx, inst);
+      format!("  {}", inst_ref.to_string())
     }).collect::<Vec<String>>().join("\n");
     let pred_comments = self.instance.predecessors.iter().enumerate().map(|(i, _)| {
-      let pred_block = self.get_predecessor(i).unwrap().as_ref::<Instruction>(ctx).unwrap().get_parent();
-      let block_name = pred_block.as_ref::<Block>(ctx).unwrap().get_name();
+      let pred_br = self.get_predecessor(i).unwrap().as_ref::<Instruction>(ctx).unwrap();
+      let pred_ref = Reference::new(pred_br.get_skey(), ctx, pred_br);
+      let pred_block = pred_ref.get_parent();
+      let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
     format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)

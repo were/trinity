@@ -1,3 +1,5 @@
+use core::panic;
+
 use slab::Slab;
 
 pub mod component;
@@ -35,11 +37,17 @@ impl<'ctx> Context {
 
   pub fn get_value_ref<T>(&'ctx self, skey: usize) -> &'ctx T
     where T: ComponentToRef<T> + GetSlabKey {
+    if !self.slab.get(skey).is_some() {
+      panic!("Invalid slab key: {}", skey);
+    }
     T::instance_to_self(&self.slab[skey])
   }
 
   pub fn get_value_mut<T>(&'ctx mut self, skey: usize) -> &'ctx mut T
     where T: ComponentToMut<T> + GetSlabKey {
+    if !self.slab.get(skey).is_some() {
+      panic!("Invalid slab key: {}", skey);
+    }
     T::instance_to_self_mut(&mut self.slab[skey])
   }
 

@@ -1,4 +1,4 @@
-use crate::context::Context;
+use crate::context::{Context, Reference};
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::ConstExpr;
 use crate::ir::types::{TypeRef, TKindCode};
@@ -57,6 +57,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
+        let inst = Reference::new(inst.get_skey(), ctx, inst);
         format!("{}%{}", self.type_to_string(ctx, with_type), inst.get_name())
       },
       VKindCode::ConstScalar => {
@@ -103,6 +104,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Instruction => {
         let inst = ctx.get_value_ref::<Instruction>(self.skey);
+        let inst = Reference::new(inst.get_skey(), ctx, inst);
         inst.get_type().clone()
       },
       VKindCode::ConstScalar => {
@@ -119,11 +121,9 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstExpr => {
         let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        const_expr
-          .instance
-          .inst
-          .get_type()
-          .clone()
+        let inst = &const_expr.instance.inst;
+        let inst = Reference::new(inst.get_skey(), ctx, inst);
+        inst.get_type().clone()
       },
       VKindCode::ConstObject => {
         let const_object = ctx.get_value_ref::<ConstObject>(self.skey);

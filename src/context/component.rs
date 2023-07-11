@@ -9,11 +9,25 @@ use crate::ir::{
 use crate::ir::value::VKindCode;
 use crate::ir::types::TKindCode;
 
+use super::Context;
+
 /// Manage the slab pointer of each IR component.
 pub struct SlabEntry<T: Sized> {
   skey: Option<usize>,
   // TODO(@were): Make this private later.
   pub(crate) instance: T,
+}
+
+pub struct Reference<'ctx, T> {
+  pub skey: usize,
+  pub(crate) ctx: &'ctx Context,
+  pub(crate) instance: &'ctx T,
+}
+
+impl <'ctx, T> Reference <'ctx, T> {
+  pub fn new(skey: usize, ctx: &'ctx Context, instance: &'ctx T) -> Self {
+    Reference { skey, ctx, instance }
+  }
 }
 
 impl<T>GetSlabKey for SlabEntry<T> {
@@ -140,7 +154,6 @@ macro_rules! impl_component {
   };
 }
 
-
 // Types
 impl_component!(TypeRef, TKindCode, IntType);
 impl_component!(TypeRef, TKindCode, VoidType);
@@ -149,9 +162,9 @@ impl_component!(TypeRef, TKindCode, PointerType);
 impl_component!(TypeRef, TKindCode, FunctionType);
 impl_component!(TypeRef, TKindCode, ArrayType);
 // Values
+impl_component!(ValueRef, VKindCode, Instruction);
 impl_component!(ValueRef, VKindCode, Function);
 impl_component!(ValueRef, VKindCode, Argument);
-impl_component!(ValueRef, VKindCode, Instruction);
 impl_component!(ValueRef, VKindCode, Block);
 impl_component!(ValueRef, VKindCode, ConstScalar);
 impl_component!(ValueRef, VKindCode, ConstArray);
@@ -159,4 +172,3 @@ impl_component!(ValueRef, VKindCode, ConstExpr);
 impl_component!(ValueRef, VKindCode, ConstObject);
 impl_component!(ValueRef, VKindCode, InlineAsm);
 impl_component!(ValueRef, VKindCode, Undef);
-

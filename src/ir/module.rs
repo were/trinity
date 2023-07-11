@@ -1,8 +1,8 @@
 use std::fmt;
 
 
-use crate::context::Context;
-use crate::context::component::AsSuper;
+use crate::context::{Context, Reference};
+use crate::context::component::{AsSuper, GetSlabKey};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::{Function, Instruction, Block};
@@ -62,7 +62,9 @@ impl<'ctx> Module {
 
   /// Remove the given instruction.
   pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
-    let block = v.as_ref::<Instruction>(&self.context).unwrap().get_parent();
+    let inst = v.as_ref::<Instruction>(&self.context).unwrap();
+    let inst_ref = Reference::new(inst.get_skey(), &self.context, inst);
+    let block = inst_ref.get_parent().as_super();
     let block = block.as_mut::<Block>(&mut self.context).unwrap();
     block.instance.insts.retain(|x| *x != v.skey);
     if dispose {
@@ -100,19 +102,16 @@ impl<'ctx> Module {
 
   /// Replace old instruction with new value.
   pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
-    let func = old
-      .as_ref::<Instruction>(&self.context)
-      .unwrap()
-      .get_parent()
-      .as_ref::<Block>(&self.context)
-      .unwrap()
-      .get_parent();
-    let func =func.as_ref::<Function>(&self.context).unwrap();
+    let old_inst = old.as_ref::<Instruction>(&self.context).unwrap();
+    let old_inst_ref = Reference::new(old.skey, &self.context, old_inst);
+    let func = old_inst_ref.get_parent().get_parent();
+    let func = func.as_ref::<Function>(&self.context).unwrap();
     let to_replace = func.iter(&self.context).map(|block| {
       for inst in block.inst_iter(&self.context) {
+        let inst = Reference::new(inst.get_skey(), &self.context, inst);
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
-            return Some((inst.as_super(), i))
+            return Some((Instruction::from_skey(inst.skey), i))
           }
         }
       }
@@ -121,9 +120,14 @@ impl<'ctx> Module {
     let res = to_replace.iter().fold(false, |_, elem| {
       if let Some((inst, idx)) = elem {
         let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
+        // {
+        //   eprintln!("replace {}'s {} with {}", inst.get_skey(), idx, new.skey);
+        // }
         inst.set_operand(*idx, new.clone());
+        true
+      } else {
+        false
       }
-      true
     });
     old.as_mut::<Instruction>(&mut self.context)
       .unwrap()
