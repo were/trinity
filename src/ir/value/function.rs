@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use super::Instruction;
+use super::block::BlockRef;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
@@ -73,7 +74,7 @@ impl <'ctx>FunctionRef<'ctx> {
     return self.instance().fty.clone();
   }
 
-  pub fn get_block(&'ctx self, i: usize) -> Option<&'ctx Block> {
+  pub fn get_block(&'ctx self, i: usize) -> Option<BlockRef> {
     if i < self.instance().blocks.len() {
       let value = ValueRef {skey: self.instance().blocks[i], kind: VKindCode::Block};
       Some(value.as_ref::<Block>(self.ctx).unwrap())
@@ -83,7 +84,8 @@ impl <'ctx>FunctionRef<'ctx> {
   }
 
   pub fn get_ret_ty(&self) -> TypeRef {
-    return self.instance().fty.as_ref::<FunctionType>(self.ctx).unwrap().ret_ty().clone();
+    let fty = self.instance().fty.as_ref::<FunctionType>(self.ctx).unwrap();
+    fty.ret_ty().clone()
   }
 
   pub fn is_declaration(&self) -> bool {
@@ -110,14 +112,12 @@ impl <'ctx>FunctionRef<'ctx> {
       }
       let arg_ref = self.get_arg(i);
       let arg = arg_ref.as_ref::<Argument>(ctx).unwrap();
-      let arg = Reference::new(ctx, arg);
       res.push_str(format!("{}", arg.to_string()).as_str());
     }
     res.push_str(")");
     if !self.is_declaration() {
       res.push_str(" {\n");
       for block in self.iter() {
-        let block = Reference::new(ctx, block);
         res.push_str(block.to_string().as_str());
       }
       res.push_str("}");
@@ -140,7 +140,7 @@ pub struct FuncBlockIter<'ctx> {
 
 impl <'ctx>Iterator for FuncBlockIter<'ctx> {
 
-  type Item = &'ctx Block;
+  type Item = BlockRef<'ctx>;
 
   fn next(&mut self) -> Option<Self::Item> {
     if self.i < self.func.get_num_blocks() {
@@ -170,12 +170,15 @@ impl <'ctx>ArgumentRef<'ctx> {
 
   pub fn get_parent(&self) -> FunctionRef<'ctx> {
     let func = Function::from_skey(self.instance().parent);
-    let func = func.as_ref::<Function>(self.ctx).unwrap();
-    Reference::new(self.ctx, func)
+    func.as_ref::<Function>(self.ctx).unwrap()
   }
 
   pub fn get_name(&self) -> String {
     format!("arg.{}", self.get_skey())
+  }
+
+  pub fn get_type(&self) -> TypeRef {
+    self.instance().ty.clone()
   }
 
   pub fn to_string(&self) -> String {

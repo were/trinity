@@ -3,10 +3,10 @@ use std::fmt;
 pub mod arraytype;
 pub mod functype;
 
-pub use arraytype::{PointerType, ArrayType};
-pub use functype::FunctionType;
+pub use arraytype::{PointerType, ArrayType, PointerImpl, ArrayTypeImpl};
+pub use functype::{FunctionType, FuncTypeImpl};
 
-use crate::context::{Context, SlabEntry, Reference};
+use crate::context::{Context, SlabEntry, Reference, IsSlabEntry};
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::value::consts::ConstArray;
 
@@ -79,21 +79,9 @@ pub struct StructImpl {
 }
 
 pub type StructType = SlabEntry<StructImpl>;
+pub type StructTypeRef<'ctx> = Reference<'ctx, StructImpl>;
 
 impl StructType {
-
-  pub fn to_string(&self, ctx: &Context) -> String {
-    let attrs = self.instance.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ");
-    format!("%{} = type {{ {} }}", self.get_name(), attrs)
-  }
-
-  pub fn get_num_attrs(&self) -> usize {
-    self.instance.attrs.len()
-  }
-
-  pub fn get_attr(&self, i: usize) -> TypeRef {
-    self.instance.attrs[i].clone()
-  }
 
   pub fn new(name: String) -> Self {
     Self::from(StructImpl {
@@ -102,12 +90,36 @@ impl StructType {
     })
   }
 
-  pub fn get_name(&self) -> &str {
-    &self.instance.name
-  }
-
   pub fn set_body(&mut self, elements: Vec<TypeRef>) {
     self.instance.attrs = elements;
+  }
+
+
+}
+
+impl <'ctx>StructTypeRef<'ctx> {
+
+  pub fn to_string(&self) -> String {
+    let attrs = self
+      .instance()
+      .attrs
+      .iter()
+      .map(|attr| attr.to_string(self.ctx))
+      .collect::<Vec<_>>()
+      .join(", ");
+    format!("%{} = type {{ {} }}", self.get_name(), attrs)
+  }
+
+  pub fn get_num_attrs(&self) -> usize {
+    self.instance().attrs.len()
+  }
+
+  pub fn get_attr(&self, i: usize) -> TypeRef {
+    self.instance().attrs[i].clone()
+  }
+
+  pub fn get_name(&self) -> String {
+    self.instance().name.to_string()
   }
 
 }
@@ -136,8 +148,8 @@ impl<'ctx> TypeRef {
         ty.to_string()
       },
       TKindCode::StructType => {
-        let ty = ctx.get_value_ref::<StructType>(self.skey);
-        format!("%{}", ty.get_name().to_string())
+        let ty = self.as_ref::<StructType>(ctx).unwrap();
+        format!("%{}", ty.get_name())
       },
       TKindCode::PointerType => {
         let ty = ctx.get_value_ref::<PointerType>(self.skey);
@@ -158,10 +170,11 @@ impl<'ctx> TypeRef {
     }
   }
 
-  pub fn as_ref<T>(&'ctx self, ctx: &'ctx Context) -> Option<&'ctx T>
-    where T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey {
+  pub fn as_ref<T>(&'ctx self, ctx: &'ctx Context) -> Option<Reference<'ctx, T::Impl>>
+    where T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
-      Some(ctx.get_value_ref::<T>(self.skey))
+      let instance_ref = ctx.get_value_ref::<T>(self.skey);
+      Some(Reference::new(ctx, instance_ref.to_slab_entry()))
     } else {
       None
     }
@@ -194,17 +207,15 @@ impl<'ctx> TypeRef {
     match self.kind {
       TKindCode::IntType => {
         let it = self.as_ref::<IntType>(ctx).unwrap();
-        let it = Reference::new(ctx, it);
         it.get_bits()
       }
       TKindCode::VoidType => { 1 }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
-        st.instance.attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
+        st.instance().attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();
-        let at = Reference::new(ctx, at);
         at.get_elem_ty().get_scalar_size_in_bits(module)
       }
       TKindCode::PointerType => {

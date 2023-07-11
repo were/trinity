@@ -46,8 +46,7 @@ impl <'ctx> BlockRef<'ctx> {
 
   pub fn get_parent(&self) -> FunctionRef<'ctx> {
     let func = Function::from_skey(self.instance().parent);
-    let func = func.as_ref::<Function>(self.ctx).unwrap();
-    Reference::new(self.ctx, func)
+    func.as_ref::<Function>(self.ctx).unwrap()
   }
 
   pub fn get_num_insts(&self) -> usize {
@@ -64,7 +63,6 @@ impl <'ctx> BlockRef<'ctx> {
     if let Some(inst_ref) = self.instance().insts.last() {
       let inst = ValueRef{ skey: *inst_ref, kind: crate::ir::VKindCode::Instruction };
       let inst = inst.as_ref::<Instruction>(ctx).unwrap();
-      let inst = InstructionRef::new(ctx, inst);
       match inst.get_opcode() {
         InstOpcode::Branch | InstOpcode::Return => true,
         _ => false
@@ -99,13 +97,11 @@ impl <'ctx> BlockRef<'ctx> {
     let insts = self.instance().insts.iter().map(|i| {
       let inst_value = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
       let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
-      let inst_ref = InstructionRef::new(ctx, inst);
-      format!("  {}", inst_ref.to_string())
+      format!("  {}", inst.to_string())
     }).collect::<Vec<String>>().join("\n");
     let pred_comments = self.instance().predecessors.iter().enumerate().map(|(i, _)| {
       let pred_br = self.get_predecessor(i).unwrap().as_ref::<Instruction>(ctx).unwrap();
-      let pred_ref = Reference::new(ctx, pred_br);
-      let pred_block = pred_ref.get_parent();
+      let pred_block = pred_br.get_parent();
       let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
@@ -141,9 +137,7 @@ impl <'ctx> Iterator for BlockInstIter <'ctx> {
     if let Some(value) = self.iter.next() {
       let v = *value;
       let inst = Instruction::from_skey(v);
-      let inst = inst.as_ref::<Instruction>(self.ctx).unwrap();
-      let res = Reference::new(self.ctx, inst);
-      Some(res)
+      Some(inst.as_ref::<Instruction>(self.ctx).unwrap())
     } else {
       None
     }
@@ -157,9 +151,7 @@ impl <'ctx> DoubleEndedIterator for BlockInstIter <'ctx> {
     if let Some(value) = self.iter.next_back() {
       let v = *value;
       let inst = Instruction::from_skey(v);
-      let inst = inst.as_ref::<Instruction>(self.ctx).unwrap();
-      let res = Reference::new(self.ctx, inst);
-      Some(res)
+      Some(inst.as_ref::<Instruction>(self.ctx).unwrap())
     } else {
       None
     }

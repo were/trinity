@@ -120,7 +120,6 @@ impl <'ctx> ConstArrayRef<'ctx> {
     let ctx = self.ctx;
     let literal = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
-    let pty = Reference::new(ctx, pty);
     format!("@{} = private unnamed_addr constant {} [{}], align 1", self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
   }
 
@@ -162,7 +161,6 @@ impl <'ctx> ConstExprRef<'ctx> {
         let ptr_inst = &self.instance().inst.instance;
         let ptr_ty = ptr_inst.operands[0].get_type(ctx);
         let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
-        let ptr_ty = Reference::new(ctx, ptr_ty);
         let ptr_scalar = ptr_ty.get_pointee_ty();
         let opcode = inst.get_opcode();
         format!("{} {} ( {}, {} )", ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
@@ -209,7 +207,6 @@ impl <'ctx> ConstObjectRef<'ctx> {
   pub fn to_string(&self) -> String {
     let ctx = self.ctx;
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
-    let pty = Reference::new(ctx, pty);
     let initializer = if self.instance().value.len() != 0 {
       format!("{{ {} }}", self.instance().value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", "))
     } else {
@@ -266,7 +263,7 @@ impl <'ctx> InlineAsmRef<'ctx> {
   pub fn to_string(&self) -> String {
     let ctx = self.ctx;
     let ty = if let Some(sty) = self.get_type().as_ref::<StructType>(ctx) {
-      sty.instance.attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
+      sty.instance().attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
     } else {
       self.get_type().to_string(ctx)
     };

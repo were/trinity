@@ -40,7 +40,7 @@ impl<'ctx> Context {
     if !self.slab.get(skey).is_some() {
       panic!("Invalid slab key: {}", skey);
     }
-    T::instance_to_self(&self.slab[skey])
+    T::instance_to_ref(&self.slab[skey])
   }
 
   pub fn get_value_mut<T>(&'ctx mut self, skey: usize) -> &'ctx mut T

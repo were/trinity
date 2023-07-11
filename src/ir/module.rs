@@ -4,7 +4,8 @@ use std::fmt;
 use crate::context::{Context, Reference};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
-use super::{Function, Instruction, Block};
+use super::value::function::FunctionRef;
+use super::{Function, Instruction, Block, TypeRef};
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
@@ -50,8 +51,8 @@ impl<'ctx> Module {
   }
 
   /// Get the struct reference by name
-  pub fn get_struct(&'ctx self, i: usize) -> &StructType {
-    self.context.get_value_ref::<StructType>(self.structs[i])
+  pub fn get_struct(&'ctx self, i: usize) -> TypeRef {
+    StructType::from_skey(self.structs[i])
   }
 
   /// Get the struct mutable reference by name
@@ -62,8 +63,7 @@ impl<'ctx> Module {
   /// Remove the given instruction.
   pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
     let inst = v.as_ref::<Instruction>(&self.context).unwrap();
-    let inst_ref = Reference::new(&self.context, inst);
-    let block = inst_ref.get_parent();
+    let block = inst.get_parent();
     let block = Block::from_skey(block.get_skey());
     let block = block.as_mut::<Block>(&mut self.context).unwrap();
     block.instance.insts.retain(|x| *x != v.skey);
@@ -103,11 +103,9 @@ impl<'ctx> Module {
   /// Replace old instruction with new value.
   pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
     let old_inst = old.as_ref::<Instruction>(&self.context).unwrap();
-    let old_inst_ref = Reference::new(&self.context, old_inst);
-    let old_parent = old_inst_ref.get_parent();
+    let old_parent = old_inst.get_parent();
     let func = old_parent.get_parent();
     let to_replace = func.iter().map(|block| {
-      let block = Reference::new(&self.context, block);
       for inst in block.inst_iter() {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
@@ -143,13 +141,13 @@ pub struct ModuleFuncIter <'ctx> {
 
 impl<'ctx> Iterator for ModuleFuncIter<'ctx> {
 
-  type Item = &'ctx Function;
+  type Item = FunctionRef<'ctx>;
 
   fn next(&mut self) -> Option<Self::Item> {
     if self.i < self.module.functions.len() {
       let skey = self.module.functions[self.i];
       self.i += 1;
-      Some(self.module.context.get_value_ref::<Function>(skey))
+      Function::from_skey(skey).as_ref::<Function>(&self.module.context)
     } else {
       None
     }
@@ -174,19 +172,18 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
-      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+      let elem = elem.as_ref::<StructType>(&self.context).unwrap();
+      write!(f, "{}\n", elem.to_string()).unwrap();
     }
     for i in 0..self.get_num_gvs() {
       let elem = self.get_gv(i);
       match elem.kind {
         super::VKindCode::ConstArray => {
           let array = elem.as_ref::<ConstArray>(&self.context).unwrap();
-          let array = Reference::new(&self.context, array);
           write!(f, "{}\n", array.to_string()).unwrap();
         }
         super::VKindCode::ConstObject => {
           let obj = elem.as_ref::<ConstObject>(&self.context).unwrap();
-          let obj = Reference::new(&self.context, obj);
           write!(f, "{}\n", obj.to_string()).unwrap();
         }
         _ => (),

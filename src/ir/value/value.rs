@@ -1,4 +1,4 @@
-use crate::context::{Context, Reference};
+use crate::context::{Context, Reference, IsSlabEntry};
 use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
 use crate::ir::ConstExpr;
 use crate::ir::types::{TypeRef, TKindCode};
@@ -18,10 +18,11 @@ pub struct ValueRef {
 
 impl<'ctx> ValueRef {
 
-  pub fn as_ref<T>(&self, context: &'ctx Context) -> Option<&'ctx T> 
-    where T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey {
+  pub fn as_ref<T>(&self, context: &'ctx Context) -> Option<Reference<'ctx, T::Impl>> 
+    where T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
-      Some(context.get_value_ref::<T>(self.skey))
+      let instance_ref = context.get_value_ref::<T>(self.skey);
+      Some(Reference::new(context, instance_ref.to_slab_entry()))
     } else {
       None
     }
@@ -48,48 +49,39 @@ impl<'ctx> ValueRef {
   pub fn to_string(&self, ctx: &'ctx Context, with_type: bool) -> String {
     match self.kind {
       VKindCode::Block => {
-        let block = ctx.get_value_ref::<Block>(self.skey);
-        let block = Reference::new(ctx, block);
+        let block = self.as_ref::<Block>(ctx).unwrap();
         format!("%{}", block.get_name())
       },
       VKindCode::Argument => {
         let arg = self.as_ref::<Argument>(ctx).unwrap();
-        let arg = Reference::new(ctx, arg);
         format!("{}%{}", self.type_to_string(ctx, with_type), arg.get_name())
       },
       VKindCode::Instruction => {
-        let inst = ctx.get_value_ref::<Instruction>(self.skey);
-        let inst = Reference::new(ctx, inst);
+        let inst = self.as_ref::<Instruction>(ctx).unwrap();
         format!("{}%{}", self.type_to_string(ctx, with_type), inst.get_name())
       },
       VKindCode::ConstScalar => {
-        let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        let const_scalar = Reference::new(ctx, const_scalar);
+        let const_scalar = self.as_ref::<ConstScalar>(ctx).unwrap();
         format!("{}{}", self.type_to_string(ctx, with_type), const_scalar.get_value())
       },
       VKindCode::Function => {
-        let func = ctx.get_value_ref::<Function>(self.skey);
-        let func = Reference::new(ctx, func);
+        let func = self.as_ref::<Function>(ctx).unwrap();
         format!("{}@{}", if with_type { func.get_ret_ty().to_string(ctx) + " " } else { "".to_string() }, namify(&func.get_name()))
       },
       VKindCode::ConstArray => {
-        let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
-        let const_array = Reference::new(ctx, const_array);
+        let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
         format!("{}@{}", self.type_to_string(ctx, with_type), const_array.get_name())
       },
       VKindCode::ConstExpr => {
-        let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        let const_expr = Reference::new(ctx, const_expr);
+        let const_expr = self.as_ref::<ConstExpr>(ctx).unwrap();
         format!("{}", const_expr.to_string())
       },
       VKindCode::ConstObject => {
-        let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
-        let const_object = Reference::new(ctx, const_object);
+        let const_object = self.as_ref::<ConstObject>(ctx).unwrap();
         format!("{}@{}", self.type_to_string(ctx, with_type), const_object.get_name())
       },
       VKindCode::InlineAsm => {
-        let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
-        let inline_asm = Reference::new(ctx, inline_asm);
+        let inline_asm = self.as_ref::<InlineAsm>(ctx).unwrap();
         inline_asm.to_string()
       },
       VKindCode::Undef => {
@@ -107,12 +99,11 @@ impl<'ctx> ValueRef {
         TypeRef { skey: 0, kind: TKindCode::BlockType }
       },
       VKindCode::Argument => {
-        let arg = ctx.get_value_ref::<Argument>(self.skey);
-        arg.instance.ty.clone()
+        let arg = self.as_ref::<Argument>(ctx).unwrap();
+        arg.get_type()
       },
       VKindCode::Instruction => {
-        let inst = ctx.get_value_ref::<Instruction>(self.skey);
-        let inst = Reference::new(ctx, inst);
+        let inst = self.as_ref::<Instruction>(ctx).unwrap();
         inst.get_type().clone()
       },
       VKindCode::ConstScalar => {
@@ -127,7 +118,6 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstArray => {
         let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
-        let const_array = Reference::new(ctx, const_array);
         const_array.get_type().clone()
       },
       VKindCode::ConstExpr => {

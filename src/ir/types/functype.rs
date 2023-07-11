@@ -1,4 +1,4 @@
-use crate::context::SlabEntry;
+use crate::context::{SlabEntry, Reference};
 
 use super::TypeRef;
 
@@ -9,17 +9,22 @@ pub struct FuncTypeImpl {
 }
 
 pub type FunctionType = SlabEntry<FuncTypeImpl>;
+pub type FunctionTypeRef<'ctx> = Reference<'ctx, FuncTypeImpl>;
 
 impl FunctionType {
   pub(crate) fn new(ret_ty: TypeRef, args: Vec<TypeRef>) -> Self {
     Self::from(FuncTypeImpl { args, ret_ty, })
   }
+}
+
+impl FunctionTypeRef<'_> {
 
   pub fn ret_ty(&self) -> &TypeRef {
-    &self.instance.ret_ty
+    &self.instance().ret_ty
   }
 
   pub fn args(&self) -> &[TypeRef] {
-    &self.instance.args
+    &self.instance().args
   }
+
 }

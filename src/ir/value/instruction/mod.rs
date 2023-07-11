@@ -242,8 +242,7 @@ impl <'ctx>InstructionRef<'ctx> {
 
   pub fn get_parent(&self) -> BlockRef<'ctx> {
     let block = Block::from_skey(self.instance().parent.unwrap());
-    let block = block.as_ref::<Block>(self.ctx).unwrap();
-    Reference::new(self.ctx, block)
+    block.as_ref::<Block>(self.ctx).unwrap()
   }
 
   pub fn to_string(&self) -> String {

@@ -13,7 +13,7 @@ use crate::ir::{
   value::consts::{ConstExpr, ConstObject}
 };
 
-use crate::context::{Context, Reference};
+use crate::context::Context;
 
 pub struct Builder {
   pub module: Module,
@@ -39,7 +39,6 @@ impl<'ctx> Builder {
         .unwrap()
         .as_ref::<Block>(&self.module.context)
         .unwrap();
-      let block = Reference::new(&self.module.context, block);
       block.get_inst(idx)
     } else {
       None
@@ -67,7 +66,6 @@ impl<'ctx> Builder {
     // Finalize the arguments.
     {
       let func = func_ref.as_ref::<Function>(&self.module.context).unwrap();
-      let func = Reference::new(&self.module.context, func);
       let args = (0..func.get_num_args()).map(|i| { func.get_arg(i) }).collect::<Vec<_>>();
       args.iter().for_each(|arg| arg.as_mut::<Argument>(self.context()).unwrap().instance.parent = func_ref.skey);
     }
@@ -113,9 +111,8 @@ impl<'ctx> Builder {
   pub fn set_insert_before(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-    let inst_ref = Reference::new(&self.module.context, inst);
-    let block = inst_ref.get_parent();
-    let idx = block.inst_iter().position(|i| i.get_skey() == inst_ref.get_skey()).unwrap();
+    let block = inst.get_parent();
+    let idx = block.inst_iter().position(|i| i.get_skey() == inst.get_skey()).unwrap();
     self.inst_idx = Some(idx);
   }
 
@@ -124,7 +121,6 @@ impl<'ctx> Builder {
     inst.instance.parent = Some(block_ref.skey);
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
-      let block = Reference::new(&self.module.context, block);
       let (idx, last)  = if let Some(inst_idx) = self.inst_idx {
         (inst_idx, inst_idx == block.get_num_insts() - 1)
       } else {
@@ -145,7 +141,6 @@ impl<'ctx> Builder {
       let inst_value = Instruction::from_skey(inst_ref.skey);
       // Maintain the instruction redundancy.
       let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-      let inst_ref = Reference::new(&self.module.context, inst_ref);
       let operands = inst_ref.operand_iter().collect::<Vec<_>>();
       for operand in operands.iter() {
         if let Some(operand) = operand.as_mut::<Instruction>(&mut self.module.context) {
@@ -221,7 +216,6 @@ impl<'ctx> Builder {
   pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
-    let pty = Reference::new(&self.module.context, pty);
     let res_ty = pty.get_pointee_ty();
     self.create_gep(res_ty, ptr, indices, true)
   }
@@ -230,7 +224,6 @@ impl<'ctx> Builder {
   pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> Result<ValueRef, String> {
     let ptr_ty = ptr.get_type(&self.module.context);
     let ptr_ty = ptr_ty.as_ref::<PointerType>(&self.module.context).unwrap();
-    let ptr_ty = Reference::new(&self.module.context, ptr_ty);
     let pointee_ty = ptr_ty.get_pointee_ty();
     let value_ty = value.get_type(&self.context());
     if pointee_ty != value_ty {
@@ -300,7 +293,6 @@ impl<'ctx> Builder {
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
-    let pty = Reference::new(&self.module.context, pty);
     let res_ty = pty.get_pointee_ty();
     self.create_typed_load(res_ty, ptr)
   }
