@@ -6,11 +6,6 @@ use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
 use crate::context::{SlabEntry, Reference};
 
-use crate::context::{
-  Context,
-  component::GetSlabKey
-};
-
 pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
   pub(crate) parent: usize
@@ -25,6 +20,7 @@ pub struct FunctionImpl {
 }
 
 pub type Argument = SlabEntry<ArgumentImpl>;
+pub type ArgumentRef<'ctx> = Reference<'ctx, Argument>;
 pub type Function = SlabEntry<FunctionImpl>;
 pub type FunctionRef<'ctx> = Reference<'ctx, Function>;
 
@@ -114,7 +110,8 @@ impl <'ctx>FunctionRef<'ctx> {
       }
       let arg_ref = self.get_arg(i);
       let arg = arg_ref.as_ref::<Argument>(ctx).unwrap();
-      res.push_str(format!("{}", arg.to_string(&ctx)).as_str());
+      let arg = Reference::new(arg_ref.skey, ctx, arg);
+      res.push_str(format!("{}", arg.to_string()).as_str());
     }
     res.push_str(")");
     if !self.is_declaration() {
@@ -159,18 +156,6 @@ impl <'ctx>Iterator for FuncBlockIter<'ctx> {
 /// Function argument
 impl Argument {
 
-  pub fn get_parent(&self) -> ValueRef {
-    return Function::from_skey(self.instance.parent);
-  }
-
-  pub fn get_name(&self) -> String {
-    format!("arg.{}", self.get_skey())
-  }
-
-  pub fn to_string(&self, context: &Context) -> String {
-    format!("{} %{}", self.instance.ty.to_string(context), self.get_name())
-  }
-
   pub fn from_fty(fty: &FunctionType) -> Vec<Self> {
     fty.instance.args.iter().map(|ty| {
       let instance = ArgumentImpl{ty: ty.clone(), parent: 0};
@@ -178,5 +163,22 @@ impl Argument {
     }).collect()
   }
 
+}
+
+impl <'ctx>ArgumentRef<'ctx> {
+
+  pub fn get_parent(&self) -> FunctionRef<'ctx> {
+    let func = Function::from_skey(self.instance.instance.parent);
+    let func = func.as_ref::<Function>(self.ctx).unwrap();
+    Reference::new(self.instance.instance.parent, self.ctx, func)
+  }
+
+  pub fn get_name(&self) -> String {
+    format!("arg.{}", self.skey)
+  }
+
+  pub fn to_string(&self) -> String {
+    format!("{} %{}", self.instance.instance.ty.to_string(self.ctx), self.get_name())
+  }
 }
 

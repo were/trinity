@@ -52,7 +52,8 @@ impl<'ctx> ValueRef {
         format!("%{}", block.get_name())
       },
       VKindCode::Argument => {
-        let arg = ctx.get_value_ref::<Argument>(self.skey);
+        let arg = self.as_ref::<Argument>(ctx).unwrap();
+        let arg = Reference::new(self.skey, ctx, arg);
         format!("{}%{}", self.type_to_string(ctx, with_type), arg.get_name())
       },
       VKindCode::Instruction => {
