@@ -106,7 +106,8 @@ impl<'ctx> Module {
     let old_inst_ref = Reference::new(old.skey, &self.context, old_inst);
     let func = old_inst_ref.get_parent().get_parent();
     let func = func.as_ref::<Function>(&self.context).unwrap();
-    let to_replace = func.iter(&self.context).map(|block| {
+    let func = Reference::new(func.get_skey(), &self.context, func);
+    let to_replace = func.iter().map(|block| {
       for inst in block.inst_iter(&self.context) {
         let inst = Reference::new(inst.get_skey(), &self.context, inst);
         for i in 0..inst.get_num_operands() {
@@ -196,7 +197,8 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
       let func = self.get_function(i);
-      write!(f, "{}", func.to_string(&self.context)).unwrap();
+      let func = Reference::new(func.get_skey(), &self.context, func);
+      write!(f, "{}", func.to_string()).unwrap();
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
     }

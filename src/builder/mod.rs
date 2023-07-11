@@ -68,6 +68,7 @@ impl<'ctx> Builder {
     // Finalize the arguments.
     {
       let func = func_ref.as_ref::<Function>(&self.module.context).unwrap();
+      let func = Reference::new(func.get_skey(), &self.module.context, func);
       let args = (0..func.get_num_args()).map(|i| { func.get_arg(i) }).collect::<Vec<_>>();
       args.iter().for_each(|arg| arg.as_mut::<Argument>(self.context()).unwrap().instance.parent = func_ref.skey);
     }

@@ -4,7 +4,7 @@ use super::Instruction;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
-use crate::context::SlabEntry;
+use crate::context::{SlabEntry, Reference};
 
 use crate::context::{
   Context,
@@ -26,61 +26,82 @@ pub struct FunctionImpl {
 
 pub type Argument = SlabEntry<ArgumentImpl>;
 pub type Function = SlabEntry<FunctionImpl>;
+pub type FunctionRef<'ctx> = Reference<'ctx, Function>;
 
 impl Function {
 
-  pub fn get_name(&self) -> &String {
-    &self.instance.name
+  pub(crate) fn new(name: String, fty: TypeRef, args: Vec<usize>) -> Self {
+    let instance = FunctionImpl{name, args, fty, blocks: Vec::new(), callers: HashSet::new()};
+    Function::from(instance)
   }
 
-  pub fn basic_blocks(&self) -> &Vec<usize> {
-    &self.instance.blocks
+  pub(crate) fn add_caller(&mut self, caller: &ValueRef) {
+    self.instance.callers.insert(caller.skey);
+  }
+
+  pub(crate) fn remove_caller(&mut self, caller: ValueRef) {
+    self.instance.callers.remove(&caller.skey);
   }
 
   pub fn basic_blocks_mut(&mut self) -> &mut Vec<usize> {
     &mut self.instance.blocks
   }
 
+
+}
+
+impl <'ctx>FunctionRef<'ctx> {
+
+  pub fn get_name(&self) -> &String {
+    &self.instance.instance.name
+  }
+
+  pub fn basic_blocks(&self) -> &Vec<usize> {
+    &self.instance.instance.blocks
+  }
+
   pub fn get_num_args(&self) -> usize {
-    return self.instance.args.len();
+    return self.instance.instance.args.len();
   }
 
   pub fn get_arg(&self, i: usize) -> ValueRef {
-    return Argument::from_skey(self.instance.args[i]);
+    return Argument::from_skey(self.instance.instance.args[i]);
   }
 
   pub fn get_num_blocks(&self) -> usize {
-    return self.instance.blocks.len();
+    return self.instance.instance.blocks.len();
   }
 
   /// Get the type of the function.
   pub fn get_type(&self) -> TypeRef {
-    return self.instance.fty.clone();
+    return self.instance.instance.fty.clone();
   }
 
-  pub fn get_block(&self, i: usize) -> Option<ValueRef> {
-    if i < self.instance.blocks.len() {
-      Some(ValueRef{skey: self.instance.blocks[i], kind: VKindCode::Block})
+  pub fn get_block(&'ctx self, i: usize) -> Option<&'ctx Block> {
+    if i < self.instance.instance.blocks.len() {
+      let value = ValueRef {skey: self.instance.instance.blocks[i], kind: VKindCode::Block};
+      Some(value.as_ref::<Block>(self.ctx).unwrap())
     } else {
       None
     }
   }
 
-  pub fn get_ret_ty(&self, ctx: &Context) -> TypeRef {
-    return self.instance.fty.as_ref::<FunctionType>(ctx).unwrap().ret_ty().clone();
+  pub fn get_ret_ty(&self) -> TypeRef {
+    return self.instance.instance.fty.as_ref::<FunctionType>(self.ctx).unwrap().ret_ty().clone();
   }
 
   pub fn is_declaration(&self) -> bool {
-    return self.instance.blocks.len() == 0;
+    return self.instance.instance.blocks.len() == 0;
   }
 
-  pub fn to_string(&self, ctx: &Context) -> String {
+  pub fn to_string(&self) -> String {
+    let ctx = self.ctx;
     let mut res = String::new();
-    for elem in self.instance.callers.iter() {
+    for elem in self.instance.instance.callers.iter() {
       let caller = Instruction::from_skey(*elem);
       res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
     }
-    let fty = self.instance.fty.as_ref::<FunctionType>(ctx).unwrap();
+    let fty = self.instance.instance.fty.as_ref::<FunctionType>(ctx).unwrap();
     let prefix = if self.is_declaration() {
       "declare"
     } else {
@@ -98,7 +119,7 @@ impl Function {
     res.push_str(")");
     if !self.is_declaration() {
       res.push_str(" {\n");
-      for block in self.iter(ctx) {
+      for block in self.iter() {
         res.push_str(block.to_string(&ctx).as_str());
       }
       res.push_str("}");
@@ -108,29 +129,15 @@ impl Function {
     return res;
   }
 
-  pub fn iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> FuncBlockIter {
-    FuncBlockIter{ i: 0, func: self, ctx }
-  }
-
-  pub(crate) fn new(name: String, fty: TypeRef, args: Vec<usize>) -> Self {
-    let instance = FunctionImpl{name, args, fty, blocks: Vec::new(), callers: HashSet::new()};
-    Function::from(instance)
-  }
-
-  pub(crate) fn add_caller(&mut self, caller: &ValueRef) {
-    self.instance.callers.insert(caller.skey);
-  }
-
-  pub(crate) fn remove_caller(&mut self, caller: ValueRef) {
-    self.instance.callers.remove(&caller.skey);
+  pub fn iter(&'ctx self) -> FuncBlockIter {
+    FuncBlockIter{ i: 0, func: self }
   }
 
 }
 
 pub struct FuncBlockIter<'ctx> {
   i: usize,
-  func: &'ctx Function,
-  ctx: &'ctx Context
+  func: &'ctx FunctionRef<'ctx>,
 }
 
 impl <'ctx>Iterator for FuncBlockIter<'ctx> {
@@ -141,7 +148,7 @@ impl <'ctx>Iterator for FuncBlockIter<'ctx> {
     if self.i < self.func.get_num_blocks() {
       let res = self.func.get_block(self.i).unwrap();
       self.i += 1;
-      res.as_ref::<Block>(self.ctx)
+      Some(res)
     } else {
       None
     }

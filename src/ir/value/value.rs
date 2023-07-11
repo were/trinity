@@ -6,7 +6,7 @@ use crate::ir::module::{Module, namify};
 
 use super::consts::{ConstObject, Undef};
 use super::block::Block;
-use super::function::{Function, Argument};
+use super::function::{Function, Argument, FunctionRef};
 use super::instruction::Instruction;
 use super::consts::{ConstScalar, ConstArray, InlineAsm};
 
@@ -66,7 +66,8 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
-        format!("{}@{}", if with_type { func.get_ret_ty(ctx).to_string(ctx) + " " } else { "".to_string() }, namify(&func.get_name()))
+        let func = FunctionRef::new(func.get_skey(), ctx, func);
+        format!("{}@{}", if with_type { func.get_ret_ty().to_string(ctx) + " " } else { "".to_string() }, namify(&func.get_name()))
       },
       VKindCode::ConstArray => {
         let const_array = ctx.get_value_ref::<ConstArray>(self.skey);
@@ -113,6 +114,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Function => {
         let func = ctx.get_value_ref::<Function>(self.skey);
+        let func = Reference::new(func.get_skey(), ctx, func);
         func.get_type()
       },
       VKindCode::ConstArray => {
