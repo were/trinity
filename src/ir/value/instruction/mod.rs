@@ -66,6 +66,7 @@ impl <'ctx> InstMutator <'ctx> {
     }
   }
 
+  /// Remove this instruction!
   pub fn erase_from_parent(&mut self) {
     let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
     let operands = inst.operand_iter().collect::<Vec<_>>();
@@ -80,13 +81,49 @@ impl <'ctx> InstMutator <'ctx> {
       if let Some(operand_block) = operand.as_mut::<Block>(self.ctx) {
         operand_block.instance.users.retain(|x| *x != self.skey);
       }
+      let value = self.value();
       if let Some(operand_func) = operand.as_mut::<Function>(self.ctx) {
-        operand_func.instance.callers.retain(|x| *x != self.skey);
+        operand_func.remove_caller(value);
       }
     }
     let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
     block.instance.insts.retain(|x| *x != self.skey);
     self.ctx.dispose(self.skey);
+  }
+
+  /// Replace old instruction with new value.
+  pub fn replace_all_uses_with(&mut self, new: ValueRef) -> bool {
+    let old = self.value();
+    let old_inst = old.as_ref::<Instruction>(self.ctx).unwrap();
+    let old_parent = old_inst.get_parent();
+    let func = old_parent.get_parent();
+    let to_replace = func.iter().map(|block| {
+      for inst in block.inst_iter() {
+        for i in 0..inst.get_num_operands() {
+          if inst.get_operand(i).unwrap().skey == old.skey {
+            return Some((Instruction::from_skey(inst.get_skey()), i))
+          }
+        }
+      }
+      None
+    }).collect::<Vec<_>>();
+    let res = to_replace.iter().fold(false, |_, elem| {
+      if let Some((inst, idx)) = elem {
+        self.ctx.add_user_redundancy(inst, &vec![new.clone()]);
+        let inst = inst.as_mut::<Instruction>(self.ctx).unwrap();
+        inst.set_operand(*idx, new.clone());
+        true
+      } else {
+        false
+      }
+    });
+    // Maintain the redundant information.
+    old.as_mut::<Instruction>(self.ctx)
+      .unwrap()
+      .instance
+      .users
+      .clear();
+    return res;
   }
   
 }
@@ -303,7 +340,7 @@ impl <'ctx>InstructionRef<'ctx> {
     block.as_ref::<Block>(self.ctx).unwrap()
   }
 
-  pub fn to_string(&self) -> String {
+  pub fn to_string(&self, comment: bool) -> String {
     let mut res = match self.instance().opcode {
       InstOpcode::Alloca(_) => { self.as_sub::<Alloca>().unwrap().to_string() },
       InstOpcode::Return => { self.as_sub::<Return>().unwrap().to_string() },
@@ -317,12 +354,15 @@ impl <'ctx>InstructionRef<'ctx> {
       InstOpcode::Branch => { self.as_sub::<BranchInst>().unwrap().to_string() }
       InstOpcode::Phi => { self.as_sub::<PhiNode>().unwrap().to_string() }
     };
-    if self.instance().comment.len() != 0 {
-      res = format!("; {}\n  {}", self.instance().comment, res)
-    }
-    // TODO(@were): Fix the redundancy removal.
-    for user in self.instance().users.iter() {
-      res = format!("; user: {}\n  {}", user.to_string(self.ctx, true), res);
+    if comment {
+      if self.instance().comment.len() != 0 {
+        res = format!("; {}\n  {}", self.instance().comment, res)
+      }
+      for user in self.instance().users.iter() {
+        let user = user.as_ref::<Instruction>(self.ctx).unwrap();
+        res = format!("; user: {}\n  {}", user.to_string(false), res);
+      }
+      res = res + "\n";
     }
     res
   }

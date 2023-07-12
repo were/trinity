@@ -5,7 +5,7 @@ use crate::context::{Context, Reference};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::value::function::FunctionRef;
-use super::{Function, Instruction, TypeRef};
+use super::{Function, TypeRef};
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
@@ -82,39 +82,6 @@ impl<'ctx> Module {
 
   pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {
     return ModuleFuncIter{i: 0, module: self}
-  }
-
-
-  /// Replace old instruction with new value.
-  pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
-    let old_inst = old.as_ref::<Instruction>(&self.context).unwrap();
-    let old_parent = old_inst.get_parent();
-    let func = old_parent.get_parent();
-    let to_replace = func.iter().map(|block| {
-      for inst in block.inst_iter() {
-        for i in 0..inst.get_num_operands() {
-          if inst.get_operand(i).unwrap().skey == old.skey {
-            return Some((Instruction::from_skey(inst.get_skey()), i))
-          }
-        }
-      }
-      None
-    }).collect::<Vec<_>>();
-    let res = to_replace.iter().fold(false, |_, elem| {
-      if let Some((inst, idx)) = elem {
-        let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
-        inst.set_operand(*idx, new.clone());
-        true
-      } else {
-        false
-      }
-    });
-    old.as_mut::<Instruction>(&mut self.context)
-      .unwrap()
-      .instance
-      .users
-      .clear();
-    return res;
   }
 
 }

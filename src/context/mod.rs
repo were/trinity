@@ -98,6 +98,8 @@ impl<'ctx> Context {
     pod::Cache::undef(self, ty)
   }
 
+
+  /// `src` uses these `operands`.
   pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: &Vec<ValueRef>) {
     for operand in operands.iter() {
       if let Some(operand) = operand.as_mut::<Instruction>(self) {
