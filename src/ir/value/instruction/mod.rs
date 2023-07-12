@@ -3,7 +3,7 @@ pub mod instructions;
 pub use instructions::*;
 use types::TypeRef;
 
-use crate::context::{SlabEntry, Reference};
+use crate::context::{SlabEntry, Reference, Context};
 use crate::ir::value::ValueRef;
 use crate::ir::types;
 
@@ -36,6 +36,29 @@ impl Instruction {
     }
   }
 
+}
+
+pub struct InstMutator<'ctx> {
+  ctx: &'ctx mut Context,
+  skey: usize
+}
+
+impl <'ctx> InstMutator <'ctx> {
+  
+  pub fn new(ctx: &'ctx mut Context, inst: &ValueRef) -> Self {
+    match inst.kind {
+      super::VKindCode::Instruction => Self { ctx, skey: inst.skey },
+      _ => panic!("Cannot mutate a non-instruction value.")
+    }
+  }
+
+  pub fn add_operand(&mut self, operand: ValueRef) {
+    let inst_value = Instruction::from_skey(self.skey);
+    let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
+    inst.add_operand(operand.clone());
+    // self.ctx.add_user_redundancy(&inst_value, &vec![operand]);
+  }
+  
 }
 
 // TODO(@were): Revisit this idea of code organization.
@@ -190,15 +213,20 @@ impl InstructionImpl {
 
 impl Instruction {
 
-  pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) {
+  pub(crate) fn set_operand(&mut self, idx: usize, new_value: ValueRef) -> ValueRef {
+    if idx >= self.instance.operands.len() {
+      panic!("Index out of bound.");
+    }
+    let old = self.instance.operands[idx].clone();
     self.instance.operands[idx] = new_value;
+    old
   }
 
   pub fn set_comment(&mut self, comment: String) {
     self.instance.comment = comment;
   }
 
-  pub fn add_operand(&mut self, new_value: ValueRef) {
+  fn add_operand(&mut self, new_value: ValueRef) {
     self.instance.operands.push(new_value);
   }
 }
@@ -247,25 +275,25 @@ impl <'ctx>InstructionRef<'ctx> {
 
   pub fn to_string(&self) -> String {
     let mut res = match self.instance().opcode {
-      InstOpcode::Alloca(_) => { Alloca::new(self).to_string(self.ctx) },
-      InstOpcode::Return => { Return::new(self).to_string(self.ctx) },
-      InstOpcode::GetElementPtr(_) => { GetElementPtr::new(self).to_string(self.ctx) },
-      InstOpcode::Load(_) => { Load::new(self).to_string(self.ctx) },
-      InstOpcode::Store(_) => { Store::new(self).to_string(self.ctx) },
-      InstOpcode::Call => { Call::new(self).to_string(self.ctx) },
-      InstOpcode::BinaryOp(_) => { BinaryInst::new(self).to_string(self.ctx) },
-      InstOpcode::CastInst(_) => { CastInst::new(self).to_string(self.ctx) }
-      InstOpcode::ICompare(_) => { CompareInst::new(self).to_string(self.ctx) }
-      InstOpcode::Branch => { BranchInst::new(self).to_string(self.ctx) }
-      InstOpcode::Phi => { PhiNode::new(self).to_string(self.ctx) }
+      InstOpcode::Alloca(_) => { self.as_sub::<Alloca>().unwrap().to_string() },
+      InstOpcode::Return => { self.as_sub::<Return>().unwrap().to_string() },
+      InstOpcode::GetElementPtr(_) => { self.as_sub::<GetElementPtr>().unwrap().to_string() },
+      InstOpcode::Load(_) => { self.as_sub::<Load>().unwrap().to_string() },
+      InstOpcode::Store(_) => { self.as_sub::<Store>().unwrap().to_string() },
+      InstOpcode::Call => { self.as_sub::<Call>().unwrap().to_string() },
+      InstOpcode::BinaryOp(_) => { self.as_sub::<BinaryInst>().unwrap().to_string() },
+      InstOpcode::CastInst(_) => { self.as_sub::<CastInst>().unwrap().to_string() }
+      InstOpcode::ICompare(_) => { self.as_sub::<CompareInst>().unwrap().to_string() }
+      InstOpcode::Branch => { self.as_sub::<BranchInst>().unwrap().to_string() }
+      InstOpcode::Phi => { self.as_sub::<PhiNode>().unwrap().to_string() }
     };
     if self.instance().comment.len() != 0 {
       res = format!("; {}\n  {}", self.instance().comment, res)
     }
     // TODO(@were): Fix the redundancy removal.
-    // for user in self.instance().users.iter() {
-    //   res = format!("; user: {}\n  {}", user.to_string(self.ctx, true), res);
-    // }
+    for user in self.instance().users.iter() {
+      res = format!("; user: {}\n  {}", user.to_string(self.ctx, true), res);
+    }
     res
   }
 
@@ -283,7 +311,7 @@ impl <'ctx>InstructionRef<'ctx> {
     }
   }
 
-  pub fn as_sub<'inst, T: SubInst<'inst>>(&'inst self) -> T {
+  pub fn as_sub<'inst, T: SubInst<'inst, T>>(&'inst self) -> Option<T> {
     T::new(self)
   }
 

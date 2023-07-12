@@ -10,7 +10,7 @@ pub struct BlockImpl {
   /// The slab key of the parent function.
   pub(crate) parent: usize,
   /// The slab keys of the branch instructions target this block.
-  pub(crate) predecessors: Vec<usize>,
+  pub(crate) users: Vec<usize>,
 }
 
 pub type Block = SlabEntry<BlockImpl>;
@@ -23,7 +23,7 @@ impl BlockImpl {
       name_prefix,
       insts: Vec::new(),
       parent,
-      predecessors: Vec::new(),
+      users: Vec::new(),
     }
   }
 
@@ -35,8 +35,8 @@ impl Block {
     Block::from(BlockImpl::new(name_prefix, parent.skey))
   }
 
-  pub(crate) fn add_predecessor(&mut self, br: &ValueRef) {
-    self.instance.predecessors.push(br.skey);
+  pub(crate) fn add_user(&mut self, inst: &ValueRef) {
+    self.instance.users.push(inst.skey);
   }
 
 
@@ -80,18 +80,6 @@ impl <'ctx> BlockRef<'ctx> {
     }
   }
 
-  pub fn get_num_predecessors(&self) -> usize {
-    return self.instance().predecessors.len();
-  }
-
-  pub fn get_predecessor(&'ctx self, i: usize) -> Option<ValueRef> {
-    if i < self.get_num_predecessors() {
-      Some(ValueRef{skey: self.instance().predecessors[i], kind: super::VKindCode::Instruction})
-    } else {
-      None
-    }
-  }
-
   pub fn to_string(&self) -> String {
     let ctx = self.ctx;
     let insts = self.instance().insts.iter().map(|i| {
@@ -99,9 +87,9 @@ impl <'ctx> BlockRef<'ctx> {
       let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
       format!("  {}", inst.to_string())
     }).collect::<Vec<String>>().join("\n");
-    let pred_comments = self.instance().predecessors.iter().enumerate().map(|(i, _)| {
-      let pred_br = self.get_predecessor(i).unwrap().as_ref::<Instruction>(ctx).unwrap();
-      let pred_block = pred_br.get_parent();
+    eprintln!("Emitting block.{}", self.get_skey());
+    let pred_comments = self.pred_iter().map(|inst| {
+      let pred_block = inst.get_parent();
       let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
@@ -112,14 +100,30 @@ impl <'ctx> BlockRef<'ctx> {
   pub fn inst_iter(&'ctx self) -> BlockInstIter<'ctx> {
     BlockInstIter {
       ctx: self.ctx,
-      iter: self.instance().insts.iter()
+      iter: self.instance().insts.iter(),
+      cond: |_| { true }
     }
   }
 
   /// Iterate over each branch instruction destinated to this block.
-  pub fn pred_iter(&'ctx self, ctx: &'ctx Context) -> BlockInstIter<'ctx> {
+  pub fn user_iter(&'ctx self) -> BlockInstIter<'ctx> {
     BlockInstIter {
-      ctx, iter: self.instance().predecessors.iter(),
+      ctx: self.ctx, iter: self.instance().users.iter(),
+      cond: |_| { true }
+    }
+  }
+
+  /// Filter out non-branch instructions.
+  pub fn pred_iter(&'ctx self) -> BlockInstIter<'ctx> {
+    BlockInstIter {
+      ctx: self.ctx, iter: self.instance().users.iter(),
+      cond: |inst| {
+        if let InstOpcode::Branch = inst.get_opcode() {
+          true
+        } else {
+          false
+        }
+      }
     }
   }
 
@@ -128,34 +132,35 @@ impl <'ctx> BlockRef<'ctx> {
 pub struct BlockInstIter <'ctx> {
   ctx: &'ctx Context,
   iter: std::slice::Iter<'ctx, usize>,
+  cond: fn (&InstructionRef) -> bool,
+}
+
+macro_rules! iter_impl {
+  ($next: tt) => {
+    fn $next (&mut self) -> Option<Self::Item> {
+      loop {
+        if let Some(value) = self.iter. $next () {
+          let v = *value;
+          let inst = Instruction::from_skey(v);
+          let inst = inst.as_ref::<Instruction>(self.ctx).unwrap();
+          if (self.cond)(&inst) {
+            return Some(inst);
+          }
+        } else {
+          return None;
+        }
+      }
+    }
+  };
 }
 
 impl <'ctx> Iterator for BlockInstIter <'ctx> {
   type Item = InstructionRef<'ctx>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if let Some(value) = self.iter.next() {
-      let v = *value;
-      let inst = Instruction::from_skey(v);
-      Some(inst.as_ref::<Instruction>(self.ctx).unwrap())
-    } else {
-      None
-    }
-  }
+  iter_impl!(next);
 
 }
 
 impl <'ctx> DoubleEndedIterator for BlockInstIter <'ctx> {
-
-  fn next_back(&mut self) -> Option<Self::Item> {
-    if let Some(value) = self.iter.next_back() {
-      let v = *value;
-      let inst = Instruction::from_skey(v);
-      Some(inst.as_ref::<Instruction>(self.ctx).unwrap())
-    } else {
-      None
-    }
-  }
-
+  iter_impl!(next_back);
 }
 

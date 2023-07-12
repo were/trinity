@@ -142,17 +142,7 @@ impl<'ctx> Builder {
       // Maintain the instruction redundancy.
       let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
       let operands = inst_ref.operand_iter().collect::<Vec<_>>();
-      for operand in operands.iter() {
-        if let Some(operand) = operand.as_mut::<Instruction>(&mut self.module.context) {
-          operand.add_user(inst_value.clone());
-        }
-        if let Some(block) = operand.as_mut::<Block>(&mut self.module.context) {
-          block.add_predecessor(&inst_value);
-        }
-        if let Some(func) = operand.as_mut::<Function>(&mut self.module.context) {
-          func.add_caller(&inst_value);
-        }
-      }
+      self.module.context.add_user_redundancy(&inst_value, &operands);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
       block.instance.insts.insert(insert_idx, inst_value.skey);
       inst_value.clone()

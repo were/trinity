@@ -12,7 +12,7 @@ use component::{
   Component, ComponentToMut, ComponentToRef, AsSuper, GetSlabKey
 };
 
-use crate::ir::{ types::TypeRef, value::ValueRef };
+use crate::ir::{ types::TypeRef, value::ValueRef, Instruction, Block, Function };
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
@@ -97,6 +97,21 @@ impl<'ctx> Context {
   pub fn undef(&mut self, ty: TypeRef) -> ValueRef {
     pod::Cache::undef(self, ty)
   }
+
+  pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: &Vec<ValueRef>) {
+    for operand in operands.iter() {
+      if let Some(operand) = operand.as_mut::<Instruction>(self) {
+        operand.add_user(src.clone());
+      }
+      if let Some(block) = operand.as_mut::<Block>(self) {
+        block.add_user(src);
+      }
+      if let Some(func) = operand.as_mut::<Function>(self) {
+        func.add_caller(src);
+      }
+    }
+  }
+
 
 
 }

@@ -63,11 +63,21 @@ impl<'ctx> Module {
   /// Remove the given instruction.
   pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
     let inst = v.as_ref::<Instruction>(&self.context).unwrap();
+    eprintln!("removing: {}", inst.to_string());
+    let operands = inst.operand_iter().collect::<Vec<_>>();
+    let mut user_iter = inst.user_iter();
+    assert!(user_iter.next().is_none());
     let block = inst.get_parent();
     let block = Block::from_skey(block.get_skey());
+    for operand in operands {
+      if let Some(operand_inst) = operand.as_mut::<Instruction>(&mut self.context) {
+        operand_inst.instance.users.retain(|x| x.skey != v.skey);
+      }
+    }
     let block = block.as_mut::<Block>(&mut self.context).unwrap();
     block.instance.insts.retain(|x| *x != v.skey);
     if dispose {
+      eprintln!("dispose: {}", v.skey);
       self.context.dispose(v.skey);
       None
     } else {
