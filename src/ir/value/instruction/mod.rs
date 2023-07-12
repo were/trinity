@@ -312,36 +312,42 @@ pub type InstructionRef<'ctx> = Reference<'ctx, InstructionImpl>;
 impl <'ctx>InstructionRef<'ctx> {
 
   pub fn get_opcode(&self) -> &InstOpcode {
-    &self.instance().opcode
+    &self.instance().unwrap().opcode
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance().name_prefix, self.get_skey())
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.inst.{}}}", skey);
+    }
+    format!("{}.{}", self.instance().unwrap().name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &types::TypeRef {
-    &self.instance().ty
+    &self.instance().unwrap().ty
   }
 
   pub fn get_num_operands(&self) -> usize {
-    self.instance().operands.len()
+    self.instance().unwrap().operands.len()
   }
 
   pub fn get_operand(&self, idx: usize) -> Option<&ValueRef> {
-    if idx < self.instance().operands.len() {
-      Some(&self.instance().operands[idx])
+    if idx < self.instance().unwrap().operands.len() {
+      Some(&self.instance().unwrap().operands[idx])
     } else {
       None
     }
   }
 
   pub fn get_parent(&self) -> BlockRef<'ctx> {
-    let block = Block::from_skey(self.instance().parent.unwrap());
+    let block = Block::from_skey(self.instance().unwrap().parent.unwrap());
     block.as_ref::<Block>(self.ctx).unwrap()
   }
 
   pub fn to_string(&self, comment: bool) -> String {
-    let mut res = match self.instance().opcode {
+    if self.is_invalid().is_some() {
+      return self.get_name();
+    }
+    let mut res = match self.instance().unwrap().opcode {
       InstOpcode::Alloca(_) => { self.as_sub::<Alloca>().unwrap().to_string() },
       InstOpcode::Return => { self.as_sub::<Return>().unwrap().to_string() },
       InstOpcode::GetElementPtr(_) => { self.as_sub::<GetElementPtr>().unwrap().to_string() },
@@ -355,10 +361,10 @@ impl <'ctx>InstructionRef<'ctx> {
       InstOpcode::Phi => { self.as_sub::<PhiNode>().unwrap().to_string() }
     };
     if comment {
-      if self.instance().comment.len() != 0 {
-        res = format!("; {}\n  {}", self.instance().comment, res)
+      if self.instance().unwrap().comment.len() != 0 {
+        res = format!("; {}\n  {}", self.instance().unwrap().comment, res)
       }
-      for user in self.instance().users.iter() {
+      for user in self.instance().unwrap().users.iter() {
         let user = user.as_ref::<Instruction>(self.ctx).unwrap();
         res = format!("; user: {}\n  {}", user.to_string(false), res);
       }
@@ -369,14 +375,14 @@ impl <'ctx>InstructionRef<'ctx> {
   pub fn operand_iter(&self) -> ValueRefIter {
     ValueRefIter {
       idx: 0,
-      vec: &self.instance().operands,
+      vec: &self.instance().unwrap().operands,
     }
   }
 
   pub fn user_iter(&self) -> ValueRefIter {
     ValueRefIter {
       idx: 0,
-      vec: &self.instance().users,
+      vec: &self.instance().unwrap().users,
     }
   }
 

@@ -1,3 +1,5 @@
+use either::Either;
+
 use crate::ir::{
   types::{
     IntType, VoidType, StructType, PointerType, FunctionType, ArrayType, TypeRef,
@@ -27,26 +29,40 @@ pub struct SlabEntry<T: Sized> {
 /// A trait annotates reference cast.
 pub trait IsSlabEntry {
   type Impl;
+
   fn to_slab_entry(&self) -> &SlabEntry<Self::Impl>;
+
 }
 
 pub struct Reference<'ctx, T> {
   pub(crate) ctx: &'ctx Context,
-  pub(crate) instance: &'ctx SlabEntry<T>,
+  pub(crate) instance: Either<&'ctx SlabEntry<T>, usize>
 }
 
 impl <'ctx, T> Reference <'ctx, T> {
 
   pub fn new(ctx: &'ctx Context, instance: &'ctx SlabEntry<T>) -> Self {
-    Reference { ctx, instance }
+    Reference { ctx, instance: Either::Left(instance) }
+  }
+
+  pub fn invalid(ctx: &'ctx Context, skey: usize) -> Self {
+    Reference { ctx, instance: Either::Right(skey) }
+  }
+
+  pub fn is_invalid(&self) -> Option<usize> {
+    self.instance.right()
   }
 
   pub fn get_skey(&self) -> usize {
-    self.instance.get_skey()
+    self.instance.left().unwrap().get_skey()
   }
 
-  pub fn instance(&self) -> &'ctx T {
-    &self.instance.instance
+  pub fn instance(&self) -> Option<&'ctx T> {
+    if self.instance.is_left() {
+      Some(&self.instance.left().unwrap().instance)
+    } else {
+      None
+    }
   }
 
 

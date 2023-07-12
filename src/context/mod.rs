@@ -35,12 +35,13 @@ impl<'ctx> Context {
     self.slab.remove(skey);
   }
 
-  pub fn get_value_ref<T>(&'ctx self, skey: usize) -> &'ctx T
+  pub fn get_value_ref<T>(&'ctx self, skey: usize) -> Option<&'ctx T>
     where T: ComponentToRef<T> + GetSlabKey {
     if !self.slab.get(skey).is_some() {
-      panic!("Invalid slab key: {}", skey);
+      None
+    } else {
+      Some(T::instance_to_ref(&self.slab[skey]))
     }
-    T::instance_to_ref(&self.slab[skey])
   }
 
   pub fn get_value_mut<T>(&'ctx mut self, skey: usize) -> &'ctx mut T

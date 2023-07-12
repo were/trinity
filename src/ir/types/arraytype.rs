@@ -22,11 +22,14 @@ impl PointerType {
 impl <'ctx>PointerTypeRef<'ctx> {
 
   pub fn to_string(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("<invalid pointer type: {}>", skey);
+    }
     format!("{}*", self.get_pointee_ty().to_string(self.ctx))
   }
 
   pub fn get_pointee_ty(&self) -> TypeRef {
-    self.instance().scalar_ty.clone()
+    self.instance().unwrap().scalar_ty.clone()
   }
 
 }
@@ -58,18 +61,21 @@ impl ArrayType {
 impl <'ctx>ArrayTypeRef<'ctx> {
 
   pub fn get_size(&self) -> usize {
-    self.instance().size
+    self.instance().unwrap().size
   }
 
   pub fn to_string(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("<invalid arraytype: {}>", skey);
+    }
     format!("[{} x {}]", self.get_size(), self.get_elem_ty().to_string(self.ctx))
   }
 
   pub fn get_elem_ty(&self) -> TypeRef {
-    self.instance().elem_ty.clone()
+    self.instance().unwrap().elem_ty.clone()
   }
 
   pub fn to_pointer(&self) -> TypeRef {
-    self.instance().ptr_ty.clone()
+    self.instance().unwrap().ptr_ty.clone()
   }
 }

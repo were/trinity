@@ -45,22 +45,25 @@ impl Block {
 impl <'ctx> BlockRef<'ctx> {
 
   pub fn get_parent(&self) -> FunctionRef<'ctx> {
-    let func = Function::from_skey(self.instance().parent);
+    let func = Function::from_skey(self.instance().unwrap().parent);
     func.as_ref::<Function>(self.ctx).unwrap()
   }
 
   pub fn get_num_insts(&self) -> usize {
-    return self.instance().insts.len();
+    return self.instance().unwrap().insts.len();
   }
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance().name_prefix, self.get_skey())
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.block.{}}}", skey);
+    }
+    format!("{}.{}", self.instance().unwrap().name_prefix, self.get_skey())
   }
 
   /// If this block is closed, i.e. ends with a branch.
   pub fn closed(&self) -> bool {
     let ctx = self.ctx;
-    if let Some(inst_ref) = self.instance().insts.last() {
+    if let Some(inst_ref) = self.instance().unwrap().insts.last() {
       let inst = ValueRef{ skey: *inst_ref, kind: crate::ir::VKindCode::Instruction };
       let inst = inst.as_ref::<Instruction>(ctx).unwrap();
       match inst.get_opcode() {
@@ -74,15 +77,18 @@ impl <'ctx> BlockRef<'ctx> {
 
   pub fn get_inst(&'ctx self, i: usize) -> Option<ValueRef> {
     if i < self.get_num_insts() {
-      Some(Instruction::from_skey(self.instance().insts[i]))
+      Some(Instruction::from_skey(self.instance().unwrap().insts[i]))
     } else {
       None
     }
   }
 
   pub fn to_string(&self) -> String {
+    if self.is_invalid().is_some() {
+      return self.get_name();
+    }
     let ctx = self.ctx;
-    let insts = self.instance().insts.iter().map(|i| {
+    let insts = self.instance().unwrap().insts.iter().map(|i| {
       let inst_value = ValueRef{skey: *i, kind: crate::ir::value::VKindCode::Instruction};
       let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
       format!("  {}", inst.to_string(true))
@@ -99,7 +105,7 @@ impl <'ctx> BlockRef<'ctx> {
   pub fn inst_iter(&'ctx self) -> BlockInstIter<'ctx> {
     BlockInstIter {
       ctx: self.ctx,
-      iter: self.instance().insts.iter(),
+      iter: self.instance().unwrap().insts.iter(),
       cond: |_| { true }
     }
   }
@@ -107,7 +113,7 @@ impl <'ctx> BlockRef<'ctx> {
   /// Iterate over each branch instruction destinated to this block.
   pub fn user_iter(&'ctx self) -> BlockInstIter<'ctx> {
     BlockInstIter {
-      ctx: self.ctx, iter: self.instance().users.iter(),
+      ctx: self.ctx, iter: self.instance().unwrap().users.iter(),
       cond: |_| { true }
     }
   }
@@ -115,7 +121,7 @@ impl <'ctx> BlockRef<'ctx> {
   /// Filter out non-branch instructions.
   pub fn pred_iter(&'ctx self) -> BlockInstIter<'ctx> {
     BlockInstIter {
-      ctx: self.ctx, iter: self.instance().users.iter(),
+      ctx: self.ctx, iter: self.instance().unwrap().users.iter(),
       cond: |inst| {
         if let InstOpcode::Branch = inst.get_opcode() {
           true

@@ -77,7 +77,7 @@ impl<'ctx> Module {
 
   /// Get the function by indices.
   pub fn get_function(&'ctx self, idx: usize) -> &'ctx function::Function {
-    self.context.get_value_ref::<function::Function>(self.functions[idx])
+    self.context.get_value_ref::<function::Function>(self.functions[idx]).unwrap()
   }
 
   pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {

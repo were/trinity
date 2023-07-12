@@ -29,7 +29,7 @@ impl Undef {
 impl <'ctx> UndefRef<'ctx> {
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance().ty
+    &self.instance().unwrap().ty
   }
 
   pub fn to_string(&self) -> String {
@@ -68,15 +68,18 @@ impl ConstScalar {
 impl <'ctx>ConstScalarRef<'ctx> {
 
   pub fn to_string(&self) -> String {
-    format!("{} = {}", self.instance.instance.ty.to_string(self.ctx), self.instance.instance.value)
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.constscalar.{}}}", skey)
+    }
+    format!("{} = {}", self.instance().unwrap().ty.to_string(self.ctx), self.instance().unwrap().value)
   }
 
   pub fn get_value(&self) -> u64 {
-    self.instance.instance.value
+    self.instance().unwrap().value
   }
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance.instance.ty
+    &self.instance().unwrap().ty
   }
 
 }
@@ -105,18 +108,24 @@ impl ConstArray {
 impl <'ctx> ConstArrayRef<'ctx> {
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance().name_prefix, self.get_skey())
+    if let Some(skey) = self.is_invalid() {
+      return format!("invalid.constarray.{}", skey)
+    }
+    format!("{}.{}", self.instance().unwrap().name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance().ty
+    &self.instance().unwrap().ty
   }
 
   pub fn get_value(&self) -> &Vec<ValueRef> {
-    &self.instance().value
+    &self.instance().unwrap().value
   }
 
   pub fn to_string(&self) -> String {
+    if let Some(_) = self.is_invalid() {
+      return self.get_name()
+    }
     let ctx = self.ctx;
     let literal = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
@@ -145,20 +154,24 @@ impl ConstExpr {
 impl <'ctx> ConstExprRef<'ctx> {
 
   pub fn to_string(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.constexpr.{}}}", skey)
+    }
     let ctx = self.ctx;
     let operands = self
       .instance()
+      .unwrap()
       .inst
       .instance
       .operands
       .iter()
       .map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     // Wow, this instruction has no slab key!
-    let inst = Reference::new(ctx, &self.instance().inst);
+    let inst = Reference::new(ctx, &self.instance().unwrap().inst);
     match inst.get_opcode() {
       InstOpcode::GetElementPtr(_) => {
         let ty = inst.get_type();
-        let ptr_inst = &self.instance().inst.instance;
+        let ptr_inst = &self.instance().unwrap().inst.instance;
         let ptr_ty = ptr_inst.operands[0].get_type(ctx);
         let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
         let ptr_scalar = ptr_ty.get_pointee_ty();
@@ -197,18 +210,24 @@ impl ConstObject {
 impl <'ctx> ConstObjectRef<'ctx> {
 
   pub fn get_name(&self) -> String {
-    format!("{}.{}", self.instance().name_prefix, self.get_skey())
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.constobj.{}}}", skey);
+    }
+    format!("{}.{}", self.instance().unwrap().name_prefix, self.get_skey())
   }
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance().ty
+    &self.instance().unwrap().ty
   }
 
   pub fn to_string(&self) -> String {
+    if let Some(_) = self.is_invalid() {
+      return self.get_name();
+    }
     let ctx = self.ctx;
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
-    let initializer = if self.instance().value.len() != 0 {
-      format!("{{ {} }}", self.instance().value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", "))
+    let initializer = if self.instance().unwrap().value.len() != 0 {
+      format!("{{ {} }}", self.instance().unwrap().value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", "))
     } else {
       "zeroinitializer".to_string()
     };
@@ -245,25 +264,28 @@ impl InlineAsm {
 impl <'ctx> InlineAsmRef<'ctx> {
 
   pub fn get_type(&self) -> &TypeRef {
-    &self.instance().ty
+    &self.instance().unwrap().ty
   }
 
   pub fn get_sideeffect(&self) -> bool {
-    self.instance().sideeffect
+    self.instance().unwrap().sideeffect
   }
 
   pub fn get_mnemonic(&self) -> &String {
-    &self.instance().mnemonic
+    &self.instance().unwrap().mnemonic
   }
 
   pub fn get_operands(&self) -> &String {
-    &self.instance().operands
+    &self.instance().unwrap().operands
   }
 
   pub fn to_string(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.inlineasm.{}}}", skey);
+    }
     let ctx = self.ctx;
     let ty = if let Some(sty) = self.get_type().as_ref::<StructType>(ctx) {
-      sty.instance().attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
+      sty.instance().unwrap().attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
     } else {
       self.get_type().to_string(ctx)
     };

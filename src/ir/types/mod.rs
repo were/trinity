@@ -48,7 +48,7 @@ impl <'ctx>IntTypeRef<'ctx> {
 
   /// Return the number of bits
   pub fn get_bits(&self) -> usize {
-    self.instance().bits
+    self.instance().unwrap().bits
   }
 
 }
@@ -102,6 +102,7 @@ impl <'ctx>StructTypeRef<'ctx> {
   pub fn to_string(&self) -> String {
     let attrs = self
       .instance()
+      .unwrap()
       .attrs
       .iter()
       .map(|attr| attr.to_string(self.ctx))
@@ -111,15 +112,15 @@ impl <'ctx>StructTypeRef<'ctx> {
   }
 
   pub fn get_num_attrs(&self) -> usize {
-    self.instance().attrs.len()
+    self.instance().unwrap().attrs.len()
   }
 
   pub fn get_attr(&self, i: usize) -> TypeRef {
-    self.instance().attrs[i].clone()
+    self.instance().unwrap().attrs[i].clone()
   }
 
   pub fn get_name(&self) -> String {
-    self.instance().name.to_string()
+    self.instance().unwrap().name.to_string()
   }
 
 }
@@ -139,26 +140,22 @@ impl<'ctx> TypeRef {
   pub fn to_string(&self, ctx: &Context) -> String {
     match &self.kind {
       TKindCode::IntType => {
-        let ty = ctx.get_value_ref::<IntType>(self.skey);
-        let ty = Reference::new(ctx, ty);
+        let ty = self.as_ref::<IntType>(ctx).unwrap();
         ty.to_string()
       },
       TKindCode::VoidType => {
-        let ty = ctx.get_value_ref::<VoidType>(self.skey);
-        ty.to_string()
+        "void".to_string()
       },
       TKindCode::StructType => {
         let ty = self.as_ref::<StructType>(ctx).unwrap();
         format!("%{}", ty.get_name())
       },
       TKindCode::PointerType => {
-        let ty = ctx.get_value_ref::<PointerType>(self.skey);
-        let ty = Reference::new(ctx, ty);
+        let ty = self.as_ref::<PointerType>(ctx).unwrap();
         ty.to_string()
       },
       TKindCode::ArrayType => {
-        let ty = ctx.get_value_ref::<ArrayType>(self.skey);
-        let ty = Reference::new(ctx, ty);
+        let ty = self.as_ref::<ArrayType>(ctx).unwrap();
         ty.to_string()
       },
       TKindCode::BlockType => {
@@ -174,7 +171,10 @@ impl<'ctx> TypeRef {
     where T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
       let instance_ref = ctx.get_value_ref::<T>(self.skey);
-      Some(Reference::new(ctx, instance_ref.to_slab_entry()))
+      match instance_ref {
+        Some(instance_ref) => Some(Reference::new(ctx, instance_ref.to_slab_entry())),
+        None => Some(Reference::invalid(ctx, self.skey)),
+      }
     } else {
       None
     }
@@ -212,7 +212,7 @@ impl<'ctx> TypeRef {
       TKindCode::VoidType => { 1 }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
-        st.instance().attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
+        st.instance().unwrap().attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();

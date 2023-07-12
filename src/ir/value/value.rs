@@ -21,8 +21,10 @@ impl<'ctx> ValueRef {
   pub fn as_ref<T>(&self, context: &'ctx Context) -> Option<Reference<'ctx, T::Impl>> 
     where T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
-      let instance_ref = context.get_value_ref::<T>(self.skey);
-      Some(Reference::new(context, instance_ref.to_slab_entry()))
+      match context.get_value_ref::<T>(self.skey) {
+        Some(instance) => Some(Reference::new(context, instance.to_slab_entry())),
+        None => Some(Reference::invalid(context, self.skey))
+      }
     } else {
       None
     }
@@ -107,13 +109,11 @@ impl<'ctx> ValueRef {
         inst.get_type().clone()
       },
       VKindCode::ConstScalar => {
-        let const_scalar = ctx.get_value_ref::<ConstScalar>(self.skey);
-        let const_scalar = Reference::new(ctx, const_scalar);
+        let const_scalar = self.as_ref::<ConstScalar>(ctx).unwrap();
         const_scalar.get_type().clone()
       },
       VKindCode::Function => {
-        let func = ctx.get_value_ref::<Function>(self.skey);
-        let func = Reference::new(ctx, func);
+        let func = self.as_ref::<Function>(ctx).unwrap();
         func.get_type()
       },
       VKindCode::ConstArray => {
@@ -121,24 +121,21 @@ impl<'ctx> ValueRef {
         const_array.get_type().clone()
       },
       VKindCode::ConstExpr => {
-        let const_expr = ctx.get_value_ref::<ConstExpr>(self.skey);
-        let inst = &const_expr.instance.inst;
+        let const_expr = self.as_ref::<ConstExpr>(ctx).unwrap();
+        let inst = &const_expr.instance().unwrap().inst;
         let inst = Reference::new(ctx, inst);
         inst.get_type().clone()
       },
       VKindCode::ConstObject => {
-        let const_object = ctx.get_value_ref::<ConstObject>(self.skey);
-        let const_object = Reference::new(ctx, const_object);
+        let const_object = self.as_ref::<ConstObject>(ctx).unwrap();
         const_object.get_type().clone()
       },
       VKindCode::InlineAsm => {
-        let inline_asm = ctx.get_value_ref::<InlineAsm>(self.skey);
-        let inline_asm = Reference::new(ctx, inline_asm);
+        let inline_asm = self.as_ref::<InlineAsm>(ctx).unwrap();
         inline_asm.get_type().clone()
       },
       VKindCode::Undef => {
-        let undef = ctx.get_value_ref::<Undef>(self.skey);
-        let undef = Reference::new(ctx, undef);
+        let undef = self.as_ref::<Undef>(ctx).unwrap();
         undef.get_type().clone()
       },
       VKindCode::Unknown => {

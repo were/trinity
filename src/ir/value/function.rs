@@ -49,34 +49,37 @@ impl Function {
 
 impl <'ctx>FunctionRef<'ctx> {
 
-  pub fn get_name(&self) -> &String {
-    &self.instance().name
+  pub fn get_name(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.func.{}}}", skey);
+    }
+    self.instance().unwrap().name.clone()
   }
 
   pub fn basic_blocks(&self) -> &Vec<usize> {
-    &self.instance().blocks
+    &self.instance().unwrap().blocks
   }
 
   pub fn get_num_args(&self) -> usize {
-    return self.instance().args.len();
+    return self.instance().unwrap().args.len();
   }
 
   pub fn get_arg(&self, i: usize) -> ValueRef {
-    return Argument::from_skey(self.instance().args[i]);
+    return Argument::from_skey(self.instance().unwrap().args[i]);
   }
 
   pub fn get_num_blocks(&self) -> usize {
-    return self.instance().blocks.len();
+    return self.instance().unwrap().blocks.len();
   }
 
   /// Get the type of the function.
   pub fn get_type(&self) -> TypeRef {
-    return self.instance().fty.clone();
+    return self.instance().unwrap().fty.clone();
   }
 
   pub fn get_block(&'ctx self, i: usize) -> Option<BlockRef> {
-    if i < self.instance().blocks.len() {
-      let value = ValueRef {skey: self.instance().blocks[i], kind: VKindCode::Block};
+    if i < self.instance().unwrap().blocks.len() {
+      let value = ValueRef {skey: self.instance().unwrap().blocks[i], kind: VKindCode::Block};
       Some(value.as_ref::<Block>(self.ctx).unwrap())
     } else {
       None
@@ -84,22 +87,26 @@ impl <'ctx>FunctionRef<'ctx> {
   }
 
   pub fn get_ret_ty(&self) -> TypeRef {
-    let fty = self.instance().fty.as_ref::<FunctionType>(self.ctx).unwrap();
+    let fty = self.instance().unwrap().fty.as_ref::<FunctionType>(self.ctx).unwrap();
     fty.ret_ty().clone()
   }
 
   pub fn is_declaration(&self) -> bool {
-    return self.instance().blocks.len() == 0;
+    return self.instance().unwrap().blocks.len() == 0;
   }
 
   pub fn to_string(&self) -> String {
+    if let Some(_) = self.is_invalid() {
+      return self.get_name().clone();
+    }
+    let instance = self.instance().unwrap();
     let ctx = self.ctx;
     let mut res = String::new();
-    for elem in self.instance().callers.iter() {
+    for elem in instance.callers.iter() {
       let caller = Instruction::from_skey(*elem);
       res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
     }
-    let fty = self.instance().fty.as_ref::<FunctionType>(ctx).unwrap();
+    let fty = instance.fty.as_ref::<FunctionType>(ctx).unwrap();
     let prefix = if self.is_declaration() {
       "declare"
     } else {
@@ -169,20 +176,26 @@ impl Argument {
 impl <'ctx>ArgumentRef<'ctx> {
 
   pub fn get_parent(&self) -> FunctionRef<'ctx> {
-    let func = Function::from_skey(self.instance().parent);
+    let func = Function::from_skey(self.instance().unwrap().parent);
     func.as_ref::<Function>(self.ctx).unwrap()
   }
 
   pub fn get_name(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.arg.{}}}", skey);
+    }
     format!("arg.{}", self.get_skey())
   }
 
   pub fn get_type(&self) -> TypeRef {
-    self.instance().ty.clone()
+    self.instance().unwrap().ty.clone()
   }
 
   pub fn to_string(&self) -> String {
-    format!("{} %{}", self.instance().ty.to_string(self.ctx), self.get_name())
+    if let Some(_) = self.is_invalid() {
+      return self.get_name();
+    }
+    format!("{} %{}", self.instance().unwrap().ty.to_string(self.ctx), self.get_name())
   }
 }
 

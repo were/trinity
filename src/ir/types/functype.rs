@@ -20,11 +20,11 @@ impl FunctionType {
 impl FunctionTypeRef<'_> {
 
   pub fn ret_ty(&self) -> &TypeRef {
-    &self.instance().ret_ty
+    &self.instance().unwrap().ret_ty
   }
 
   pub fn args(&self) -> &[TypeRef] {
-    &self.instance().args
+    &self.instance().unwrap().args
   }
 
 }
