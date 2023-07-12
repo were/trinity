@@ -1,11 +1,11 @@
 use std::fmt;
 
 
-use crate::context::Context;
-use crate::context::component::AsSuper;
+use crate::context::{Context, Reference};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
-use super::{Function, Instruction, Block};
+use super::value::function::FunctionRef;
+use super::{Function, TypeRef};
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
 use super::types::StructType;
@@ -51,26 +51,13 @@ impl<'ctx> Module {
   }
 
   /// Get the struct reference by name
-  pub fn get_struct(&'ctx self, i: usize) -> &StructType {
-    self.context.get_value_ref::<StructType>(self.structs[i])
+  pub fn get_struct(&'ctx self, i: usize) -> TypeRef {
+    StructType::from_skey(self.structs[i])
   }
 
   /// Get the struct mutable reference by name
   pub fn get_struct_mut(&'ctx mut self, i: usize) -> &mut StructType {
     self.context.get_value_mut::<StructType>(self.structs[i])
-  }
-
-  /// Remove the given instruction.
-  pub fn remove_inst(&'ctx mut self, v: ValueRef, dispose: bool) -> Option<ValueRef> {
-    let block = v.as_ref::<Instruction>(&self.context).unwrap().get_parent();
-    let block = block.as_mut::<Block>(&mut self.context).unwrap();
-    block.instance.insts.retain(|x| *x != v.skey);
-    if dispose {
-      self.context.dispose(v.skey);
-      None
-    } else {
-      Some(v)
-    }
   }
 
   /// The number of functions in the module.
@@ -97,36 +84,6 @@ impl<'ctx> Module {
     return ModuleFuncIter{i: 0, module: self}
   }
 
-
-  /// Replace old instruction with new value.
-  pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
-    let func = old
-      .as_ref::<Instruction>(&self.context)
-      .unwrap()
-      .get_parent()
-      .as_ref::<Block>(&self.context)
-      .unwrap()
-      .get_parent();
-    let func =func.as_ref::<Function>(&self.context).unwrap();
-    let to_replace = func.iter(&self.context).map(|block| {
-      for inst in block.inst_iter(&self.context) {
-        for i in 0..inst.get_num_operands() {
-          if inst.get_operand(i).unwrap().skey == old.skey {
-            return Some((inst.as_super(), i))
-          }
-        }
-      }
-      None
-    }).collect::<Vec<_>>();
-    to_replace.iter().fold(false, |_, elem| {
-      if let Some((inst, idx)) = elem {
-        let inst = inst.as_mut::<Instruction>(&mut self.context).unwrap();
-        inst.set_operand(*idx, new.clone());
-      }
-      true
-    })
-  }
-
 }
 
 pub struct ModuleFuncIter <'ctx> {
@@ -136,13 +93,13 @@ pub struct ModuleFuncIter <'ctx> {
 
 impl<'ctx> Iterator for ModuleFuncIter<'ctx> {
 
-  type Item = &'ctx Function;
+  type Item = FunctionRef<'ctx>;
 
   fn next(&mut self) -> Option<Self::Item> {
     if self.i < self.module.functions.len() {
       let skey = self.module.functions[self.i];
       self.i += 1;
-      Some(self.module.context.get_value_ref::<Function>(skey))
+      Function::from_skey(skey).as_ref::<Function>(&self.module.context)
     } else {
       None
     }
@@ -167,18 +124,19 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.num_structs() {
       let elem = self.get_struct(i);
-      write!(f, "{}\n", elem.to_string(&self.context)).unwrap();
+      let elem = elem.as_ref::<StructType>(&self.context).unwrap();
+      write!(f, "{}\n", elem.to_string()).unwrap();
     }
     for i in 0..self.get_num_gvs() {
       let elem = self.get_gv(i);
       match elem.kind {
         super::VKindCode::ConstArray => {
           let array = elem.as_ref::<ConstArray>(&self.context).unwrap();
-          write!(f, "{}\n", array.to_string(&self.context)).unwrap();
+          write!(f, "{}\n", array.to_string()).unwrap();
         }
         super::VKindCode::ConstObject => {
           let obj = elem.as_ref::<ConstObject>(&self.context).unwrap();
-          write!(f, "{}\n", obj.to_string(&self.context)).unwrap();
+          write!(f, "{}\n", obj.to_string()).unwrap();
         }
         _ => (),
       }
@@ -186,7 +144,8 @@ impl fmt::Display for Module {
     write!(f, "\n").unwrap();
     for i in 0..self.get_num_functions() {
       let func = self.get_function(i);
-      write!(f, "{}", func.to_string(&self.context)).unwrap();
+      let func = Reference::new(&self.context, func);
+      write!(f, "{}", func.to_string()).unwrap();
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
     }

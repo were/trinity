@@ -1,4 +1,3 @@
-use crate::context::component::GetSlabKey;
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
@@ -35,13 +34,12 @@ impl<'ctx> Builder {
 
   pub fn get_insert_before(&self) -> Option<ValueRef> {
     if let Some(idx) = self.inst_idx {
-      let inst = self.block
+      let block = self.block
         .clone()
         .unwrap()
         .as_ref::<Block>(&self.module.context)
-        .unwrap()
-        .get_inst(idx);
-      inst
+        .unwrap();
+      block.get_inst(idx)
     } else {
       None
     }
@@ -114,8 +112,7 @@ impl<'ctx> Builder {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
     let block = inst.get_parent();
-    let block = block.as_ref::<Block>(&self.module.context).unwrap();
-    let idx = block.inst_iter(&self.module.context).position(|i| i.get_skey() == inst_ref.skey).unwrap();
+    let idx = block.inst_iter().position(|i| i.get_skey() == inst.get_skey()).unwrap();
     self.inst_idx = Some(idx);
   }
 
@@ -130,7 +127,7 @@ impl<'ctx> Builder {
         (block.get_num_insts(), true)
       };
       let closed_block = if last {
-        block.closed(&self.module.context)
+        block.closed()
       } else {
         false
       };
@@ -141,9 +138,14 @@ impl<'ctx> Builder {
       ValueRef { skey: 0, kind: VKindCode::Unknown }
     } else {
       let inst_ref = self.context().add_instance(inst);
+      let inst_value = Instruction::from_skey(inst_ref.skey);
+      // Maintain the instruction redundancy.
+      let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
+      let operands = inst_ref.operand_iter().collect::<Vec<_>>();
+      self.module.context.add_user_redundancy(&inst_value, &operands);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
-      block.instance.insts.insert(insert_idx, inst_ref.skey);
-      inst_ref
+      block.instance.insts.insert(insert_idx, inst_value.skey);
+      inst_value.clone()
     }
   }
 
@@ -203,15 +205,16 @@ impl<'ctx> Builder {
 
   pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
     let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
     let res_ty = pty.get_pointee_ty();
     self.create_gep(res_ty, ptr, indices, true)
   }
 
   // TODO(@were): Add alignment
   pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> Result<ValueRef, String> {
-    let ptr_ty = ptr.get_type(&self.context());
-    let pointee_ty = ptr_ty.as_ref::<PointerType>(&self.context()).unwrap().get_pointee_ty();
+    let ptr_ty = ptr.get_type(&self.module.context);
+    let ptr_ty = ptr_ty.as_ref::<PointerType>(&self.module.context).unwrap();
+    let pointee_ty = ptr_ty.get_pointee_ty();
     let value_ty = value.get_type(&self.context());
     if pointee_ty != value_ty {
       let pointee_ty = pointee_ty.to_string(&self.module.context);
@@ -279,7 +282,7 @@ impl<'ctx> Builder {
 
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
     let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(self.context()).unwrap();
+    let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
     let res_ty = pty.get_pointee_ty();
     self.create_typed_load(res_ty, ptr)
   }
@@ -393,11 +396,6 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::EQ, lhs, rhs)
   }
 
-  fn add_block_predecessor(&mut self, bb: &ValueRef, pred: &ValueRef) {
-    let bb = bb.as_mut::<Block>(&mut self.module.context).unwrap();
-    bb.instance.predecessors.push(pred.skey);
-  }
-
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
@@ -407,14 +405,13 @@ impl<'ctx> Builder {
       vec![bb.clone()],
     );
     let res = self.add_instruction(inst);
-    match res.kind {
-      VKindCode::Unknown => {},
-      _ => { self.add_block_predecessor(&bb, &res); }
-    }
     res
   }
 
   pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef) -> ValueRef {
+    if true_bb == false_bb {
+      return self.create_unconditional_branch(true_bb);
+    }
     let inst = instruction::Instruction::new(
       self.context().void_type(),
       instruction::InstOpcode::Branch,
@@ -422,13 +419,6 @@ impl<'ctx> Builder {
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
     let res = self.add_instruction(inst);
-    match res.kind {
-      VKindCode::Unknown => {},
-      _ => {
-        self.add_block_predecessor(&true_bb, &res);
-        self.add_block_predecessor(&false_bb, &res);
-      }
-    }
     res
   }
 

@@ -1,22 +1,58 @@
 use crate::ir::{
-  types::{IntType, VoidType, StructType, PointerType, FunctionType, ArrayType, TypeRef},
-  value::function::{Function, Argument},
-  value::instruction::Instruction,
-  value::block::Block,
-  value::consts::{ConstScalar, ConstArray, ConstExpr, ConstObject, InlineAsm, Undef},
+  types::{
+    IntType, VoidType, StructType, PointerType, FunctionType, ArrayType, TypeRef,
+    IntImpl, StructImpl, PointerImpl, FuncTypeImpl, ArrayTypeImpl
+  },
+  value::function::{Function, Argument, FunctionImpl, ArgumentImpl},
+  value::instruction::{Instruction, InstructionImpl},
+  value::block::{Block, BlockImpl},
+  value::consts::{
+    ConstScalar, ConstArray, ConstExpr, ConstObject, InlineAsm, Undef,
+    ConstScalarImpl, ConstArrayImpl, ConstExprImpl, ConstObjectImpl, InlineAsmImpl, UndefImpl
+  },
   ValueRef,
 };
 use crate::ir::value::VKindCode;
 use crate::ir::types::TKindCode;
 
+use super::Context;
+
 /// Manage the slab pointer of each IR component.
-pub struct Ptr<T: Sized> {
+pub struct SlabEntry<T: Sized> {
   skey: Option<usize>,
   // TODO(@were): Make this private later.
   pub(crate) instance: T,
 }
 
-impl<T>GetSlabKey for Ptr<T> {
+/// A trait annotates reference cast.
+pub trait IsSlabEntry {
+  type Impl;
+  fn to_slab_entry(&self) -> &SlabEntry<Self::Impl>;
+}
+
+pub struct Reference<'ctx, T> {
+  pub(crate) ctx: &'ctx Context,
+  pub(crate) instance: &'ctx SlabEntry<T>,
+}
+
+impl <'ctx, T> Reference <'ctx, T> {
+
+  pub fn new(ctx: &'ctx Context, instance: &'ctx SlabEntry<T>) -> Self {
+    Reference { ctx, instance }
+  }
+
+  pub fn get_skey(&self) -> usize {
+    self.instance.get_skey()
+  }
+
+  pub fn instance(&self) -> &'ctx T {
+    &self.instance.instance
+  }
+
+
+}
+
+impl<T>GetSlabKey for SlabEntry<T> {
 
   fn get_skey(&self) -> usize {
     self.skey.unwrap()
@@ -24,7 +60,7 @@ impl<T>GetSlabKey for Ptr<T> {
 
 }
 
-impl<T>SetSlabKey for Ptr<T> {
+impl<T>SetSlabKey for SlabEntry<T> {
 
   fn set_skey(&mut self, skey: usize) {
     self.skey = Some(skey);
@@ -32,10 +68,10 @@ impl<T>SetSlabKey for Ptr<T> {
 
 }
 
-impl <T>From<T> for Ptr<T> {
+impl <T>From<T> for SlabEntry<T> {
 
   fn from(value: T) -> Self {
-    Ptr { skey: None, instance: value }
+    SlabEntry { skey: None, instance: value }
   }
 
 }
@@ -80,7 +116,7 @@ pub(crate) trait SetSlabKey {
 }
 
 pub trait ComponentToRef<T> {
-  fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx T;
+  fn instance_to_ref<'ctx>(value: &'ctx Component) -> &'ctx T;
 }
 
 pub trait ComponentToMut<T> {
@@ -88,11 +124,18 @@ pub trait ComponentToMut<T> {
 }
 
 macro_rules! impl_component {
-  ($super:tt, $code_type:tt, $type:tt) => {
+  ($super:tt, $code_type:tt, $type:tt, $impl: tt) => {
+
+    impl IsSlabEntry for $type {
+      type Impl = $impl;
+      fn to_slab_entry(&self) -> &SlabEntry<Self::Impl> {
+        self
+      }
+    }
 
     impl ComponentToRef<$type> for $type {
 
-      fn instance_to_self<'ctx>(value: &'ctx Component) -> &'ctx $type {
+      fn instance_to_ref<'ctx>(value: &'ctx Component) -> &'ctx $type {
         match value {
           Component::$type(v) => v,
           _ => panic!("Invalid type"),
@@ -140,23 +183,21 @@ macro_rules! impl_component {
   };
 }
 
-
 // Types
-impl_component!(TypeRef, TKindCode, IntType);
-impl_component!(TypeRef, TKindCode, VoidType);
-impl_component!(TypeRef, TKindCode, StructType);
-impl_component!(TypeRef, TKindCode, PointerType);
-impl_component!(TypeRef, TKindCode, FunctionType);
-impl_component!(TypeRef, TKindCode, ArrayType);
+impl_component!(TypeRef, TKindCode, IntType, IntImpl);
+impl_component!(TypeRef, TKindCode, VoidType, ());
+impl_component!(TypeRef, TKindCode, StructType, StructImpl);
+impl_component!(TypeRef, TKindCode, PointerType, PointerImpl);
+impl_component!(TypeRef, TKindCode, FunctionType, FuncTypeImpl);
+impl_component!(TypeRef, TKindCode, ArrayType, ArrayTypeImpl);
 // Values
-impl_component!(ValueRef, VKindCode, Function);
-impl_component!(ValueRef, VKindCode, Argument);
-impl_component!(ValueRef, VKindCode, Instruction);
-impl_component!(ValueRef, VKindCode, Block);
-impl_component!(ValueRef, VKindCode, ConstScalar);
-impl_component!(ValueRef, VKindCode, ConstArray);
-impl_component!(ValueRef, VKindCode, ConstExpr);
-impl_component!(ValueRef, VKindCode, ConstObject);
-impl_component!(ValueRef, VKindCode, InlineAsm);
-impl_component!(ValueRef, VKindCode, Undef);
-
+impl_component!(ValueRef, VKindCode, Instruction, InstructionImpl);
+impl_component!(ValueRef, VKindCode, Function, FunctionImpl);
+impl_component!(ValueRef, VKindCode, Argument, ArgumentImpl);
+impl_component!(ValueRef, VKindCode, Block, BlockImpl);
+impl_component!(ValueRef, VKindCode, ConstScalar, ConstScalarImpl);
+impl_component!(ValueRef, VKindCode, ConstArray, ConstArrayImpl);
+impl_component!(ValueRef, VKindCode, ConstExpr, ConstExprImpl);
+impl_component!(ValueRef, VKindCode, ConstObject, ConstObjectImpl);
+impl_component!(ValueRef, VKindCode, InlineAsm, InlineAsmImpl);
+impl_component!(ValueRef, VKindCode, Undef, UndefImpl);
