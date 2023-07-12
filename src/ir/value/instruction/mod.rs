@@ -362,7 +362,6 @@ impl <'ctx>InstructionRef<'ctx> {
         let user = user.as_ref::<Instruction>(self.ctx).unwrap();
         res = format!("; user: {}\n  {}", user.to_string(false), res);
       }
-      res = res + "\n";
     }
     res
   }
