@@ -5,7 +5,7 @@ use types::TypeRef;
 
 use crate::context::{SlabEntry, Reference, Context};
 use crate::ir::value::ValueRef;
-use crate::ir::types;
+use crate::ir::{types, Function};
 
 use super::Block;
 use super::block::BlockRef;
@@ -56,7 +56,37 @@ impl <'ctx> InstMutator <'ctx> {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     inst.add_operand(operand.clone());
-    // self.ctx.add_user_redundancy(&inst_value, &vec![operand]);
+    self.ctx.add_user_redundancy(&inst_value, &vec![operand]);
+  }
+
+  pub fn value(&self) -> ValueRef {
+    ValueRef {
+      skey: self.skey,
+      kind: super::VKindCode::Instruction
+    }
+  }
+
+  pub fn erase_from_parent(&mut self) {
+    let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
+    let operands = inst.operand_iter().collect::<Vec<_>>();
+    let mut user_iter = inst.user_iter();
+    assert!(user_iter.next().is_none());
+    let block = inst.get_parent();
+    let block = Block::from_skey(block.get_skey());
+    for operand in operands {
+      if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
+        operand_inst.instance.users.retain(|x| x.skey != self.skey);
+      }
+      if let Some(operand_block) = operand.as_mut::<Block>(self.ctx) {
+        operand_block.instance.users.retain(|x| *x != self.skey);
+      }
+      if let Some(operand_func) = operand.as_mut::<Function>(self.ctx) {
+        operand_func.instance.callers.retain(|x| *x != self.skey);
+      }
+    }
+    let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
+    block.instance.insts.retain(|x| *x != self.skey);
+    self.ctx.dispose(self.skey);
   }
   
 }

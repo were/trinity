@@ -87,7 +87,6 @@ impl <'ctx> BlockRef<'ctx> {
       let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
       format!("  {}", inst.to_string())
     }).collect::<Vec<String>>().join("\n");
-    eprintln!("Emitting block.{}", self.get_skey());
     let pred_comments = self.pred_iter().map(|inst| {
       let pred_block = inst.get_parent();
       let block_name = pred_block.get_name();
