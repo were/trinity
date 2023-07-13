@@ -114,7 +114,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Function => {
         let func = self.as_ref::<Function>(ctx).unwrap();
-        func.get_type()
+        func.instance().unwrap().fty.clone()
       },
       VKindCode::ConstArray => {
         let const_array = self.as_ref::<ConstArray>(ctx).unwrap();

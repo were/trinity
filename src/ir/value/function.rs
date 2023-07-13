@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use super::Instruction;
 use super::block::BlockRef;
 use super::{ValueRef, VKindCode, block::Block};
+use crate::ir::types::functype::FunctionTypeRef;
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
 use crate::context::{SlabEntry, Reference};
@@ -56,6 +57,13 @@ impl <'ctx>FunctionRef<'ctx> {
     self.instance().unwrap().name.clone()
   }
 
+  pub fn emission_ready_name(&self) -> String {
+    if let Some(skey) = self.is_invalid() {
+      return format!("{{invalid.func.{}}}", skey);
+    }
+    namify(&self.instance().unwrap().name)
+  }
+
   pub fn basic_blocks(&self) -> &Vec<usize> {
     &self.instance().unwrap().blocks
   }
@@ -73,8 +81,8 @@ impl <'ctx>FunctionRef<'ctx> {
   }
 
   /// Get the type of the function.
-  pub fn get_type(&self) -> TypeRef {
-    return self.instance().unwrap().fty.clone();
+  pub fn get_type(&self) -> FunctionTypeRef {
+    return self.instance().unwrap().fty.as_ref::<FunctionType>(self.ctx).unwrap();
   }
 
   pub fn get_block(&'ctx self, i: usize) -> Option<BlockRef> {
@@ -112,7 +120,7 @@ impl <'ctx>FunctionRef<'ctx> {
     } else {
       "define dso_local"
     };
-    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), namify(&self.get_name())).as_str());
+    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), self.emission_ready_name()).as_str());
     for i in 0..self.get_num_args() {
       if i != 0 {
         res.push_str(", ");
