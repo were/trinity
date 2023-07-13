@@ -1,6 +1,6 @@
 use crate::ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef};
 
-use super::{CmpPred, InstructionRef};
+use super::{CmpPred, InstructionRef, BinaryOp};
 
 /// Stack memory allocation.
 pub struct Alloca<'inst> {
@@ -311,6 +311,13 @@ pub struct BinaryInst <'inst> {
 
 
 impl<'inst> BinaryInst <'inst> {
+
+  pub fn get_op(&self) -> BinaryOp {
+    match self.inst.get_opcode() {
+      InstOpcode::BinaryOp(op) => op.clone(),
+      _ => { panic!("Invalid opcode!") }
+    }
+  }
 
   pub fn lhs(&self) -> &ValueRef {
     self.inst.get_operand(0).unwrap()

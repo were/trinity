@@ -177,7 +177,7 @@ impl ToString for InstOpcode {
 
 
 /// Sub-opcodes for binary operations.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum BinaryOp {
   Add,
   Sub,
