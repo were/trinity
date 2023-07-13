@@ -212,7 +212,9 @@ impl<'ctx> TypeRef {
       TKindCode::VoidType => { 1 }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
-        st.instance().unwrap().attrs.iter().map(|x| x.get_scalar_size_in_bits(module)).fold(0, |x, acc| acc + x)
+        st.instance().unwrap().attrs.iter()
+          .map(|x| x.get_scalar_size_in_bits(module))
+          .fold(0, |x, acc| acc + x)
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();

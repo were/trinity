@@ -33,13 +33,13 @@ impl<'ctx> Builder {
   }
 
   pub fn get_insert_before(&self) -> Option<ValueRef> {
-    if let Some(idx) = self.inst_idx {
+    if let Some(inst_idx) = self.inst_idx {
       let block = self.block
         .clone()
         .unwrap()
         .as_ref::<Block>(&self.module.context)
         .unwrap();
-      block.get_inst(idx)
+      block.get_inst(inst_idx)
     } else {
       None
     }
@@ -103,8 +103,8 @@ impl<'ctx> Builder {
   /// Set the current block to insert.
   pub fn set_current_block(&mut self, block: ValueRef) {
     assert!(block.kind == VKindCode::Block, "Given value is not a block");
-    self.block = Some(block);
-    self.inst_idx = None
+    self.block = Some(block.clone());
+    self.inst_idx = None;
   }
 
   /// Set the instruction as the insert point.
@@ -121,8 +121,8 @@ impl<'ctx> Builder {
     inst.instance.parent = Some(block_ref.skey);
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
-      let (idx, last)  = if let Some(inst_idx) = self.inst_idx {
-        (inst_idx, inst_idx == block.get_num_insts() - 1)
+      let (idx, last) = if let Some(inst_idx) = self.inst_idx {
+        (inst_idx, inst_idx == block.get_num_insts())
       } else {
         (block.get_num_insts(), true)
       };

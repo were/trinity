@@ -154,7 +154,7 @@ macro_rules! impl_component {
       fn instance_to_ref<'ctx>(value: &'ctx Component) -> &'ctx $type {
         match value {
           Component::$type(v) => v,
-          _ => panic!("Invalid type"),
+          _ => panic!("Invalid type, expect {}", stringify!($type)),
         }
       }
     }
