@@ -1,4 +1,4 @@
-use crate::ir::{PointerType, ValueRef, value::instruction::InstOpcode, VoidType, TypeRef};
+use crate::ir::{PointerType, ValueRef, value::{instruction::InstOpcode, block::BlockRef}, VoidType, TypeRef, Block};
 
 use super::{CmpPred, InstructionRef, BinaryOp};
 
@@ -367,23 +367,35 @@ impl <'inst> BranchInst <'inst> {
   }
 
   pub fn cond(&self) -> Option<&ValueRef> {
-    assert!(self.is_cond_br());
-    self.inst.get_operand(0)
+    if self.is_cond_br() {
+      self.inst.get_operand(0)
+    } else {
+      None
+    }
   }
 
-  pub fn true_label(&self) -> Option<&ValueRef> {
-    assert!(self.is_cond_br());
-    self.inst.get_operand(1)
+  pub fn true_label(&self) -> Option<BlockRef> {
+    if self.is_cond_br() {
+      self.inst.get_operand(1).unwrap().as_ref::<Block>(self.inst.ctx)
+    } else {
+      None
+    }
   }
 
-  pub fn false_label(&self) -> Option<&ValueRef> {
-    assert!(self.is_cond_br());
-    self.inst.get_operand(2)
+  pub fn false_label(&self) -> Option<BlockRef> {
+    if self.is_cond_br() {
+      self.inst.get_operand(2).unwrap().as_ref::<Block>(self.inst.ctx)
+    } else {
+      None
+    }
   }
 
-  pub fn dest_label(&self) -> Option<&ValueRef> {
-    assert!(!self.is_cond_br());
-    self.inst.get_operand(0)
+  pub fn dest_label(&self) -> Option<BlockRef> {
+    if !self.is_cond_br() {
+      self.inst.get_operand(0).unwrap().as_ref::<Block>(self.inst.ctx)
+    } else {
+      None
+    }
   }
 
   pub fn get_successors(&self) -> Vec<ValueRef> {

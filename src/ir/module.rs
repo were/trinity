@@ -106,7 +106,9 @@ impl<'ctx> Iterator for ModuleFuncIter<'ctx> {
   }
 }
 
-pub(crate) fn namify(name: &String) -> String {
+
+/// Make the name emission ready.
+pub fn namify(name: &String) -> String {
   let mut res = String::new();
   name.chars().into_iter().for_each(|c| match c {
     'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => res.push(c),

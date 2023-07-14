@@ -149,6 +149,12 @@ macro_rules! impl_component {
       }
     }
 
+    impl Reference<'_, $impl> {
+      pub fn as_super(&self) -> $super {
+        $super { skey: self.get_skey(), kind: $code_type::$type }
+      }
+    }
+
     impl ComponentToRef<$type> for $type {
 
       fn instance_to_ref<'ctx>(value: &'ctx Component) -> &'ctx $type {

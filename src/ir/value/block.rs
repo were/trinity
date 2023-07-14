@@ -1,6 +1,6 @@
-use crate::{context::{Context, SlabEntry, Reference}, ir::value::instruction::InstructionRef};
+use crate::{context::{SlabEntry, Reference}, ir::value::instruction::InstructionRef};
 
-use super::{ValueRef, instruction::{Instruction, InstOpcode}, Function, function::FunctionRef};
+use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst}, Function, function::FunctionRef};
 
 pub struct BlockImpl {
   /// The name prefix of this block.
@@ -75,12 +75,17 @@ impl <'ctx> BlockRef<'ctx> {
     }
   }
 
-  pub fn get_inst(&'ctx self, i: usize) -> Option<ValueRef> {
+  pub fn get_inst(&'ctx self, i: usize) -> Option<InstructionRef<'ctx>> {
     if i < self.get_num_insts() {
-      Some(Instruction::from_skey(self.instance().unwrap().insts[i]))
+      let inst = Instruction::from_skey(self.instance().unwrap().insts[i]);
+      return inst.as_ref::<Instruction>(self.ctx)
     } else {
       None
     }
+  }
+
+  pub fn last_inst(&'ctx self) -> Option<InstructionRef<'ctx>> {
+    self.get_inst(self.get_num_insts() - 1)
   }
 
   pub fn to_string(&self) -> String {
@@ -101,71 +106,49 @@ impl <'ctx> BlockRef<'ctx> {
     format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)
   }
 
+  // pub fn succ_iter(&'ctx self) -> impl Iterator<Item = BlockRef<'ctx>> {
+  //   if let Some(last_inst) = self.last_inst() {
+  //     if let Some(br) = last_inst.as_sub::<BranchInst>() {
+  //       return br.get_successors().iter().map(|value: &ValueRef| {
+  //         value.as_ref::<Block>(self.ctx).unwrap()
+  //       })
+  //     }
+  //   }
+  //   let empty: Vec<ValueRef> = Vec::new();
+  //   return empty.iter().map(|x: &ValueRef| x.as_ref::<Block>(self.ctx).unwrap())
+  //   // self.instance().unwrap().users.iter().map(move |skey| {
+  //   //   let block = Block::from_skey(*skey);
+  //   //   block.as_ref::<Block>(ctx).unwrap()
+  //   // })
+  // }
+
   /// Iterate over each instruction belongs to this block.
-  pub fn inst_iter(&'ctx self) -> BlockInstIter<'ctx> {
-    BlockInstIter {
-      ctx: self.ctx,
-      iter: self.instance().unwrap().insts.iter(),
-      cond: |_| { true }
-    }
+  pub fn inst_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> + DoubleEndedIterator {
+    self.instance().unwrap().insts.iter().map(|skey| {
+      Instruction::from_skey(*skey).as_ref::<Instruction>(self.ctx).unwrap()
+    })
   }
 
   /// Iterate over each branch instruction destinated to this block.
-  pub fn user_iter(&'ctx self) -> BlockInstIter<'ctx> {
-    BlockInstIter {
-      ctx: self.ctx, iter: self.instance().unwrap().users.iter(),
-      cond: |_| { true }
-    }
+  pub fn user_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
+    self.instance().unwrap().users.iter().map(|skey| {
+      Instruction::from_skey(*skey).as_ref::<Instruction>(self.ctx).unwrap()
+    })
   }
 
   /// Filter out non-branch instructions.
-  pub fn pred_iter(&'ctx self) -> BlockInstIter<'ctx> {
-    BlockInstIter {
-      ctx: self.ctx, iter: self.instance().unwrap().users.iter(),
-      cond: |inst| {
+  pub fn pred_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
+    self.instance().unwrap().users.iter()
+      .map(|skey| {
+        Instruction::from_skey(*skey).as_ref::<Instruction>(self.ctx).unwrap()
+      }).filter(|inst| {
         if let InstOpcode::Branch = inst.get_opcode() {
           true
         } else {
           false
         }
-      }
-    }
+      })
   }
 
-}
-
-pub struct BlockInstIter <'ctx> {
-  ctx: &'ctx Context,
-  iter: std::slice::Iter<'ctx, usize>,
-  cond: fn (&InstructionRef) -> bool,
-}
-
-macro_rules! iter_impl {
-  ($next: tt) => {
-    fn $next (&mut self) -> Option<Self::Item> {
-      loop {
-        if let Some(value) = self.iter. $next () {
-          let v = *value;
-          let inst = Instruction::from_skey(v);
-          let inst = inst.as_ref::<Instruction>(self.ctx).unwrap();
-          if (self.cond)(&inst) {
-            return Some(inst);
-          }
-        } else {
-          return None;
-        }
-      }
-    }
-  };
-}
-
-impl <'ctx> Iterator for BlockInstIter <'ctx> {
-  type Item = InstructionRef<'ctx>;
-  iter_impl!(next);
-
-}
-
-impl <'ctx> DoubleEndedIterator for BlockInstIter <'ctx> {
-  iter_impl!(next_back);
 }
 

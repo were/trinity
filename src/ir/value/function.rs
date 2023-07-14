@@ -57,13 +57,6 @@ impl <'ctx>FunctionRef<'ctx> {
     self.instance().unwrap().name.clone()
   }
 
-  pub fn emission_ready_name(&self) -> String {
-    if let Some(skey) = self.is_invalid() {
-      return format!("{{invalid.func.{}}}", skey);
-    }
-    namify(&self.instance().unwrap().name)
-  }
-
   pub fn basic_blocks(&self) -> &Vec<usize> {
     &self.instance().unwrap().blocks
   }
@@ -120,7 +113,7 @@ impl <'ctx>FunctionRef<'ctx> {
     } else {
       "define dso_local"
     };
-    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), self.emission_ready_name()).as_str());
+    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), namify(&self.get_name())).as_str());
     for i in 0..self.get_num_args() {
       if i != 0 {
         res.push_str(", ");

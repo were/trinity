@@ -39,7 +39,7 @@ impl<'ctx> Builder {
         .unwrap()
         .as_ref::<Block>(&self.module.context)
         .unwrap();
-      block.get_inst(inst_idx)
+      block.get_inst(inst_idx).map(|i| Instruction::from_skey(i.get_skey()))
     } else {
       None
     }
