@@ -68,12 +68,14 @@ impl <'ctx> InstMutator <'ctx> {
 
   /// Remove this instruction!
   pub fn erase_from_parent(&mut self) {
-    let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
-    let operands = inst.operand_iter().collect::<Vec<_>>();
-    let mut user_iter = inst.user_iter();
-    assert!(user_iter.next().is_none());
-    let block = inst.get_parent();
-    let block = Block::from_skey(block.get_skey());
+    let (operands, block) = {
+      let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
+      let mut user_iter = inst.user_iter();
+      assert!(user_iter.next().is_none());
+      let operands = inst.operand_iter().map(|x| x.clone()).collect::<Vec<_>>();
+      let block = inst.get_parent().as_super();
+      (operands, block)
+    };
     for operand in operands {
       if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
         operand_inst.instance.users.retain(|x| x.skey != self.skey);
@@ -372,42 +374,16 @@ impl <'ctx>InstructionRef<'ctx> {
     res
   }
 
-  pub fn operand_iter(&self) -> ValueRefIter {
-    ValueRefIter {
-      idx: 0,
-      vec: &self.instance().unwrap().operands,
-    }
+  pub fn operand_iter(&'ctx self) -> impl Iterator<Item=&'ctx ValueRef> {
+    self.instance().unwrap().operands.iter()
   }
 
-  pub fn user_iter(&self) -> ValueRefIter {
-    ValueRefIter {
-      idx: 0,
-      vec: &self.instance().unwrap().users,
-    }
+  pub fn user_iter(&self) -> impl Iterator<Item=&'ctx ValueRef> {
+    self.instance().unwrap().users.iter()
   }
 
-  pub fn as_sub<'inst, T: SubInst<'inst, T>>(&'inst self) -> Option<T> {
+  pub fn as_sub<T: SubInst<'ctx, T>>(&'ctx self) -> Option<T> {
     T::new(self)
-  }
-
-}
-
-pub struct ValueRefIter<'inst> {
-  idx: usize,
-  vec: &'inst Vec<ValueRef>,
-}
-
-impl Iterator for ValueRefIter<'_> {
-  type Item = ValueRef;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.idx < self.vec.len() {
-      let res = &self.vec[self.idx];
-      self.idx += 1;
-      Some(res.clone())
-    } else {
-      None
-    }
   }
 
 }

@@ -141,7 +141,7 @@ impl<'ctx> Builder {
       let inst_value = Instruction::from_skey(inst_ref.skey);
       // Maintain the instruction redundancy.
       let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-      let operands = inst_ref.operand_iter().collect::<Vec<_>>();
+      let operands = inst_ref.operand_iter().map(|v| v.clone()).collect::<Vec<_>>();
       self.module.context.add_user_redundancy(&inst_value, &operands);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
       block.instance.insts.insert(insert_idx, inst_value.skey);

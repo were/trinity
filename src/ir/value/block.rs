@@ -1,6 +1,6 @@
 use crate::{context::{SlabEntry, Reference}, ir::value::instruction::InstructionRef};
 
-use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst}, Function, function::FunctionRef};
+use super::{ValueRef, instruction::{Instruction, InstOpcode}, Function, function::FunctionRef, VKindCode};
 
 pub struct BlockImpl {
   /// The name prefix of this block.
@@ -106,21 +106,19 @@ impl <'ctx> BlockRef<'ctx> {
     format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)
   }
 
-  // pub fn succ_iter(&'ctx self) -> impl Iterator<Item = BlockRef<'ctx>> {
-  //   if let Some(last_inst) = self.last_inst() {
-  //     if let Some(br) = last_inst.as_sub::<BranchInst>() {
-  //       return br.get_successors().iter().map(|value: &ValueRef| {
-  //         value.as_ref::<Block>(self.ctx).unwrap()
-  //       })
-  //     }
-  //   }
-  //   let empty: Vec<ValueRef> = Vec::new();
-  //   return empty.iter().map(|x: &ValueRef| x.as_ref::<Block>(self.ctx).unwrap())
-  //   // self.instance().unwrap().users.iter().map(move |skey| {
-  //   //   let block = Block::from_skey(*skey);
-  //   //   block.as_ref::<Block>(ctx).unwrap()
-  //   // })
-  // }
+  pub fn succ_iter(&'ctx self) -> impl Iterator<Item = BlockRef<'ctx>> {
+    if let Some(last_inst) = self.last_inst() {
+      let is_br = if let InstOpcode::Branch = last_inst.get_opcode() { true } else { false };
+      last_inst
+        .operand_iter()
+        .filter(|x| is_br && x.kind == VKindCode::Block)
+        .map(|x| x.as_ref::<Block>(self.ctx).unwrap())
+        .collect::<Vec<_>>()
+        .into_iter()
+    } else {
+      Vec::new().into_iter()
+    }
+  }
 
   /// Iterate over each instruction belongs to this block.
   pub fn inst_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> + DoubleEndedIterator {

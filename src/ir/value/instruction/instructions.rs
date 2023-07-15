@@ -406,6 +406,14 @@ impl <'inst> BranchInst <'inst> {
     }
   }
 
+  pub fn succ_iter(&self) -> impl Iterator<Item = BlockRef<'inst>> {
+    let mut iter = self.inst.operand_iter();
+    if self.is_cond_br() {
+      iter.next();
+    }
+    iter.map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
+  }
+
 }
 
 /// The PHI node for SSA form.
