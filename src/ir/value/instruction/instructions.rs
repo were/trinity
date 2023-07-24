@@ -133,7 +133,7 @@ impl_sub_inst!(InstOpcode::Phi, PhiNode,
   }
 );
 
-impl_sub_inst!(InstOpcode::Branch, BranchInst,
+impl_sub_inst!(InstOpcode::Branch(_), BranchInst,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
@@ -144,7 +144,12 @@ impl_sub_inst!(InstOpcode::Branch, BranchInst,
       let true_label = true_label.to_string(ctx, false);
       let false_label = self.inst.get_operand(2).unwrap();
       let false_label = false_label.to_string(ctx, false);
-      format!("br {}, label {}, label {}", cond, true_label, false_label)
+      let metadata = if let InstOpcode::Branch(Some(loop_metadata)) = self.inst.get_opcode() {
+        format!(", !llvm.loop !{}", loop_metadata)
+      } else {
+        String::new()
+      };
+      format!("br {}, label {}, label {}{}", cond, true_label, false_label, metadata)
     } else {
       format!("br label {}", self.inst.get_operand(0).unwrap().to_string(ctx, false))
     }
@@ -412,6 +417,15 @@ impl <'inst> BranchInst <'inst> {
       iter.next();
     }
     iter.map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
+  }
+
+  pub fn is_loop_latch(&self) -> bool {
+    if let InstOpcode::Branch(latch) = self.inst.get_opcode() {
+      latch.is_some()
+    } else {
+      panic!("Invalid opcode for Branch instruction.");
+    }
+
   }
 
 }

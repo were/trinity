@@ -400,25 +400,39 @@ impl<'ctx> Builder {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
       self.context().void_type(),
-      instruction::InstOpcode::Branch,
+      instruction::InstOpcode::Branch(None),
       "br".to_string(),
       vec![bb.clone()],
     );
     let res = self.add_instruction(inst);
+    let block = self.get_current_block().unwrap();
+    let block = block.as_mut::<Block>(self.context()).unwrap();
+    block.add_succ(&bb);
     res
   }
 
-  pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef) -> ValueRef {
+  pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef, loop_latch: bool) -> ValueRef {
     if true_bb == false_bb {
       return self.create_unconditional_branch(true_bb);
     }
+    let metadata = if loop_latch {
+      let res = Some(self.module.llvm_loop);
+      self.module.llvm_loop += 1;
+      res
+    } else {
+      None
+    };
     let inst = instruction::Instruction::new(
       self.context().void_type(),
-      instruction::InstOpcode::Branch,
+      instruction::InstOpcode::Branch(metadata),
       "br".to_string(),
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
     let res = self.add_instruction(inst);
+    let block = self.get_current_block().unwrap();
+    let block = block.as_mut::<Block>(self.context()).unwrap();
+    block.add_succ(&true_bb);
+    block.add_succ(&false_bb);
     res
   }
 

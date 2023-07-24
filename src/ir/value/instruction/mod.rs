@@ -68,13 +68,18 @@ impl <'ctx> InstMutator <'ctx> {
 
   /// Remove this instruction!
   pub fn erase_from_parent(&mut self) {
-    let (operands, block) = {
+    let (operands, block, is_branch) = {
       let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
       let mut user_iter = inst.user_iter();
       assert!(user_iter.next().is_none());
       let operands = inst.operand_iter().map(|x| x.clone()).collect::<Vec<_>>();
       let block = inst.get_parent().as_super();
-      (operands, block)
+      let is_branch = if let InstOpcode::Branch(_) = inst.get_opcode() {
+        true
+      } else {
+        false
+      };
+      (operands, block, is_branch)
     };
     for operand in operands {
       if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
@@ -88,8 +93,12 @@ impl <'ctx> InstMutator <'ctx> {
         operand_func.remove_caller(value);
       }
     }
+    // Maintain the block redundancy.
     let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
     block.instance.insts.retain(|x| *x != self.skey);
+    if is_branch {
+      block.instance.succs.clear();
+    }
     self.ctx.dispose(self.skey);
   }
 
@@ -154,7 +163,7 @@ pub enum InstOpcode {
   /// Int value comparison.
   ICompare(CmpPred),
   /// Branch instruction.
-  Branch,
+  Branch(Option<usize>),
   /// Phi node for SSA.
   Phi,
 }
@@ -169,7 +178,7 @@ impl ToString for InstOpcode {
       InstOpcode::Store(_) => "store".to_string(),
       InstOpcode::Call => "call".to_string(),
       InstOpcode::ICompare(_) => "icmp".to_string(),
-      InstOpcode::Branch => "br".to_string(),
+      InstOpcode::Branch(_) => "br".to_string(),
       InstOpcode::BinaryOp(binop) => binop.to_string().to_string(),
       InstOpcode::CastInst(cast) => cast.to_string().to_string(),
       InstOpcode::Phi => "phi".to_string(),
@@ -359,7 +368,7 @@ impl <'ctx>InstructionRef<'ctx> {
       InstOpcode::BinaryOp(_) => { self.as_sub::<BinaryInst>().unwrap().to_string() },
       InstOpcode::CastInst(_) => { self.as_sub::<CastInst>().unwrap().to_string() }
       InstOpcode::ICompare(_) => { self.as_sub::<CompareInst>().unwrap().to_string() }
-      InstOpcode::Branch => { self.as_sub::<BranchInst>().unwrap().to_string() }
+      InstOpcode::Branch(_) => { self.as_sub::<BranchInst>().unwrap().to_string() }
       InstOpcode::Phi => { self.as_sub::<PhiNode>().unwrap().to_string() }
     };
     if comment {

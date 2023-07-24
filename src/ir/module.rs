@@ -25,6 +25,8 @@ pub struct Module {
   pub(crate) structs: Vec<usize>,
   /// The global values in this module.
   pub(crate) global_values: Vec<ValueRef>,
+  /// The number of loop metadata.
+  pub(crate) llvm_loop: usize,
 }
 
 impl<'ctx> Module {
@@ -42,6 +44,7 @@ impl<'ctx> Module {
       functions: Vec::new(),
       structs: Vec::new(),
       global_values: Vec::new(),
+      llvm_loop: 0
     }
   }
 
@@ -80,32 +83,13 @@ impl<'ctx> Module {
     self.context.get_value_ref::<function::Function>(self.functions[idx]).unwrap()
   }
 
-  pub fn iter(&'ctx self) -> ModuleFuncIter<'ctx> {
-    return ModuleFuncIter{i: 0, module: self}
+  pub fn func_iter(&'ctx self) -> impl Iterator<Item =function::FunctionRef<'ctx>> {
+    self.functions.iter().map(|x| {
+      Function::from_skey(*x).as_ref::<function::Function>(&self.context).unwrap()
+    })
   }
 
 }
-
-pub struct ModuleFuncIter <'ctx> {
-  i: usize,
-  module: &'ctx Module
-}
-
-impl<'ctx> Iterator for ModuleFuncIter<'ctx> {
-
-  type Item = FunctionRef<'ctx>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.i < self.module.functions.len() {
-      let skey = self.module.functions[self.i];
-      self.i += 1;
-      Function::from_skey(skey).as_ref::<Function>(&self.module.context)
-    } else {
-      None
-    }
-  }
-}
-
 
 /// Make the name emission ready.
 pub fn namify(name: &String) -> String {
@@ -150,6 +134,9 @@ impl fmt::Display for Module {
       write!(f, "{}", func.to_string()).unwrap();
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
+    }
+    for i in 0..self.llvm_loop {
+      write!(f, "!{} = !{{ !{} }}\n", i, i).unwrap();
     }
     Ok(())
   }
