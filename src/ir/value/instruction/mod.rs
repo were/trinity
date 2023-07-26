@@ -108,25 +108,20 @@ impl <'ctx> InstMutator <'ctx> {
     let old_inst = old.as_ref::<Instruction>(self.ctx).unwrap();
     let old_parent = old_inst.get_parent();
     let func = old_parent.get_parent();
-    let to_replace = func.iter().map(|block| {
+    let mut to_replace = Vec::new();
+    func.iter().for_each(|block| {
       for inst in block.inst_iter() {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {
-            return Some((Instruction::from_skey(inst.get_skey()), i))
+            to_replace.push((Instruction::from_skey(inst.get_skey()), i));
           }
         }
       }
-      None
-    }).collect::<Vec<_>>();
-    let res = to_replace.iter().fold(false, |_, elem| {
-      if let Some((inst, idx)) = elem {
-        self.ctx.add_user_redundancy(inst, &vec![new.clone()]);
-        let inst = inst.as_mut::<Instruction>(self.ctx).unwrap();
-        inst.set_operand(*idx, new.clone());
-        true
-      } else {
-        false
-      }
+    });
+    to_replace.iter().for_each(|(before, idx)| {
+      self.ctx.add_user_redundancy(before, &vec![new.clone()]);
+      let inst = before.as_mut::<Instruction>(self.ctx).unwrap();
+      inst.set_operand(*idx, new.clone());
     });
     // Maintain the redundant information.
     old.as_mut::<Instruction>(self.ctx)
@@ -134,7 +129,7 @@ impl <'ctx> InstMutator <'ctx> {
       .instance
       .users
       .clear();
-    return res;
+    return !to_replace.is_empty();
   }
   
 }
