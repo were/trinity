@@ -443,12 +443,18 @@ impl <'inst>PhiNode<'inst> {
     self.inst.get_num_operands() / 2
   }
 
-  pub fn get_incoming_block(&self, index: usize) -> Option<&ValueRef> {
-    if index < self.get_num_incomings() {
-      Some(&self.inst.get_operand(index * 2 + 1).unwrap())
-    } else {
-      None
-    }
+  pub fn get_incoming_block(&'inst self, index: usize) -> Option<BlockRef<'inst>> {
+    self.inst.get_operand(index * 2 + 1).map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
+  }
+
+  pub fn get_incoming_value(&self, index: usize) -> Option<&ValueRef> {
+    self.inst.get_operand(index * 2 + 0)
+  }
+
+  pub fn iter(&'inst self) -> impl Iterator<Item = (BlockRef<'inst>, &ValueRef)> {
+    (0..self.get_num_incomings()).map(|i|
+      (self.get_incoming_block(i).unwrap(), self.get_incoming_value(i).unwrap())
+    )
   }
 
 }

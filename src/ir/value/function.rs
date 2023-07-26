@@ -135,30 +135,12 @@ impl <'ctx>FunctionRef<'ctx> {
     return res;
   }
 
-  pub fn iter(&'ctx self) -> FuncBlockIter {
-    FuncBlockIter{ i: 0, func: self }
+  pub fn iter(&'ctx self) -> impl Iterator<Item=BlockRef<'ctx>> {
+    self.instance().unwrap().blocks.iter().map(|skey| {
+      ValueRef {skey: *skey, kind: VKindCode::Block}.as_ref::<Block>(self.ctx).unwrap()
+    })
   }
 
-}
-
-pub struct FuncBlockIter<'ctx> {
-  i: usize,
-  func: &'ctx FunctionRef<'ctx>,
-}
-
-impl <'ctx>Iterator for FuncBlockIter<'ctx> {
-
-  type Item = BlockRef<'ctx>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.i < self.func.get_num_blocks() {
-      let res = self.func.get_block(self.i).unwrap();
-      self.i += 1;
-      Some(res)
-    } else {
-      None
-    }
-  }
 
 }
 

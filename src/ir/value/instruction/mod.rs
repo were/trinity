@@ -206,7 +206,7 @@ pub enum BinaryOp {
 }
 
 impl BinaryOp {
-  fn to_string(&self) -> &str {
+  pub fn to_string(&self) -> &str {
     match &self {
       BinaryOp::Add => "add",
       BinaryOp::Sub => "sub",
@@ -387,8 +387,8 @@ impl <'ctx>InstructionRef<'ctx> {
     self.instance().unwrap().operands.iter()
   }
 
-  pub fn user_iter(&self) -> impl Iterator<Item=&'ctx ValueRef> {
-    self.instance().unwrap().users.iter()
+  pub fn user_iter(&self) -> impl Iterator<Item=InstructionRef<'ctx>> {
+    self.instance().unwrap().users.iter().map(|u| u.as_ref::<Instruction>(self.ctx).unwrap())
   }
 
   pub fn as_sub<T: SubInst<'ctx, T>>(&'ctx self) -> Option<T> {
