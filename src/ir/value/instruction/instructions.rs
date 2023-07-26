@@ -1,4 +1,4 @@
-use crate::ir::{PointerType, ValueRef, value::{instruction::InstOpcode, block::BlockRef}, VoidType, TypeRef, Block};
+use crate::ir::{PointerType, ValueRef, value::{instruction::InstOpcode, block::BlockRef, function::FunctionRef}, VoidType, TypeRef, Block, Function};
 
 use super::{CmpPred, InstructionRef, BinaryOp};
 
@@ -90,7 +90,7 @@ impl_sub_inst!(InstOpcode::Call, Call,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
-    let callee = self.get_callee();
+    let callee = self.get_callee().as_super();
     let args_str = (0..self.get_num_args()).map(|i| {
       self.get_arg(i).to_string(ctx, true)
     }).collect::<Vec<_>>().join(", ");
@@ -278,8 +278,9 @@ pub struct Call<'inst> {
 
 impl <'inst> Call<'inst> {
 
-  pub fn get_callee(&self) -> &ValueRef {
-    &self.inst.get_operand(self.inst.get_num_operands() - 1).unwrap()
+  pub fn get_callee(&self) -> FunctionRef<'inst> {
+    let func = self.inst.get_operand(self.inst.get_num_operands() - 1).unwrap();
+    func.as_ref::<Function>(self.inst.ctx).unwrap()
   }
 
   pub fn get_num_args(&self) -> usize {

@@ -125,7 +125,7 @@ impl <'ctx>FunctionRef<'ctx> {
     res.push_str(")");
     if !self.is_declaration() {
       res.push_str(" {\n");
-      for block in self.iter() {
+      for block in self.block_iter() {
         res.push_str(block.to_string().as_str());
       }
       res.push_str("}");
@@ -135,7 +135,7 @@ impl <'ctx>FunctionRef<'ctx> {
     return res;
   }
 
-  pub fn iter(&'ctx self) -> impl Iterator<Item=BlockRef<'ctx>> {
+  pub fn block_iter(&'ctx self) -> impl Iterator<Item=BlockRef<'ctx>> {
     self.instance().unwrap().blocks.iter().map(|skey| {
       ValueRef {skey: *skey, kind: VKindCode::Block}.as_ref::<Block>(self.ctx).unwrap()
     })

@@ -109,7 +109,7 @@ impl <'ctx> InstMutator <'ctx> {
     let old_parent = old_inst.get_parent();
     let func = old_parent.get_parent();
     let mut to_replace = Vec::new();
-    func.iter().for_each(|block| {
+    func.block_iter().for_each(|block| {
       for inst in block.inst_iter() {
         for i in 0..inst.get_num_operands() {
           if inst.get_operand(i).unwrap().skey == old.skey {

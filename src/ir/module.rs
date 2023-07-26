@@ -4,7 +4,6 @@ use std::fmt;
 use crate::context::{Context, Reference};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
-use super::value::function::FunctionRef;
 use super::{Function, TypeRef};
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
@@ -83,7 +82,7 @@ impl<'ctx> Module {
     self.context.get_value_ref::<function::Function>(self.functions[idx]).unwrap()
   }
 
-  pub fn func_iter(&'ctx self) -> impl Iterator<Item =function::FunctionRef<'ctx>> {
+  pub fn func_iter(&'ctx self) -> impl Iterator<Item = function::FunctionRef<'ctx>> {
     self.functions.iter().map(|x| {
       Function::from_skey(*x).as_ref::<function::Function>(&self.context).unwrap()
     })
