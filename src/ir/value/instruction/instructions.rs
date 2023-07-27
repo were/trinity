@@ -1,6 +1,6 @@
 use crate::ir::{
-  PointerType, ValueRef, VoidType, TypeRef, Block, Function
-  value::{instruction::InstOpcode, block::BlockRef, function::{FunctionRef, ArgumentRef}},
+    PointerType, ValueRef, VoidType, TypeRef, Block, Function,
+    value::{instruction::InstOpcode, block::BlockRef, function::FunctionRef},
 };
 
 use super::{CmpPred, InstructionRef, BinaryOp};
