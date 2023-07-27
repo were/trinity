@@ -93,12 +93,10 @@ impl <'ctx> BlockRef<'ctx> {
   }
 
   pub fn get_inst(&'ctx self, i: usize) -> Option<InstructionRef<'ctx>> {
-    if i < self.get_num_insts() {
-      let inst = Instruction::from_skey(self.instance().unwrap().insts[i]);
-      return inst.as_ref::<Instruction>(self.ctx)
-    } else {
-      None
-    }
+    self.instance().unwrap().insts.get(i).map(|x| {
+      let inst = Instruction::from_skey(*x);
+      inst.as_ref::<Instruction>(self.ctx).unwrap()
+    })
   }
 
   pub fn last_inst(&'ctx self) -> Option<InstructionRef<'ctx>> {

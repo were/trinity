@@ -167,7 +167,7 @@ impl<'ctx> TypeRef {
     }
   }
 
-  pub fn as_ref<T>(&'ctx self, ctx: &'ctx Context) -> Option<Reference<'ctx, T::Impl>>
+  pub fn as_ref<T>(&self, ctx: &'ctx Context) -> Option<Reference<'ctx, T::Impl>>
     where T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
       let instance_ref = ctx.get_value_ref::<T>(self.skey);

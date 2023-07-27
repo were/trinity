@@ -1,13 +1,13 @@
 use std::fmt;
 
 
-use crate::context::{Context, Reference};
+use crate::context::Context;
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
-use super::{Function, TypeRef};
+use super::Function;
 use super::value::consts::ConstObject;
 use super::{value::function, ValueRef, ConstArray};
-use super::types::StructType;
+use super::types::{StructType, StructTypeRef};
 
 pub struct Module {
   /// Context of this module.
@@ -53,8 +53,19 @@ impl<'ctx> Module {
   }
 
   /// Get the struct reference by name
-  pub fn get_struct(&'ctx self, i: usize) -> TypeRef {
-    StructType::from_skey(self.structs[i])
+  pub fn get_struct(&'ctx self, i: usize) -> Option<StructTypeRef<'ctx>> {
+    self.structs.get(i).map(|x| {
+      let ty = StructType::from_skey(*x);
+      ty.as_ref::<StructType>(&self.context).unwrap()
+    })
+  }
+
+  /// Iterate over the structs defined in this module.
+  pub fn struct_iter(&'ctx self) -> impl Iterator<Item = StructTypeRef<'ctx>> {
+    self.structs.iter().map(|x| {
+      let ty = StructType::from_skey(*x);
+      ty.as_ref::<StructType>(&self.context).unwrap()
+    })
   }
 
   /// Get the struct mutable reference by name
@@ -75,6 +86,11 @@ impl<'ctx> Module {
   /// Get the global value by indices.
   pub fn get_gv(&self, i: usize) -> ValueRef {
     self.global_values[i].clone()
+  }
+
+  /// Iterate over the global values defined in this module.
+  pub fn gv_iter(&self) -> impl Iterator<Item = &ValueRef> {
+    self.global_values.iter().map(|x| x)
   }
 
   /// Get the function by indices.
@@ -107,13 +123,10 @@ impl fmt::Display for Module {
     write!(f, "target triple = \"{}\"\n", self.tm.target_triple.to_string()).unwrap();
     write!(f, "target datalayout = \"{}\"\n", self.tm.data_layout.to_string()).unwrap();
     write!(f, "\n").unwrap();
-    for i in 0..self.num_structs() {
-      let elem = self.get_struct(i);
-      let elem = elem.as_ref::<StructType>(&self.context).unwrap();
+    for elem in self.struct_iter() {
       write!(f, "{}\n", elem.to_string()).unwrap();
     }
-    for i in 0..self.get_num_gvs() {
-      let elem = self.get_gv(i);
+    for elem in self.gv_iter() {
       match elem.kind {
         super::VKindCode::ConstArray => {
           let array = elem.as_ref::<ConstArray>(&self.context).unwrap();
@@ -127,9 +140,7 @@ impl fmt::Display for Module {
       }
     }
     write!(f, "\n").unwrap();
-    for i in 0..self.get_num_functions() {
-      let func = self.get_function(i);
-      let func = Reference::new(&self.context, func);
+    for func in self.func_iter() {
       write!(f, "{}", func.to_string()).unwrap();
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
