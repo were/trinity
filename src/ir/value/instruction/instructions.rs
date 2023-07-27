@@ -1,4 +1,7 @@
-use crate::ir::{PointerType, ValueRef, value::{instruction::InstOpcode, block::BlockRef, function::FunctionRef}, VoidType, TypeRef, Block, Function};
+use crate::ir::{
+  PointerType, ValueRef, VoidType, TypeRef, Block, Function
+  value::{instruction::InstOpcode, block::BlockRef, function::{FunctionRef, ArgumentRef}},
+};
 
 use super::{CmpPred, InstructionRef, BinaryOp};
 
@@ -289,6 +292,10 @@ impl <'inst> Call<'inst> {
 
   pub fn get_arg(&self, idx: usize) -> &ValueRef {
     &self.inst.get_operand(idx).unwrap()
+  }
+
+  pub fn arg_iter(&self) -> impl Iterator<Item=&ValueRef> {
+    self.inst.operand_iter().take(self.get_num_args())
   }
 
 }

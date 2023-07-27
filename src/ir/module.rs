@@ -94,7 +94,7 @@ impl<'ctx> Module {
 pub fn namify(name: &String) -> String {
   let mut res = String::new();
   name.chars().into_iter().for_each(|c| match c {
-    'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => res.push(c),
+    'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.' => res.push(c),
     _ => res.push_str(&format!("_{:x}_", c as u32)),
   });
   res
