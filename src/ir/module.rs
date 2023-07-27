@@ -94,8 +94,10 @@ impl<'ctx> Module {
   }
 
   /// Get the function by indices.
-  pub fn get_function(&'ctx self, idx: usize) -> &'ctx function::Function {
-    self.context.get_value_ref::<function::Function>(self.functions[idx]).unwrap()
+  pub fn get_function(&'ctx self, idx: usize) -> Option<function::FunctionRef<'ctx>> {
+    self.functions.get(idx).map(|x| {
+      Function::from_skey(*x).as_ref::<function::Function>(&self.context).unwrap()
+    })
   }
 
   pub fn func_iter(&'ctx self) -> impl Iterator<Item = function::FunctionRef<'ctx>> {

@@ -94,7 +94,6 @@ impl StructType {
     self.instance.attrs = elements;
   }
 
-
 }
 
 impl <'ctx>StructTypeRef<'ctx> {
@@ -121,6 +120,19 @@ impl <'ctx>StructTypeRef<'ctx> {
 
   pub fn get_name(&self) -> String {
     self.instance().unwrap().name.to_string()
+  }
+
+  pub fn get_offset(&self, module: &Module, idx: usize) -> usize {
+    let mut offset = 0;
+    let align = self.as_super().get_align_in_bits(module);
+    for i in 0..idx {
+      offset += self.instance().unwrap().attrs[i].get_scalar_size_in_bits(module);
+      let rem = offset % align;
+      if rem != 0 {
+        offset += align - rem;
+      }
+    }
+    offset
   }
 
 }
@@ -201,6 +213,22 @@ impl<'ctx> TypeRef {
     ctx.array_type(self.clone(), size)
   }
 
+  /// For now, most types are aligned to their size.
+  pub fn get_align_in_bits(&self, module: &Module) -> usize {
+    let ctx = &module.context;
+    match self.kind {
+      TKindCode::StructType => {
+        let st = self.as_ref::<StructType>(ctx).unwrap();
+        st.instance().unwrap().attrs.iter()
+          .map(|x| x.get_scalar_size_in_bits(module))
+          .fold(0, |x, acc| std::cmp::max(x, acc))
+      }
+      _ => {
+        self.get_scalar_size_in_bits(module)
+      }
+    }
+  }
+
   pub fn get_scalar_size_in_bits(&self, module: &Module) -> usize {
     let ctx = &module.context;
     let tm = &module.tm;
@@ -212,9 +240,8 @@ impl<'ctx> TypeRef {
       TKindCode::VoidType => { 1 }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
-        st.instance().unwrap().attrs.iter()
-          .map(|x| x.get_scalar_size_in_bits(module))
-          .fold(0, |x, acc| acc + x)
+        let res = st.get_offset(module, st.get_num_attrs());
+        res
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();
