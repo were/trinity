@@ -1,7 +1,7 @@
 use crate::{context::{SlabEntry, Reference}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
-use super::{ValueRef, instruction::{InstOpcode, InstructionRef}, Instruction};
+use super::{ValueRef, instruction::InstOpcode, Instruction};
 
 pub struct ConstScalarImpl {
   pub(crate) ty: TypeRef,

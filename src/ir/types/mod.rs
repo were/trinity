@@ -245,7 +245,7 @@ impl<'ctx> TypeRef {
       }
       TKindCode::ArrayType => {
         let at = self.as_ref::<ArrayType>(ctx).unwrap();
-        at.get_elem_ty().get_scalar_size_in_bits(module)
+        at.get_elem_ty().get_scalar_size_in_bits(module) * at.get_size()
       }
       TKindCode::PointerType => {
         tm.get_pointer_size_in_bits()
