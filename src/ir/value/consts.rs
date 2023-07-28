@@ -1,7 +1,7 @@
 use crate::{context::{SlabEntry, Reference}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
-use super::{ValueRef, instruction::InstOpcode, Instruction};
+use super::{ValueRef, instruction::{InstOpcode, InstructionRef}, Instruction};
 
 pub struct ConstScalarImpl {
   pub(crate) ty: TypeRef,
@@ -153,6 +153,10 @@ impl ConstExpr {
 
 impl <'ctx> ConstExprRef<'ctx> {
 
+  pub fn get_inst(&self) -> &Instruction {
+    &self.instance().unwrap().inst
+  }
+
   pub fn to_string(&self) -> String {
     if let Some(skey) = self.is_invalid() {
       return format!("{{invalid.constexpr.{}}}", skey)
@@ -218,6 +222,10 @@ impl <'ctx> ConstObjectRef<'ctx> {
 
   pub fn get_type(&self) -> &TypeRef {
     &self.instance().unwrap().ty
+  }
+
+  pub fn get_value(&self) -> &Vec<ValueRef> {
+    &self.instance().unwrap().value
   }
 
   pub fn to_string(&self) -> String {

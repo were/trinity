@@ -122,11 +122,11 @@ impl <'ctx>StructTypeRef<'ctx> {
     self.instance().unwrap().name.to_string()
   }
 
-  pub fn get_offset(&self, module: &Module, idx: usize) -> usize {
+  pub fn get_offset_in_bytes(&self, module: &Module, idx: usize) -> usize {
     let mut offset = 0;
-    let align = self.as_super().get_align_in_bits(module);
+    let align = self.as_super().get_align_in_bits(module) / 8;
     for i in 0..idx {
-      offset += self.instance().unwrap().attrs[i].get_scalar_size_in_bits(module);
+      offset += self.instance().unwrap().attrs[i].get_scalar_size_in_bits(module) / 8;
       let rem = offset % align;
       if rem != 0 {
         offset += align - rem;
@@ -240,7 +240,7 @@ impl<'ctx> TypeRef {
       TKindCode::VoidType => { 1 }
       TKindCode::StructType => {
         let st = self.as_ref::<StructType>(ctx).unwrap();
-        let res = st.get_offset(module, st.get_num_attrs());
+        let res = st.get_offset_in_bytes(module, st.get_num_attrs()) * 8;
         res
       }
       TKindCode::ArrayType => {
