@@ -106,8 +106,10 @@ impl <'ctx> InstMutator <'ctx> {
   /// Move to a new block's given index.
   pub fn move_to_block(&mut self, new_block: &ValueRef, idx: Option<usize>) {
     let inst = self.value();
+    let inst_ref = inst.as_ref::<Instruction>(self.ctx).unwrap();
+    let old_block = inst_ref.get_parent().as_super();
     // Remove from old parent.
-    let old_block = Block::from_skey(inst.skey).as_mut::<Block>(self.ctx).unwrap();
+    let old_block = old_block.as_mut::<Block>(self.ctx).unwrap();
     old_block.instance.insts.retain(|x| *x != inst.skey);
     // Add to new parent.
     let new_block = new_block.as_mut::<Block>(self.ctx).unwrap();
@@ -116,7 +118,7 @@ impl <'ctx> InstMutator <'ctx> {
     assert!(idx <= n);
     new_block.instance.insts.insert(idx, inst.skey);
     let new_parent = new_block.get_skey();
-    let inst = inst.as_mut::<Instruction>(self.ctx).unwrap();
+    let inst = self.value().as_mut::<Instruction>(self.ctx).unwrap();
     inst.instance.parent = Some(new_parent);
   }
 
@@ -155,7 +157,7 @@ impl <'ctx> InstMutator <'ctx> {
 // TODO(@were): Revisit this idea of code organization.
 /// This is not only the opcode, but also the additional information of
 /// these sub-instructions.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InstOpcode {
   /// Memory allocation (alignment).
   Alloca(usize),
@@ -239,7 +241,7 @@ impl BinaryOp {
 }
 
 /// Sub-opcodes of cast operation.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum CastOp {
   Bitcast,
   FpToSi,
@@ -259,7 +261,7 @@ impl CastOp {
 }
 
 /// Sub instructions of comparison.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum CmpPred {
   /// Signed less than.
   SLT,
@@ -304,7 +306,7 @@ impl InstructionImpl {
 
 impl Instruction {
 
-  pub(crate) fn set_operand(&mut self, idx: usize, new_value: ValueRef) -> ValueRef {
+  pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) -> ValueRef {
     if idx >= self.instance.operands.len() {
       panic!("Index out of bound.");
     }

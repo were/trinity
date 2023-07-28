@@ -38,7 +38,7 @@ impl Block {
     Block::from(BlockImpl::new(name_prefix, parent.skey))
   }
 
-  pub(crate) fn add_user(&mut self, inst: &ValueRef) {
+  pub fn add_user(&mut self, inst: &ValueRef) {
     self.instance.users.push(inst.skey);
   }
 
@@ -133,7 +133,13 @@ impl <'ctx> BlockRef<'ctx> {
       let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
-    format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts)
+    let mut res = format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts);
+    self.user_iter().for_each(|user| {
+      if *user.get_opcode() == InstOpcode::Phi {
+        res = format!("; used by phi: {} in block: {}\n{}", user.get_name(), user.get_parent().get_name(), res);
+      }
+    });
+    res
   }
 
   pub fn succ_iter(&'ctx self) -> impl Iterator<Item = BlockRef<'ctx>> {
