@@ -273,6 +273,8 @@ pub enum CmpPred {
   SGE,
   /// Int equal.
   EQ,
+  /// Int not equal.
+  NE
 }
 
 impl CmpPred {
@@ -284,6 +286,7 @@ impl CmpPred {
       CmpPred::SLE => "sle".to_string(),
       CmpPred::SGE => "sge".to_string(),
       CmpPred::EQ => "eq".to_string(),
+      CmpPred::NE => "ne".to_string(),
     }
   }
 

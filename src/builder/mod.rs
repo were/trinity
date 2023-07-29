@@ -396,6 +396,10 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::EQ, lhs, rhs)
   }
 
+  pub fn create_ne(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_compare(CmpPred::NE, lhs, rhs)
+  }
+
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
