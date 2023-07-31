@@ -260,6 +260,10 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
+  pub fn create_xor(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::Xor, lhs, rhs)
+  }
+
   pub fn create_add(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
     return self.create_binary_op(BinaryOp::Add, lhs, rhs)
   }
