@@ -1,3 +1,4 @@
+use crate::ir::ConstScalar;
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
@@ -273,6 +274,13 @@ impl<'ctx> Builder {
   }
 
   pub fn create_mul(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    if let Some(const_lhs) = lhs.as_ref::<ConstScalar>(&self.module.context) {
+      if let Some(const_rhs) = rhs.as_ref::<ConstScalar>(&self.module.context) {
+        let ty = lhs.get_type(&self.module.context);
+        let value = const_lhs.get_value() * const_rhs.get_value();
+        return self.context().const_value(ty, value)
+      }
+    }
     return self.create_binary_op(BinaryOp::Mul, lhs, rhs)
   }
 
