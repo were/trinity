@@ -126,7 +126,7 @@ impl <'ctx> BlockRef<'ctx> {
     let insts = self.instance().unwrap().insts.iter().map(|i| {
       let inst_value = Instruction::from_skey(*i);
       let inst = inst_value.as_ref::<Instruction>(ctx).unwrap();
-      format!("  {}", inst.to_string(true))
+      format!("  {}", inst.to_string(false))
     }).collect::<Vec<String>>().join("\n");
     let pred_comments = self.pred_iter().map(|inst| {
       let pred_block = inst.get_parent();

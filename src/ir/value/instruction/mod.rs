@@ -53,6 +53,22 @@ impl <'ctx> InstMutator <'ctx> {
     }
   }
 
+  pub fn set_operand(&mut self, index: usize, operand: ValueRef) {
+    let inst_value = Instruction::from_skey(self.skey);
+    let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
+    assert!(index < inst.instance.operands.len());
+    let old = inst.instance.operands[index].clone();
+    inst.set_operand(index, operand.clone());
+    self.ctx.add_user_redundancy(&inst_value, &vec![operand]);
+    self.ctx.remove_user_redundancy(old, inst_value);
+  }
+
+  pub fn set_opcode(&mut self, opcode: InstOpcode) {
+    let inst_value = Instruction::from_skey(self.skey);
+    let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
+    inst.instance.opcode = opcode;
+  }
+
   pub fn add_operand(&mut self, operand: ValueRef) {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
@@ -309,7 +325,11 @@ impl InstructionImpl {
 
 impl Instruction {
 
-  pub fn set_operand(&mut self, idx: usize, new_value: ValueRef) -> ValueRef {
+  pub fn set_opcode(&mut self, opcode: InstOpcode) {
+    self.instance.opcode = opcode;
+  }
+
+  pub(super) fn set_operand(&mut self, idx: usize, new_value: ValueRef) -> ValueRef {
     if idx >= self.instance.operands.len() {
       panic!("Index out of bound.");
     }

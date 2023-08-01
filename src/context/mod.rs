@@ -115,6 +115,18 @@ impl<'ctx> Context {
     }
   }
 
+  pub(crate) fn remove_user_redundancy(&mut self, operand: ValueRef, user: ValueRef) {
+    if let Some(operand) = operand.as_mut::<Instruction>(self) {
+      operand.instance.users.retain(|u| *u != user);
+    }
+    if let Some(block) = operand.as_mut::<Block>(self) {
+      block.instance.users.retain(|u| *u != user.skey);
+    }
+    if let Some(func) = operand.as_mut::<Function>(self) {
+      func.instance.callers.retain(|u| *u != user.skey);
+    }
+  }
+
 
 
 }
