@@ -214,21 +214,24 @@ impl<'ctx> Builder {
   // TODO(@were): Add alignment
   pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> Result<ValueRef, String> {
     let ptr_ty = ptr.get_type(&self.module.context);
-    let ptr_ty = ptr_ty.as_ref::<PointerType>(&self.module.context).unwrap();
-    let pointee_ty = ptr_ty.get_pointee_ty();
-    let value_ty = value.get_type(&self.context());
-    if pointee_ty != value_ty {
-      let pointee_ty = pointee_ty.to_string(&self.module.context);
-      let value_ty = value_ty.to_string(&self.module.context);
-      return Err(format!("PointerType: {} mismatches ValueType: {}", pointee_ty, value_ty))
+    if let Some(ptr_ty) = ptr_ty.as_ref::<PointerType>(&self.module.context) {
+      let pointee_ty = ptr_ty.get_pointee_ty();
+      let value_ty = value.get_type(&self.context());
+      if pointee_ty != value_ty {
+        let pointee_ty = pointee_ty.to_string(&self.module.context);
+        let value_ty = value_ty.to_string(&self.module.context);
+        return Err(format!("PointerType: {} mismatches ValueType: {}", pointee_ty, value_ty))
+      }
+      let inst = instruction::Instruction::new(
+        self.context().void_type(),
+        instruction::InstOpcode::Store(8),
+        "store".to_string(),
+        vec![value, ptr],
+      );
+      Ok(self.add_instruction(inst))
+    } else {
+      Err(format!("Value: {} is not a pointer", ptr.to_string(&self.module.context, true)))
     }
-    let inst = instruction::Instruction::new(
-      self.context().void_type(),
-      instruction::InstOpcode::Store(8),
-      "store".to_string(),
-      vec![value, ptr],
-    );
-    Ok(self.add_instruction(inst))
   }
 
   pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
