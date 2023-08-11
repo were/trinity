@@ -1,4 +1,3 @@
-use crate::ir::ConstScalar;
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
@@ -186,11 +185,16 @@ impl<'ctx> Builder {
   }
 
   /// Return the pointer to the struct field.
-  pub fn get_struct_field(&mut self, value: ValueRef, idx: usize) -> Result<ValueRef, String> {
+  pub fn get_struct_field(&mut self, value: ValueRef, idx: usize, name: &str) -> Result<ValueRef, String> {
     let ty = value.get_type(&self.module.context);
-    let attr_ty = if let Some(ty) = ty.as_ref::<PointerType>(&self.module.context) {
+    let (attr_ty, name) = if let Some(ty) = ty.as_ref::<PointerType>(&self.module.context) {
       if let Some(sty) = ty.get_pointee_ty().as_ref::<StructType>(&self.module.context) {
-        sty.get_attr(idx)
+        let res_ty = sty.get_attr(idx);
+        if name.is_empty() {
+          (res_ty, format!("{}.{}", sty.get_name(), idx))
+        } else {
+          (res_ty, name.to_string())
+        }
       } else {
         return Err(format!("Expect a pointer to struct, but got {}", ty.to_string()));
       }
@@ -201,18 +205,23 @@ impl<'ctx> Builder {
     let zero = self.context().const_value(i32ty.clone(), 0);
     let idx = self.context().const_value(i32ty, idx as u64);
     let ptr_ty = self.context().pointer_type(attr_ty);
-    return Ok(self.create_gep(ptr_ty, value, vec![zero, idx], true));
+    return Ok(self.create_gep(ptr_ty, value, vec![zero, idx], true, name));
   }
 
   /// Return the pointer to a[i]
   pub fn index_array(&mut self, a: ValueRef, i: ValueRef) -> Result<ValueRef, String> {
     let ty = a.get_type(&self.module.context);
-    return Ok(self.create_gep(ty, a, vec![i], true));
+    return Ok(self.create_gep(ty, a, vec![i], true, "a.i".to_string()));
   }
 
   /// This interface is not recommended to use, because its excessive parameters are error-prone.
   /// Please use `get_struct_field`, and `index_array` above instead.
-  pub fn create_gep(&mut self, ty: TypeRef, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool) -> ValueRef {
+  pub fn create_gep(&mut self, ty: TypeRef, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool, name: String) -> ValueRef {
+    let name = if name.is_empty() {
+      "gep".to_string()
+    } else {
+      name
+    };
     let mut operands = vec![ptr];
     operands.extend(indices);
     // All constants
@@ -224,18 +233,18 @@ impl<'ctx> Builder {
       let inst = instruction::Instruction::new(
         ty,
         instruction::InstOpcode::GetElementPtr(inbounds),
-        "gep".to_string(),
+        name,
         operands,
       );
       self.add_instruction(inst)
     }
   }
 
-  pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>) -> ValueRef {
+  pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>, name: String) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
     let res_ty = pty.get_pointee_ty();
-    self.create_gep(res_ty, ptr, indices, true)
+    self.create_gep(res_ty, ptr, indices, true, name)
   }
 
   // TODO(@were): Add alignment
@@ -279,47 +288,51 @@ impl<'ctx> Builder {
     self.create_typed_call(ty, callee, args)
   }
 
-  pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+  pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
     // @were: Check type equality.
     let ty = lhs.get_type(self.context());
     let inst = instruction::Instruction::new(
       ty,
       instruction::InstOpcode::BinaryOp(op),
-      "binop".to_string(),
+      name,
       vec![lhs, rhs],
     );
     self.add_instruction(inst)
   }
 
+  // fn fold_constant(&mut self, lhs: &ValueRef, rhs: &ValueRef, f: fn(u64, u64) -> u64) -> Option<ValueRef> {
+  //   if let Some(const_lhs) = lhs.as_ref::<ConstScalar>(&self.module.context) {
+  //     if let Some(const_rhs) = rhs.as_ref::<ConstScalar>(&self.module.context) {
+  //       let ty = lhs.get_type(&self.module.context);
+  //       let value = f(const_lhs.get_value(), const_rhs.get_value());
+  //       return Some(self.context().const_value(ty, value))
+  //     }
+  //   }
+  //   return None
+  // }
+
   pub fn create_xor(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_binary_op(BinaryOp::Xor, lhs, rhs)
+    return self.create_binary_op(BinaryOp::Xor, lhs, rhs, "xor".to_string())
   }
 
   pub fn create_add(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_binary_op(BinaryOp::Add, lhs, rhs)
+    return self.create_binary_op(BinaryOp::Add, lhs, rhs, "add".to_string())
   }
 
   pub fn create_sub(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_binary_op(BinaryOp::Sub, lhs, rhs)
+    return self.create_binary_op(BinaryOp::Sub, lhs, rhs, "sub".to_string())
   }
 
   pub fn create_mul(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    if let Some(const_lhs) = lhs.as_ref::<ConstScalar>(&self.module.context) {
-      if let Some(const_rhs) = rhs.as_ref::<ConstScalar>(&self.module.context) {
-        let ty = lhs.get_type(&self.module.context);
-        let value = const_lhs.get_value() * const_rhs.get_value();
-        return self.context().const_value(ty, value)
-      }
-    }
-    return self.create_binary_op(BinaryOp::Mul, lhs, rhs)
+    return self.create_binary_op(BinaryOp::Mul, lhs, rhs, "mul".to_string())
   }
 
   pub fn create_sdiv(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_binary_op(BinaryOp::SDiv, lhs, rhs)
+    return self.create_binary_op(BinaryOp::SDiv, lhs, rhs, "sdiv".to_string())
   }
 
   pub fn create_srem(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_binary_op(BinaryOp::SRem, lhs, rhs)
+    return self.create_binary_op(BinaryOp::SRem, lhs, rhs, "srem".to_string())
   }
 
   pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
