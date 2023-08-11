@@ -79,8 +79,11 @@ impl_sub_inst!(InstOpcode::GetElementPtr(_), GetElementPtr,
     };
     // TODO(@were): What if this is not a pointer?
     let ptr_ty = self.inst.get_operand(0).unwrap().get_type(ctx);
-    let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
-    let ty_str = ptr_ty.get_pointee_ty().to_string(ctx);
+    let ty_str = if let Some(ptr_ty) = ptr_ty.as_ref::<PointerType>(ctx) {
+      ptr_ty.get_pointee_ty().to_string(ctx)
+    } else {
+      format!("{} [error!]", ptr_ty.to_string(ctx))
+    };
 
     let operands = (0..self.inst.get_num_operands()).map(|i| {
       format!("{}", &self.inst.get_operand(i).unwrap().to_string(ctx, true))

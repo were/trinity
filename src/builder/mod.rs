@@ -185,11 +185,38 @@ impl<'ctx> Builder {
     res
   }
 
+  /// Return the pointer to the struct field.
+  pub fn get_struct_field(&mut self, value: ValueRef, idx: usize) -> Result<ValueRef, String> {
+    let ty = value.get_type(&self.module.context);
+    let attr_ty = if let Some(ty) = ty.as_ref::<PointerType>(&self.module.context) {
+      if let Some(sty) = ty.get_pointee_ty().as_ref::<StructType>(&self.module.context) {
+        sty.get_attr(idx)
+      } else {
+        return Err(format!("Expect a pointer to struct, but got {}", ty.to_string()));
+      }
+    } else {
+      return Err(format!("Only pointer type supported for now, but got {}", ty.to_string(&self.module.context)));
+    };
+    let i32ty = self.context().int_type(32);
+    let zero = self.context().const_value(i32ty.clone(), 0);
+    let idx = self.context().const_value(i32ty, idx as u64);
+    let ptr_ty = self.context().pointer_type(attr_ty);
+    return Ok(self.create_gep(ptr_ty, value, vec![zero, idx], true));
+  }
+
+  /// Return the pointer to a[i]
+  pub fn index_array(&mut self, a: ValueRef, i: ValueRef) -> Result<ValueRef, String> {
+    let ty = a.get_type(&self.module.context);
+    return Ok(self.create_gep(ty, a, vec![i], true));
+  }
+
+  /// This interface is not recommended to use, because its excessive parameters are error-prone.
+  /// Please use `get_struct_field`, and `index_array` above instead.
   pub fn create_gep(&mut self, ty: TypeRef, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool) -> ValueRef {
     let mut operands = vec![ptr];
     operands.extend(indices);
     // All constants
-    if operands.iter().fold(true, |acc, val| acc && val.is_const()) {
+    if operands[0].is_const() && operands.iter().fold(true, |acc, val| acc && val.is_const()) {
       let res = ConstExpr::new(ty, instruction::InstOpcode::GetElementPtr(inbounds), operands);
       let expr = self.context().add_instance::<ConstExpr>(res);
       return expr
