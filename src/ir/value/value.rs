@@ -87,7 +87,7 @@ impl<'ctx> ValueRef {
         inline_asm.to_string()
       },
       VKindCode::Undef => {
-        format!("[undef]")
+        format!("undef")
       },
       VKindCode::Unknown => {
         format!("[unknown]")
