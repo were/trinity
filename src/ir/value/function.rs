@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::Instruction;
+// use super::Instruction;
 use super::block::BlockRef;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::functype::FunctionTypeRef;
@@ -103,10 +103,10 @@ impl <'ctx>FunctionRef<'ctx> {
     let instance = self.instance().unwrap();
     let ctx = self.ctx;
     let mut res = String::new();
-    for elem in instance.callers.iter() {
-      let caller = Instruction::from_skey(*elem);
-      res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
-    }
+    // for elem in instance.callers.iter() {
+    //   let caller = Instruction::from_skey(*elem);
+    //   res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
+    // }
     let fty = instance.fty.as_ref::<FunctionType>(ctx).unwrap();
     let prefix = if self.is_declaration() {
       "declare"
