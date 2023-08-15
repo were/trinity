@@ -465,11 +465,7 @@ impl<'ctx> Builder {
       "br".to_string(),
       vec![bb.clone()],
     );
-    let res = self.add_instruction(inst);
-    let block = self.get_current_block().unwrap();
-    let block = block.as_mut::<Block>(self.context()).unwrap();
-    block.add_succ(&bb);
-    res
+    self.add_instruction(inst)
   }
 
   pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef, loop_latch: bool) -> ValueRef {
@@ -489,12 +485,7 @@ impl<'ctx> Builder {
       "br".to_string(),
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
-    let res = self.add_instruction(inst);
-    let block = self.get_current_block().unwrap();
-    let block = block.as_mut::<Block>(self.context()).unwrap();
-    block.add_succ(&true_bb);
-    block.add_succ(&false_bb);
-    res
+    self.add_instruction(inst)
   }
 
   pub fn create_phi(&mut self, ty: TypeRef, operands: Vec<ValueRef>) -> ValueRef {

@@ -11,8 +11,6 @@ pub struct BlockImpl {
   pub(crate) parent: usize,
   /// The slab keys of the branch instructions target this block.
   pub(crate) users: Vec<usize>,
-  /// The slab keys of the successor blocks.
-  pub(crate) succs: Vec<usize>,
 }
 
 pub type Block = SlabEntry<BlockImpl>;
@@ -26,7 +24,6 @@ impl BlockImpl {
       insts: Vec::new(),
       parent,
       users: Vec::new(),
-      succs: Vec::new(),
     }
   }
 
@@ -42,11 +39,6 @@ impl Block {
     self.instance.users.push(inst.skey);
   }
 
-  pub(crate) fn add_succ(&mut self, succ: &ValueRef) {
-    self.instance.succs.push(succ.skey);
-  }
-
-
 }
 
 impl <'ctx> BlockRef<'ctx> {
@@ -58,16 +50,6 @@ impl <'ctx> BlockRef<'ctx> {
 
   pub fn get_num_insts(&self) -> usize {
     return self.instance().unwrap().insts.len();
-  }
-
-  pub fn get_succ(&self, idx: usize) -> Option<BlockRef<'ctx>> {
-    self.instance().unwrap().succs.get(idx).map(|x| {
-      Block::from_skey(*x).as_ref::<Block>(self.ctx).unwrap()
-    })
-  }
-
-  pub fn get_num_succs(&self) -> usize {
-    self.instance().unwrap().succs.len()
   }
 
   pub fn get_name(&self) -> String {
@@ -142,10 +124,14 @@ impl <'ctx> BlockRef<'ctx> {
     res
   }
 
-  pub fn succ_iter(&'ctx self) -> impl Iterator<Item = BlockRef<'ctx>> {
-    self.instance().unwrap().succs.iter().map(|skey| {
-      Block::from_skey(*skey).as_ref::<Block>(self.ctx).unwrap()
-    })
+  pub fn succ_iter(&'ctx self) -> Box<dyn Iterator<Item = BlockRef<'ctx>> + 'ctx> {
+    if let Some(br) = self.last_inst().unwrap().as_sub::<BranchInst>() {
+      // TODO(@were): Better manage the lifetime of each returned value.
+      let vec = br.succ_iter().map(|x| x.get_skey()).collect::<Vec<_>>();
+      return Box::new(vec.into_iter().map(|x| Block::from_skey(x).as_ref::<Block>(self.ctx).unwrap()));
+    } else {
+      return Box::new(std::iter::empty());
+    }
   }
 
   /// Iterate over each instruction belongs to this block.

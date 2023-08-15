@@ -85,18 +85,13 @@ impl <'ctx> InstMutator <'ctx> {
 
   /// Remove this instruction!
   pub fn erase_from_parent(&mut self) {
-    let (operands, block, is_branch) = {
+    let (operands, block) = {
       let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
       let mut user_iter = inst.user_iter();
       assert!(user_iter.next().is_none());
       let operands = inst.operand_iter().map(|x| x.clone()).collect::<Vec<_>>();
       let block = inst.get_parent().as_super();
-      let is_branch = if let InstOpcode::Branch(_) = inst.get_opcode() {
-        true
-      } else {
-        false
-      };
-      (operands, block, is_branch)
+      (operands, block)
     };
     for operand in operands {
       if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
@@ -113,9 +108,6 @@ impl <'ctx> InstMutator <'ctx> {
     // Maintain the block redundancy.
     let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
     block.instance.insts.retain(|x| *x != self.skey);
-    if is_branch {
-      block.instance.succs.clear();
-    }
     self.ctx.dispose(self.skey);
   }
 

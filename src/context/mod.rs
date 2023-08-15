@@ -31,7 +31,7 @@ impl<'ctx> Context {
     }
   }
 
-  pub(crate) fn dispose(&mut self, skey: usize) {
+  pub fn dispose(&mut self, skey: usize) {
     self.slab.remove(skey);
   }
 
