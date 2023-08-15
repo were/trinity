@@ -74,7 +74,7 @@ impl fmt::Display for VoidType {
 
 /// Struct type
 pub struct StructImpl {
-  pub(crate) name: String,
+  pub(crate) name_hint: String,
   pub(crate) attrs: Vec<TypeRef>,
 }
 
@@ -85,7 +85,7 @@ impl StructType {
 
   pub fn new(name: String) -> Self {
     Self::from(StructImpl {
-      name,
+      name_hint: name,
       attrs: Vec::new(),
     })
   }
@@ -107,7 +107,7 @@ impl <'ctx>StructTypeRef<'ctx> {
       .map(|attr| attr.to_string(self.ctx))
       .collect::<Vec<_>>()
       .join(", ");
-    format!("%{} = type {{ {} }}", self.get_name(), attrs)
+    format!("%{}.{} = type {{ {} }}", self.get_name(), self.get_skey(), attrs)
   }
 
   pub fn get_num_attrs(&self) -> usize {
@@ -119,7 +119,7 @@ impl <'ctx>StructTypeRef<'ctx> {
   }
 
   pub fn get_name(&self) -> String {
-    self.instance().unwrap().name.to_string()
+    self.instance().unwrap().name_hint.to_string()
   }
 
   pub fn get_offset_in_bytes(&self, module: &Module, idx: usize) -> usize {
@@ -160,7 +160,7 @@ impl<'ctx> TypeRef {
       },
       TKindCode::StructType => {
         let ty = self.as_ref::<StructType>(ctx).unwrap();
-        format!("%{}", ty.get_name())
+        format!("%{}.{}", ty.get_name(), ty.get_skey())
       },
       TKindCode::PointerType => {
         let ty = self.as_ref::<PointerType>(ctx).unwrap();

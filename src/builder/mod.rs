@@ -160,13 +160,13 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
-  pub fn create_alloca(&mut self, ty: types::TypeRef) -> ValueRef {
+  pub fn create_alloca(&mut self, ty: types::TypeRef, name: String) -> ValueRef {
     let ptr_ty = ty.ptr_type(self.context());
     let inst = instruction::Instruction::new(
       ptr_ty,
       // TODO(@were): Make this alignment better
       instruction::InstOpcode::Alloca(8),
-      "alloca".to_string(),
+      name,
       Vec::new(),
     );
     self.add_instruction(inst)
@@ -254,9 +254,11 @@ impl<'ctx> Builder {
       let pointee_ty = ptr_ty.get_pointee_ty();
       let value_ty = value.get_type(&self.context());
       if pointee_ty != value_ty {
-        let pointee_ty = pointee_ty.to_string(&self.module.context);
-        let value_ty = value_ty.to_string(&self.module.context);
-        return Err(format!("PointerType: {} mismatches ValueType: {}", pointee_ty, value_ty))
+        return Err(format!("PointerType: {} ({}) mismatches ValueType: {} ({})",
+          pointee_ty.to_string(&self.module.context),
+          pointee_ty.skey,
+          value_ty.to_string(&self.module.context),
+          value_ty.skey))
       }
       let inst = instruction::Instruction::new(
         self.context().void_type(),
