@@ -82,7 +82,11 @@ impl <'ctx> BlockRef<'ctx> {
   }
 
   pub fn last_inst(&'ctx self) -> Option<InstructionRef<'ctx>> {
+    if self.get_num_insts() == 0 {
+      return None;
+    }
     self.get_inst(self.get_num_insts() - 1)
+
   }
 
   /// If this block is a loop head.
