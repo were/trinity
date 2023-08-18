@@ -104,7 +104,7 @@ impl <'ctx> BlockRef<'ctx> {
     }).next()
   }
 
-  pub fn to_string(&self) -> String {
+  pub fn to_string(&self, comment: bool) -> String {
     if self.is_invalid().is_some() {
       return self.get_name();
     }
@@ -119,12 +119,14 @@ impl <'ctx> BlockRef<'ctx> {
       let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
-    let res = format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts);
-    // self.user_iter().for_each(|user| {
-    //   if *user.get_opcode() == InstOpcode::Phi {
-    //     res = format!("; used by phi: {} in block: {}\n{}", user.get_name(), user.get_parent().get_name(), res);
-    //   }
-    // });
+    let mut res = format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts);
+    if comment {
+      self.user_iter().for_each(|user| {
+        if *user.get_opcode() == InstOpcode::Phi {
+          res = format!("; used by phi: {} in block: {}\n{}", user.get_name(), user.get_parent().get_name(), res);
+        }
+      });
+    }
     res
   }
 

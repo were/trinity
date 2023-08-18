@@ -126,7 +126,7 @@ impl <'ctx>FunctionRef<'ctx> {
     if !self.is_declaration() {
       res.push_str(" {\n");
       for block in self.block_iter() {
-        res.push_str(block.to_string().as_str());
+        res.push_str(block.to_string(false).as_str());
       }
       res.push_str("}");
     } else {
