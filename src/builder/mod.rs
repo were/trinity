@@ -319,6 +319,14 @@ impl<'ctx> Builder {
     return self.create_binary_op(BinaryOp::Xor, lhs, rhs, "xor".to_string())
   }
 
+  pub fn create_and(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::And, lhs, rhs, "and".to_string())
+  }
+
+  pub fn create_or(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::Or, lhs, rhs, "or".to_string())
+  }
+
   pub fn create_add(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
     return self.create_binary_op(BinaryOp::Add, lhs, rhs, "add".to_string())
   }
