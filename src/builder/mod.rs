@@ -142,7 +142,9 @@ impl<'ctx> Builder {
       // Maintain the instruction redundancy.
       let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
       let operands = inst_ref.operand_iter().map(|v| v.clone()).collect::<Vec<_>>();
-      self.module.context.add_user_redundancy(&inst_value, &operands);
+      self.module.context.add_user_redundancy(
+        &inst_value,
+        operands.iter().enumerate().map(|(i, v)| (v.clone(), i)).collect::<Vec<_>>());
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
       block.instance.insts.insert(insert_idx, inst_value.skey);
       inst_value.clone()
@@ -427,7 +429,7 @@ impl<'ctx> Builder {
     let inst = instruction::Instruction::new(
       self.context().int_type(1),
       instruction::InstOpcode::ICompare(pred),
-      "slt".to_string(),
+      "cmp".to_string(),
       vec![lhs, rhs],
     );
     self.add_instruction(inst)

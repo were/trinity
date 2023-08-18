@@ -101,13 +101,13 @@ impl<'ctx> Context {
 
 
   /// `src` uses these `operands`.
-  pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: &Vec<ValueRef>) {
-    for operand in operands.iter() {
+  pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: Vec<(ValueRef, usize)>) {
+    for (operand, idx) in operands.iter() {
       if let Some(operand) = operand.as_mut::<Instruction>(self) {
-        operand.add_user(src.clone());
+        operand.add_user(src.clone(), *idx);
       }
       if let Some(block) = operand.as_mut::<Block>(self) {
-        block.add_user(src);
+        block.add_user(src, *idx);
       }
       if let Some(func) = operand.as_mut::<Function>(self) {
         func.add_caller(src);
@@ -115,15 +115,16 @@ impl<'ctx> Context {
     }
   }
 
-  pub(crate) fn remove_user_redundancy(&mut self, operand: ValueRef, user: ValueRef) {
+  pub(crate) fn remove_user_redundancy(&mut self, operand: ValueRef, user: ValueRef, idx: usize) {
+    let tuple = (user, idx);
     if let Some(operand) = operand.as_mut::<Instruction>(self) {
-      operand.instance.users.retain(|u| *u != user);
+      operand.instance.users.retain(|u| *u != tuple);
     }
     if let Some(block) = operand.as_mut::<Block>(self) {
-      block.instance.users.retain(|u| *u != user.skey);
+      block.instance.users.retain(|u| *u != tuple);
     }
     if let Some(func) = operand.as_mut::<Function>(self) {
-      func.instance.callers.retain(|u| *u != user.skey);
+      func.instance.callers.retain(|u| *u != tuple.0.skey);
     }
   }
 

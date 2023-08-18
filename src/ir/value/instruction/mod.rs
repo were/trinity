@@ -17,8 +17,9 @@ pub struct InstructionImpl {
   pub(crate) name_prefix: String,
   pub(crate) operands: Vec<ValueRef>,
   pub(crate) parent: Option<usize>,
-  /// Instructions uses this instruction.
-  pub(crate) users: Vec<ValueRef>,
+  /// Instructions uses this instruction (inst, idx).
+  /// It is inst's idx-th operand.
+  pub(crate) users: Vec<(ValueRef, usize)>,
   /// Comment for this instruction.
   pub(crate) comment: String,
 }
@@ -27,14 +28,8 @@ pub type Instruction = SlabEntry<InstructionImpl>;
 
 impl Instruction {
 
-  pub(crate) fn add_user(&mut self, user: ValueRef) -> bool {
-    let pos = self.instance.users.iter().position(|x| x.skey == user.skey);
-    if pos.is_none() {
-      self.instance.users.push(user);
-      true
-    } else {
-      false
-    }
+  pub(crate) fn add_user(&mut self, user: ValueRef, idx: usize) {
+    self.instance.users.push((user, idx));
   }
 
 }
@@ -58,9 +53,20 @@ impl <'ctx> InstMutator <'ctx> {
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     assert!(index < inst.instance.operands.len());
     let old = inst.instance.operands[index].clone();
+    if old == operand {
+      return;
+    }
     inst.set_operand(index, operand.clone());
-    self.ctx.add_user_redundancy(&inst_value, &vec![operand]);
-    self.ctx.remove_user_redundancy(old, inst_value);
+    self.ctx.add_user_redundancy(&inst_value, vec![(operand, index)]);
+    self.ctx.remove_user_redundancy(old, inst_value, index);
+  }
+
+  pub fn remove_operand(&mut self, index: usize) {
+    let inst_value = Instruction::from_skey(self.skey);
+    let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
+    assert!(index < inst.instance.operands.len());
+    let old = inst.instance.operands.remove(index);
+    self.ctx.remove_user_redundancy(old, inst_value, index);
   }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
@@ -72,8 +78,9 @@ impl <'ctx> InstMutator <'ctx> {
   pub fn add_operand(&mut self, operand: ValueRef) {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
+    let idx = inst.instance.operands.len();
     inst.add_operand(operand.clone());
-    self.ctx.add_user_redundancy(&inst_value, &vec![operand]);
+    self.ctx.add_user_redundancy(&inst_value, vec![(operand, idx)]);
   }
 
   pub fn value(&self) -> ValueRef {
@@ -95,10 +102,10 @@ impl <'ctx> InstMutator <'ctx> {
     };
     for operand in operands {
       if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
-        operand_inst.instance.users.retain(|x| x.skey != self.skey);
+        operand_inst.instance.users.retain(|x| x.0.skey != self.skey);
       }
       if let Some(operand_block) = operand.as_mut::<Block>(self.ctx) {
-        operand_block.instance.users.retain(|x| *x != self.skey);
+        operand_block.instance.users.retain(|x| x.0.skey != self.skey);
       }
       let value = self.value();
       if let Some(operand_func) = operand.as_mut::<Function>(self.ctx) {
@@ -147,7 +154,7 @@ impl <'ctx> InstMutator <'ctx> {
       }
     });
     to_replace.iter().for_each(|(before, idx)| {
-      self.ctx.add_user_redundancy(before, &vec![new.clone()]);
+      self.ctx.add_user_redundancy(before, vec![(new.clone(), *idx)]);
       let inst = before.as_mut::<Instruction>(self.ctx).unwrap();
       inst.set_operand(*idx, new.clone());
     });
@@ -189,6 +196,8 @@ pub enum InstOpcode {
   Branch(Option<usize>),
   /// Phi node for SSA.
   Phi,
+  /// Select instruction.
+  Select,
 }
 
 impl ToString for InstOpcode {
@@ -205,6 +214,7 @@ impl ToString for InstOpcode {
       InstOpcode::BinaryOp(binop) => binop.to_string().to_string(),
       InstOpcode::CastInst(cast) => cast.to_string().to_string(),
       InstOpcode::Phi => "phi".to_string(),
+      InstOpcode::Select => "select".to_string(),
     }
   }
 }
@@ -226,6 +236,7 @@ pub enum BinaryOp {
   Xor,
   LogicalAnd,
   LogicalOr,
+  Select,
 }
 
 impl BinaryOp {
@@ -244,6 +255,7 @@ impl BinaryOp {
       BinaryOp::Xor => "xor",
       BinaryOp::LogicalAnd => "and",
       BinaryOp::LogicalOr => "or",
+      BinaryOp::Select => "select",
     }
   }
 }
@@ -400,12 +412,13 @@ impl <'ctx>InstructionRef<'ctx> {
       InstOpcode::ICompare(_) => { self.as_sub::<CompareInst>().unwrap().to_string() }
       InstOpcode::Branch(_) => { self.as_sub::<BranchInst>().unwrap().to_string() }
       InstOpcode::Phi => { self.as_sub::<PhiNode>().unwrap().to_string() }
+      InstOpcode::Select => { self.as_sub::<SelectInst>().unwrap().to_string() }
     };
     if comment {
       if self.instance().unwrap().comment.len() != 0 {
         res = format!("; {}\n  {}", self.instance().unwrap().comment, res)
       }
-      for user in self.instance().unwrap().users.iter() {
+      for (user, _) in self.instance().unwrap().users.iter() {
         let user = user.as_ref::<Instruction>(self.ctx).unwrap();
         res = format!("; user: {}\n  {}", user.to_string(false), res);
       }
@@ -418,7 +431,7 @@ impl <'ctx>InstructionRef<'ctx> {
   }
 
   pub fn user_iter(&self) -> impl Iterator<Item=InstructionRef<'ctx>> {
-    self.instance().unwrap().users.iter().map(|u| u.as_ref::<Instruction>(self.ctx).unwrap())
+    self.instance().unwrap().users.iter().map(|(u, _)| u.as_ref::<Instruction>(self.ctx).unwrap())
   }
 
   pub fn as_sub<T: SubInst<'ctx, T>>(&'ctx self) -> Option<T> {

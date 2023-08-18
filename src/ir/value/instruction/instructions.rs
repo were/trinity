@@ -208,6 +208,18 @@ impl_sub_inst!(InstOpcode::ICompare(_), CompareInst,
 
 );
 
+impl_sub_inst!(InstOpcode::Select, SelectInst,
+
+  fn to_string(&self) -> String {
+    let ctx = self.inst.ctx;
+    let cond = self.get_condition().to_string(ctx, true);
+    let true_val = self.get_true_value().to_string(ctx, true);
+    let false_val = self.get_false_value().to_string(ctx, true);
+    let res = format!("%{} = select {}, {}, {}", self.inst.get_name(), cond, true_val, false_val);
+    res
+  }
+);
+
 
 impl<'inst> Alloca <'inst> {
 
@@ -466,6 +478,26 @@ impl <'inst>PhiNode<'inst> {
     (0..self.get_num_incomings()).map(|i|
       (self.get_incoming_block(i).unwrap(), self.get_incoming_value(i).unwrap())
     )
+  }
+
+}
+
+pub struct SelectInst<'inst> {
+  pub(super) inst: &'inst InstructionRef<'inst>
+}
+
+impl <'inst>SelectInst<'inst> {
+
+  pub fn get_condition(&self) -> &ValueRef {
+    self.inst.get_operand(0).unwrap()
+  }
+
+  pub fn get_true_value(&self) -> &ValueRef {
+    self.inst.get_operand(1).unwrap()
+  }
+
+  pub fn get_false_value(&self) -> &ValueRef {
+    self.inst.get_operand(2).unwrap()
   }
 
 }

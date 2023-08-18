@@ -10,7 +10,7 @@ pub struct BlockImpl {
   /// The slab key of the parent function.
   pub(crate) parent: usize,
   /// The slab keys of the branch instructions target this block.
-  pub(crate) users: Vec<usize>,
+  pub(crate) users: Vec<(ValueRef, usize)>,
 }
 
 pub type Block = SlabEntry<BlockImpl>;
@@ -35,8 +35,8 @@ impl Block {
     Block::from(BlockImpl::new(name_prefix, parent.skey))
   }
 
-  pub fn add_user(&mut self, inst: &ValueRef) {
-    self.instance.users.push(inst.skey);
+  pub fn add_user(&mut self, inst: &ValueRef, idx: usize) {
+    self.instance.users.push((inst.clone(), idx));
   }
 
 }
@@ -129,13 +129,14 @@ impl <'ctx> BlockRef<'ctx> {
   }
 
   pub fn succ_iter(&'ctx self) -> Box<dyn Iterator<Item = BlockRef<'ctx>> + 'ctx> {
-    if let Some(br) = self.last_inst().unwrap().as_sub::<BranchInst>() {
-      // TODO(@were): Better manage the lifetime of each returned value.
-      let vec = br.succ_iter().map(|x| x.get_skey()).collect::<Vec<_>>();
-      return Box::new(vec.into_iter().map(|x| Block::from_skey(x).as_ref::<Block>(self.ctx).unwrap()));
-    } else {
-      return Box::new(std::iter::empty());
+    if let Some(inst) = self.last_inst() {
+      if let Some(br) = inst.as_sub::<BranchInst>() {
+        // TODO(@were): Better manage the lifetime of each returned value.
+        let vec = br.succ_iter().map(|x| x.get_skey()).collect::<Vec<_>>();
+        return Box::new(vec.into_iter().map(|x| Block::from_skey(x).as_ref::<Block>(self.ctx).unwrap()));
+      }
     }
+    return Box::new(std::iter::empty());
   }
 
   /// Iterate over each instruction belongs to this block.
@@ -147,16 +148,16 @@ impl <'ctx> BlockRef<'ctx> {
 
   /// Iterate over each branch instruction destinated to this block.
   pub fn user_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
-    self.instance().unwrap().users.iter().map(|skey| {
-      Instruction::from_skey(*skey).as_ref::<Instruction>(self.ctx).unwrap()
+    self.instance().unwrap().users.iter().map(|(user, _)| {
+      user.as_ref::<Instruction>(self.ctx).unwrap()
     })
   }
 
   /// Filter out non-branch instructions.
   pub fn pred_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
     self.instance().unwrap().users.iter()
-      .map(|skey| {
-        Instruction::from_skey(*skey).as_ref::<Instruction>(self.ctx).unwrap()
+      .map(|(user, _)| {
+        user.as_ref::<Instruction>(self.ctx).unwrap()
       }).filter(|inst| {
         if let InstOpcode::Branch(_) = inst.get_opcode() {
           true
