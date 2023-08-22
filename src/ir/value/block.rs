@@ -1,6 +1,6 @@
 use crate::{context::{SlabEntry, Reference, Context}, ir::value::instruction::InstructionRef};
 
-use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst, InstMutator}, Function, function::{FunctionRef, FuncMutator}};
+use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst}, Function, function::{FunctionRef, FuncMutator}};
 
 pub struct BlockImpl {
   /// The name prefix of this block.
