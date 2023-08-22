@@ -1,6 +1,6 @@
-use crate::{context::{SlabEntry, Reference}, ir::value::instruction::InstructionRef};
+use crate::{context::{SlabEntry, Reference, Context}, ir::value::instruction::InstructionRef};
 
-use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst}, Function, function::FunctionRef};
+use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst, InstMutator}, Function, function::{FunctionRef, FuncMutator}};
 
 pub struct BlockImpl {
   /// The name prefix of this block.
@@ -171,3 +171,32 @@ impl <'ctx> BlockRef<'ctx> {
 
 }
 
+pub struct BlockMutator<'ctx> {
+  ctx: &'ctx mut Context,
+  value: ValueRef,
+}
+
+impl <'ctx> BlockMutator<'ctx> {
+
+  pub fn new(ctx: &'ctx mut Context, value: ValueRef) -> Self {
+    value.as_ref::<Block>(ctx).unwrap();
+    Self { ctx, value }
+  }
+
+  pub fn erase_from_parent(&mut self) {
+    let block = self.value.as_ref::<Block>(self.ctx).unwrap();
+    assert!(block.get_num_insts() == 0);
+    assert!(block.user_iter().count() == 0);
+    let func = block.get_parent().as_super();
+    let func_mut = func.as_mut::<Function>(self.ctx).unwrap();
+    func_mut.basic_blocks_mut().retain(|x| *x != self.value.skey);
+  }
+
+  pub fn replace_all_uses_with(&mut self, new: ValueRef) {
+    let func = self.value.as_ref::<Block>(self.ctx).unwrap().get_parent().as_super();
+    let old = self.value.clone();
+    let mut mutator = FuncMutator::new(self.ctx, func);
+    mutator.replace_all_uses_with(old, new);
+  }
+
+}

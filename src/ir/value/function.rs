@@ -1,12 +1,14 @@
 use std::collections::HashSet;
 
+use super::Instruction;
 // use super::Instruction;
 use super::block::BlockRef;
+use super::instruction::InstMutator;
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::functype::FunctionTypeRef;
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
-use crate::context::{SlabEntry, Reference};
+use crate::context::{SlabEntry, Reference, Context};
 
 pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
@@ -180,5 +182,44 @@ impl <'ctx>ArgumentRef<'ctx> {
     }
     format!("{} %{}", self.instance().unwrap().ty.to_string(self.ctx), self.get_name())
   }
+}
+
+
+pub struct FuncMutator<'ctx> {
+  ctx: &'ctx mut Context,
+  func: ValueRef
+}
+
+impl <'ctx>FuncMutator<'ctx> {
+
+  pub fn new(ctx: &'ctx mut Context, func: ValueRef) -> Self {
+    FuncMutator{ctx, func}
+  }
+
+  pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
+    let func = self.func.as_ref::<Function>(self.ctx).unwrap();
+    let mut to_replace = Vec::new();
+    func.block_iter().for_each(|block| {
+      for inst in block.inst_iter() {
+        for i in 0..inst.get_num_operands() {
+          if inst.get_operand(i).unwrap().skey == old.skey {
+            to_replace.push((Instruction::from_skey(inst.get_skey()), i));
+          }
+        }
+      }
+    });
+    to_replace.iter().for_each(|(before, idx)| {
+      let mut inst = InstMutator::new(self.ctx, before);
+      inst.set_operand(*idx, new.clone());
+    });
+    // Maintain the redundant information.
+    if let Some(inst) = old.as_mut::<Instruction>(self.ctx) {
+      inst.instance.users.clear();
+    } else if let Some(block) = old.as_mut::<Block>(self.ctx) {
+      block.instance.users.clear();
+    }
+    return !to_replace.is_empty();
+  }
+
 }
 

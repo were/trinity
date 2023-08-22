@@ -327,6 +327,14 @@ impl<'ctx> Builder {
     return self.create_binary_op(BinaryOp::Or, lhs, rhs, "or".to_string())
   }
 
+  pub fn create_shl(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::Shl, lhs, rhs, "shl".to_string())
+  }
+
+  pub fn create_ashr(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+    return self.create_binary_op(BinaryOp::AShr, lhs, rhs, "ashr".to_string())
+  }
+
   pub fn create_add(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
     return self.create_binary_op(BinaryOp::Add, lhs, rhs, "add".to_string())
   }

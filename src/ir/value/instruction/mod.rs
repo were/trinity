@@ -10,6 +10,7 @@ use crate::ir::{types, Function};
 
 use super::Block;
 use super::block::BlockRef;
+use super::function::FuncMutator;
 
 pub struct InstructionImpl {
   pub(crate) ty: types::TypeRef,
@@ -139,32 +140,16 @@ impl <'ctx> InstMutator <'ctx> {
 
   /// Replace old instruction with new value.
   pub fn replace_all_uses_with(&mut self, new: ValueRef) -> bool {
-    let old = self.value();
-    let old_inst = old.as_ref::<Instruction>(self.ctx).unwrap();
-    let old_parent = old_inst.get_parent();
-    let func = old_parent.get_parent();
-    let mut to_replace = Vec::new();
-    func.block_iter().for_each(|block| {
-      for inst in block.inst_iter() {
-        for i in 0..inst.get_num_operands() {
-          if inst.get_operand(i).unwrap().skey == old.skey {
-            to_replace.push((Instruction::from_skey(inst.get_skey()), i));
-          }
-        }
-      }
-    });
-    to_replace.iter().for_each(|(before, idx)| {
-      self.ctx.add_user_redundancy(before, vec![(new.clone(), *idx)]);
-      let inst = before.as_mut::<Instruction>(self.ctx).unwrap();
-      inst.set_operand(*idx, new.clone());
-    });
-    // Maintain the redundant information.
-    old.as_mut::<Instruction>(self.ctx)
+    let func = self
+      .value()
+      .as_ref::<Instruction>(self.ctx)
       .unwrap()
-      .instance
-      .users
-      .clear();
-    return !to_replace.is_empty();
+      .get_parent()
+      .get_parent()
+      .as_super();
+    let old = self.value();
+    let mut func = FuncMutator::new(self.ctx, func);
+    func.replace_all_uses_with(old, new)
   }
   
 }
@@ -230,7 +215,7 @@ pub enum BinaryOp {
   SRem,
   Rem,
   Shl,
-  Shr,
+  AShr,
   And,
   Or,
   Xor,
@@ -249,7 +234,7 @@ impl BinaryOp {
       BinaryOp::SRem => "srem",
       BinaryOp::Rem => "rem",
       BinaryOp::Shl => "shl",
-      BinaryOp::Shr => "shr",
+      BinaryOp::AShr => "ashr",
       BinaryOp::And => "and",
       BinaryOp::Or => "or",
       BinaryOp::Xor => "xor",
