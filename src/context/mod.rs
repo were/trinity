@@ -8,10 +8,6 @@ pub use component::*;
 
 mod pod;
 
-use component::{
-  Component, ComponentToMut, ComponentToRef, AsSuper, GetSlabKey
-};
-
 use crate::ir::{ types::TypeRef, value::ValueRef, Instruction, Block, Function };
 
 pub struct Context {
