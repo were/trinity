@@ -441,38 +441,40 @@ impl<'ctx> Builder {
     self.create_op_cast(cast_op, val, dest)
   }
 
-  pub fn create_compare(&mut self, pred: CmpPred, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
+  pub fn create_compare(&mut self, pred: CmpPred, lhs: ValueRef, rhs: ValueRef, name: String)
+    -> ValueRef {
+    let name = if name.is_empty() { "cmp".to_string() } else { name };
     let inst = instruction::Instruction::new(
       self.context().int_type(1),
       instruction::InstOpcode::ICompare(pred),
-      "cmp".to_string(),
+      name,
       vec![lhs, rhs],
     );
     self.add_instruction(inst)
   }
 
-  pub fn create_slt(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_compare(CmpPred::SLT, lhs, rhs)
+  pub fn create_slt(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+    return self.create_compare(CmpPred::SLT, lhs, rhs, name)
   }
 
-  pub fn create_sgt(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_compare(CmpPred::SGT, lhs, rhs)
+  pub fn create_sgt(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+    return self.create_compare(CmpPred::SGT, lhs, rhs, name)
   }
 
-  pub fn create_sle(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_compare(CmpPred::SLE, lhs, rhs)
+  pub fn create_sle(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+    return self.create_compare(CmpPred::SLE, lhs, rhs, name)
   }
 
-  pub fn create_sge(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_compare(CmpPred::SGE, lhs, rhs)
+  pub fn create_sge(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+    return self.create_compare(CmpPred::SGE, lhs, rhs, name)
   }
 
-  pub fn create_eq(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_compare(CmpPred::EQ, lhs, rhs)
+  pub fn create_eq(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+    return self.create_compare(CmpPred::EQ, lhs, rhs, name)
   }
 
-  pub fn create_ne(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
-    return self.create_compare(CmpPred::NE, lhs, rhs)
+  pub fn create_ne(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+    return self.create_compare(CmpPred::NE, lhs, rhs, name)
   }
 
   pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
