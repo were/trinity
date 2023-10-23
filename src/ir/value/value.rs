@@ -68,7 +68,12 @@ impl<'ctx> ValueRef {
       },
       VKindCode::Function => {
         let func = self.as_ref::<Function>(ctx).unwrap();
-        format!("{}@{}", if with_type { func.get_ret_ty().to_string(ctx) + " " } else { "".to_string() }, namify(&func.get_name()))
+        let func_name = if with_type {
+          func.get_ret_ty().to_string(ctx) + " "
+        } else {
+          "".to_string()
+        };
+        format!("{}@{}", func_name, namify(&func.get_name()))
       },
       VKindCode::ConstArray => {
         let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
@@ -147,7 +152,10 @@ impl<'ctx> ValueRef {
   /// Returns true if the value is a constant.
   pub fn is_const(&self) -> bool {
     match self.kind {
-      VKindCode::ConstScalar | VKindCode::ConstArray | VKindCode::ConstExpr | VKindCode::ConstObject => true,
+      VKindCode::ConstScalar |
+      VKindCode::ConstArray |
+      VKindCode::ConstExpr |
+      VKindCode::ConstObject => true,
       _ => false
     }
   }
