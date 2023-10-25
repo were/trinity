@@ -347,6 +347,10 @@ impl<'inst> BinaryInst <'inst> {
     }
   }
 
+  pub fn is(&self, op: BinaryOp) -> bool {
+    return self.get_op() == op;
+  }
+
   pub fn lhs(&self) -> &ValueRef {
     self.inst.get_operand(0).unwrap()
   }

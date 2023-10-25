@@ -36,7 +36,7 @@ pub trait IsSlabEntry {
 
 #[derive(Clone)]
 pub struct Reference<'ctx, T> {
-  pub ctx: &'ctx Context,
+  pub(crate) ctx: &'ctx Context,
   pub(crate) instance: Either<&'ctx SlabEntry<T>, usize>
 }
 
@@ -66,6 +66,9 @@ impl <'ctx, T> Reference <'ctx, T> {
     }
   }
 
+  pub fn ctx(&self) -> &'ctx Context {
+    self.ctx
+  }
 
 }
 
