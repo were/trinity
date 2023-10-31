@@ -1,6 +1,9 @@
 use crate::{context::{SlabEntry, Reference, Context}, ir::value::instruction::InstructionRef};
 
-use super::{ValueRef, instruction::{Instruction, InstOpcode, BranchInst}, Function, function::{FunctionRef, FuncMutator}};
+use super::{
+  ValueRef, instruction::{Instruction, InstOpcode, BranchInst},
+  Function, function::{FunctionRef, FuncMutator}
+};
 
 pub struct BlockImpl {
   /// The name prefix of this block.
@@ -119,11 +122,13 @@ impl <'ctx> BlockRef<'ctx> {
       let block_name = pred_block.get_name();
       format!("{}", block_name)
     }).collect::<Vec<String>>().join(", ");
-    let mut res = format!("{}:        ; predecessors: [{}]\n{}\n", self.get_name(), pred_comments, insts);
+    let mut res = format!("{}:        ; predecessors: [{}]\n{}\n",
+                          self.get_name(), pred_comments, insts);
     if comment {
       self.user_iter().for_each(|user| {
         if *user.get_opcode() == InstOpcode::Phi {
-          res = format!("; used by phi: {} in block: {}\n{}", user.get_name(), user.get_parent().get_name(), res);
+          res = format!("; used by phi: {} in block: {}\n{}",
+                        user.get_name(), user.get_parent().get_name(), res);
         }
       });
     }
@@ -135,7 +140,8 @@ impl <'ctx> BlockRef<'ctx> {
       if let Some(br) = inst.as_sub::<BranchInst>() {
         // TODO(@were): Better manage the lifetime of each returned value.
         let vec = br.succ_iter().map(|x| x.get_skey()).collect::<Vec<_>>();
-        return Box::new(vec.into_iter().map(|x| Block::from_skey(x).as_ref::<Block>(self.ctx).unwrap()));
+        return Box::new(
+          vec.into_iter().map(|x| Block::from_skey(x).as_ref::<Block>(self.ctx).unwrap()));
       }
     }
     return Box::new(std::iter::empty());
