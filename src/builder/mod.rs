@@ -19,13 +19,13 @@ pub struct Builder {
   pub module: Module,
   func: Option<ValueRef>,
   block: Option<ValueRef>,
-  inst_idx: Option<usize>,
+  inst: Option<ValueRef>,
 }
 
 impl<'ctx> Builder {
 
   pub fn new(module: Module) -> Builder {
-    Builder { module, func: None, block: None, inst_idx: None }
+    Builder { module, func: None, block: None, inst: None }
   }
 
   pub fn get_current_block(&self) -> Option<ValueRef> {
@@ -33,13 +33,13 @@ impl<'ctx> Builder {
   }
 
   pub fn get_insert_before(&self) -> Option<ValueRef> {
-    if let Some(inst_idx) = self.inst_idx {
+    if let Some(_) = self.inst {
       let block = self.block
         .clone()
         .unwrap()
         .as_ref::<Block>(&self.module.context)
         .unwrap();
-      block.get_inst(inst_idx).map(|i| Instruction::from_skey(i.get_skey()))
+      block.get_inst(self.inst_idx()).map(|i| Instruction::from_skey(i.get_skey()))
     } else {
       None
     }
@@ -104,16 +104,24 @@ impl<'ctx> Builder {
   pub fn set_current_block(&mut self, block: ValueRef) {
     assert!(block.kind == VKindCode::Block, "Given value is not a block");
     self.block = Some(block.clone());
-    self.inst_idx = None;
+    self.inst = None;
   }
 
   /// Set the instruction as the insert point.
   pub fn set_insert_before(&mut self, inst_ref: ValueRef) {
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
-    let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-    let block = inst.get_parent();
-    let idx = block.inst_iter().position(|i| i.get_skey() == inst.get_skey()).unwrap();
-    self.inst_idx = Some(idx);
+    self.inst = Some(inst_ref);
+  }
+
+  fn inst_idx(&self) -> usize {
+    if let Some(inst) = &self.inst {
+      let inst = inst.as_ref::<Instruction>(&self.module.context).unwrap();
+      let block = inst.get_parent();
+      let idx = block.inst_iter().position(|i| i.get_skey() == inst.get_skey()).unwrap();
+      return idx;
+    }
+    let bb = self.block.clone().unwrap().as_ref::<Block>(&self.module.context).unwrap();
+    return bb.get_num_insts();
   }
 
   fn add_instruction(&mut self, mut inst: instruction::Instruction) -> ValueRef {
@@ -121,10 +129,9 @@ impl<'ctx> Builder {
     inst.instance.parent = Some(block_ref.skey);
     let (insert_idx, closed) = {
       let block = block_ref.as_ref::<Block>(&self.module.context).unwrap();
-      let (idx, last) = if let Some(inst_idx) = self.inst_idx {
+      let (idx, last) = {
+        let inst_idx = self.inst_idx();
         (inst_idx, inst_idx == block.get_num_insts())
-      } else {
-        (block.get_num_insts(), true)
       };
       let closed_block = if last {
         block.closed()
