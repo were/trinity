@@ -299,7 +299,8 @@ impl<'ctx> Builder {
     self.create_typed_call(ty, callee, args)
   }
 
-  pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
+  pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef, name: String)
+    -> ValueRef {
     // @were: Check type equality.
     let ty = lhs.get_type(self.context());
     let inst = instruction::Instruction::new(
