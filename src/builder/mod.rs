@@ -1,6 +1,6 @@
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
-use crate::ir::value::instruction::const_folder::fold_binary_op;
+use crate::ir::value::instruction::const_folder::{fold_binary_op, fold_cmp_op};
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
 use crate::ir::{
   module::Module,
@@ -157,6 +157,12 @@ impl<'ctx> Builder {
       block.instance.insts.insert(insert_idx, inst_value.skey);
       inst_value.clone()
     }
+  }
+
+  pub fn create_instruction(
+    &mut self, ty: TypeRef, op: InstOpcode, operands: Vec<ValueRef>, name: String) -> ValueRef {
+    let inst = instruction::Instruction::new(ty, op, name, operands);
+    self.add_instruction(inst)
   }
 
   pub fn create_return(&mut self, val: Option<ValueRef>) -> ValueRef {
@@ -461,6 +467,9 @@ impl<'ctx> Builder {
   pub fn create_compare(&mut self, pred: CmpPred, lhs: ValueRef, rhs: ValueRef, name: String)
     -> ValueRef {
     let name = if name.is_empty() { "cmp".to_string() } else { name };
+    if let Some(folded) = fold_cmp_op(&pred, self.context(), &lhs, &rhs) {
+      return folded;
+    }
     let inst = instruction::Instruction::new(
       self.context().int_type(1),
       instruction::InstOpcode::ICompare(pred),
