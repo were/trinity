@@ -1,4 +1,5 @@
 pub mod instructions;
+pub mod const_folder;
 
 pub use instructions::*;
 use types::TypeRef;

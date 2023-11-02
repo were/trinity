@@ -1,5 +1,6 @@
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
+use crate::ir::value::instruction::const_folder::fold_binary_op;
 use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
 use crate::ir::{
   module::Module,
@@ -302,9 +303,17 @@ impl<'ctx> Builder {
   pub fn create_binary_op(&mut self, op: BinaryOp, lhs: ValueRef, rhs: ValueRef, name: String)
     -> ValueRef {
     // @were: Check type equality.
-    let ty = lhs.get_type(self.context());
+    let lty = lhs.get_type(&self.module.context);
+    let rty = rhs.get_type(&self.module.context);
+    if lty != rty {
+      panic!("Binary operations should have the same types: {} != {}",
+             lty.to_string(&self.module.context), rty.to_string(&self.module.context));
+    }
+    if let Some(folded) = fold_binary_op(&op, self.context(), &lhs, &rhs) {
+      return folded;
+    }
     let inst = instruction::Instruction::new(
-      ty,
+      lty,
       instruction::InstOpcode::BinaryOp(op),
       name,
       vec![lhs, rhs],
