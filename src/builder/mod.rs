@@ -448,7 +448,11 @@ impl<'ctx> Builder {
       let src_bits = src_ty.get_scalar_size_in_bits(&self.module);
       let dst_bits = dest.get_scalar_size_in_bits(&self.module);
       if src_bits < dst_bits {
-        CastOp::SignExt
+        if src_bits == 1 {
+          CastOp::ZeroExt
+        } else {
+          CastOp::SignExt
+        }
       } else if src_bits > dst_bits {
         CastOp::Trunc
       } else {

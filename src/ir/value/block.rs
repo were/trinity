@@ -2,7 +2,7 @@ use crate::{context::{SlabEntry, Reference, Context}, ir::value::instruction::In
 
 use super::{
   ValueRef, instruction::{Instruction, InstOpcode, BranchInst},
-  Function, function::{FunctionRef, FuncMutator}
+  Function, function::{FunctionRef, FuncMutator}, VKindCode
 };
 
 pub struct BlockImpl {
@@ -66,7 +66,7 @@ impl <'ctx> BlockRef<'ctx> {
   pub fn closed(&self) -> bool {
     let ctx = self.ctx;
     if let Some(inst_ref) = self.instance().unwrap().insts.last() {
-      let inst = ValueRef{ skey: *inst_ref, kind: crate::ir::VKindCode::Instruction };
+      let inst = ValueRef{ skey: *inst_ref, kind: VKindCode::Instruction };
       let inst = inst.as_ref::<Instruction>(ctx).unwrap();
       match inst.get_opcode() {
         InstOpcode::Branch(_) | InstOpcode::Return => true,
@@ -89,7 +89,6 @@ impl <'ctx> BlockRef<'ctx> {
       return None;
     }
     self.get_inst(self.get_num_insts() - 1)
-
   }
 
   /// If this block is a loop head.

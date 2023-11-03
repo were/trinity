@@ -252,6 +252,7 @@ pub enum CastOp {
   Bitcast,
   FpToSi,
   SignExt,
+  ZeroExt,
   Trunc,
 }
 
@@ -261,6 +262,7 @@ impl CastOp {
       CastOp::Bitcast => "bitcast",
       CastOp::FpToSi => "fptosi",
       CastOp::SignExt => "sext",
+      CastOp::ZeroExt => "zext",
       CastOp::Trunc => "trunc"
     }
   }
@@ -380,6 +382,15 @@ impl <'ctx>InstructionRef<'ctx> {
   pub fn get_parent(&self) -> BlockRef<'ctx> {
     let block = Block::from_skey(self.instance().unwrap().parent.unwrap());
     block.as_ref::<Block>(self.ctx).unwrap()
+  }
+
+  pub fn next_inst(&self) -> Option<InstructionRef<'ctx>> {
+    let idx = self.get_parent().inst_iter().position(|x| x.get_skey() == self.get_skey()).unwrap();
+    self
+      .get_parent()
+      .get_inst(idx + 1)
+      .map(|x| x.as_super())
+      .map(|x| x.as_ref::<Instruction>(self.ctx()).unwrap())
   }
 
   pub fn to_string(&self, comment: bool) -> String {
