@@ -296,6 +296,7 @@ pub struct Call<'inst> {
 
 impl <'inst> Call<'inst> {
 
+  // TODO(@were): Make a callable super-class to unify inlined asms and functions.
   pub fn get_callee(&self) -> FunctionRef<'inst> {
     let func = self.inst.get_operand(self.inst.get_num_operands() - 1).unwrap();
     func.as_ref::<Function>(self.inst.ctx).unwrap()
