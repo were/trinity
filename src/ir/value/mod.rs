@@ -3,7 +3,6 @@ pub mod instruction;
 pub mod block;
 pub mod consts;
 pub mod value;
-pub mod user;
 
 pub use value::{ValueRef, VKindCode};
 pub use function::{Function, Argument};

@@ -35,18 +35,17 @@ impl Function {
     Function::from(instance)
   }
 
-  pub(crate) fn add_caller(&mut self, caller: &ValueRef) {
-    self.instance.callers.insert(caller.skey);
-  }
-
-  pub(crate) fn remove_caller(&mut self, caller: ValueRef) {
-    self.instance.callers.remove(&caller.skey);
-  }
-
   pub fn basic_blocks_mut(&mut self) -> &mut Vec<usize> {
     &mut self.instance.blocks
   }
 
+  pub(crate) fn add_user(&mut self, caller: &ValueRef, _: usize) {
+    self.instance.callers.insert(caller.skey);
+  }
+
+  pub(crate) fn remove_user(&mut self, caller: &ValueRef, _: usize) {
+    self.instance.callers.remove(&caller.skey);
+  }
 
 }
 

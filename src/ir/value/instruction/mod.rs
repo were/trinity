@@ -28,14 +28,6 @@ pub struct InstructionImpl {
 
 pub type Instruction = SlabEntry<InstructionImpl>;
 
-impl Instruction {
-
-  pub(crate) fn add_user(&mut self, user: ValueRef, idx: usize) {
-    self.instance.users.push((user, idx));
-  }
-
-}
-
 pub struct InstMutator<'ctx> {
   ctx: &'ctx mut Context,
   skey: usize
@@ -54,11 +46,10 @@ impl <'ctx> InstMutator <'ctx> {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     assert!(index < inst.instance.operands.len());
-    let old = inst.instance.operands[index].clone();
+    let old = inst.set_operand(index, operand.clone());
     if old == operand {
       return;
     }
-    inst.set_operand(index, operand.clone());
     self.ctx.add_user_redundancy(&inst_value, vec![(operand, index)]);
     self.ctx.remove_user_redundancy(old, inst_value, index);
   }
@@ -111,7 +102,7 @@ impl <'ctx> InstMutator <'ctx> {
       }
       let value = self.value();
       if let Some(operand_func) = operand.as_mut::<Function>(self.ctx) {
-        operand_func.remove_caller(value);
+        operand_func.remove_user(&value, 0);
       }
     }
     // Maintain the block redundancy.
@@ -316,6 +307,15 @@ impl InstructionImpl {
 }
 
 impl Instruction {
+
+  pub(crate) fn add_user(&mut self, user: &ValueRef, idx: usize) {
+    self.instance.users.push((user.clone(), idx));
+  }
+
+  pub(crate) fn remove_user(&mut self, user: &ValueRef, idx: usize) {
+    let tuple = (user.clone(), idx);
+    self.instance.users.retain(|x| *x != tuple);
+  }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
     self.instance.opcode = opcode;

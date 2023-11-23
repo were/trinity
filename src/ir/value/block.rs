@@ -42,6 +42,11 @@ impl Block {
     self.instance.users.push((inst.clone(), idx));
   }
 
+  pub fn remove_user(&mut self, inst: &ValueRef, idx: usize) {
+    let tuple = (inst.clone(), idx);
+    self.instance.users.retain(|u| *u != tuple);
+  }
+
 }
 
 impl <'ctx> BlockRef<'ctx> {
