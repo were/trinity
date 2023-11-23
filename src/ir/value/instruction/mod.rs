@@ -7,7 +7,7 @@ use types::TypeRef;
 use crate::context::component::GetSlabKey;
 use crate::context::{SlabEntry, Reference, Context};
 use crate::ir::value::ValueRef;
-use crate::ir::{types, Function};
+use crate::ir::types;
 
 use super::Block;
 use super::block::BlockRef;
@@ -51,7 +51,7 @@ impl <'ctx> InstMutator <'ctx> {
       return;
     }
     self.ctx.add_user_redundancy(&inst_value, vec![(operand, index)]);
-    self.ctx.remove_user_redundancy(old, inst_value, index);
+    self.ctx.remove_user_redundancy(old, inst_value, Some(index));
   }
 
   pub fn remove_operand(&mut self, index: usize) {
@@ -59,7 +59,7 @@ impl <'ctx> InstMutator <'ctx> {
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     assert!(index < inst.instance.operands.len());
     let old = inst.instance.operands.remove(index);
-    self.ctx.remove_user_redundancy(old, inst_value, index);
+    self.ctx.remove_user_redundancy(old, inst_value, Some(index));
   }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
@@ -94,16 +94,7 @@ impl <'ctx> InstMutator <'ctx> {
       (operands, block)
     };
     for operand in operands {
-      if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
-        operand_inst.instance.users.retain(|x| x.0.skey != self.skey);
-      }
-      if let Some(operand_block) = operand.as_mut::<Block>(self.ctx) {
-        operand_block.instance.users.retain(|x| x.0.skey != self.skey);
-      }
-      let value = self.value();
-      if let Some(operand_func) = operand.as_mut::<Function>(self.ctx) {
-        operand_func.remove_user(&value, 0);
-      }
+      self.ctx.remove_user_redundancy(operand, self.value(), None);
     }
     // Maintain the block redundancy.
     let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
@@ -312,9 +303,13 @@ impl Instruction {
     self.instance.users.push((user.clone(), idx));
   }
 
-  pub(crate) fn remove_user(&mut self, user: &ValueRef, idx: usize) {
-    let tuple = (user.clone(), idx);
-    self.instance.users.retain(|x| *x != tuple);
+  pub(crate) fn remove_user(&mut self, user: &ValueRef, idx: Option<usize>) {
+    if let Some(idx) = idx {
+      let tuple = (user.clone(), idx);
+      self.instance.users.retain(|x| *x != tuple);
+    } else {
+      self.instance.users.retain(|x| x.0 != *user);
+    }
   }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {

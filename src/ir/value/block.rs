@@ -42,9 +42,13 @@ impl Block {
     self.instance.users.push((inst.clone(), idx));
   }
 
-  pub fn remove_user(&mut self, inst: &ValueRef, idx: usize) {
-    let tuple = (inst.clone(), idx);
-    self.instance.users.retain(|u| *u != tuple);
+  pub fn remove_user(&mut self, inst: &ValueRef, idx: Option<usize>) {
+    if let Some(idx) = idx {
+      let tuple = (inst.clone(), idx);
+      self.instance.users.retain(|u| *u != tuple);
+    } else {
+      self.instance.users.retain(|u| u.0 != *inst);
+    }
   }
 
 }

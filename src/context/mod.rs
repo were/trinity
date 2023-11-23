@@ -105,7 +105,11 @@ impl<'ctx> Context {
     }
   }
 
-  pub(crate) fn remove_user_redundancy(&mut self, operand: ValueRef, user: ValueRef, idx: usize) {
+  /// Remove operand's (user, idx)
+  pub(crate) fn remove_user_redundancy(
+    &mut self,
+    operand: ValueRef,
+    user: ValueRef, idx: Option<usize>) {
     // let tuple = (user, idx);
     match self.slab.get_mut(operand.skey).unwrap() {
       Component::Instruction(inst) => inst.remove_user(&user, idx),
@@ -113,15 +117,6 @@ impl<'ctx> Context {
       Component::Function(func) => func.remove_user(&user, idx),
       _ => {}
     }
-    // if let Some(operand) = operand.as_mut::<Instruction>(self) {
-    //   operand.instance.users.retain(|u| *u != tuple);
-    // }
-    // if let Some(block) = operand.as_mut::<Block>(self) {
-    //   block.instance.users.retain(|u| *u != tuple);
-    // }
-    // if let Some(func) = operand.as_mut::<Function>(self) {
-    //   func.instance.callers.retain(|u| *u != tuple.0.skey);
-    // }
   }
 
 

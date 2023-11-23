@@ -43,7 +43,7 @@ impl Function {
     self.instance.callers.insert(caller.skey);
   }
 
-  pub(crate) fn remove_user(&mut self, caller: &ValueRef, _: usize) {
+  pub(crate) fn remove_user(&mut self, caller: &ValueRef, _: Option<usize>) {
     self.instance.callers.remove(&caller.skey);
   }
 
