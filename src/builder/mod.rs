@@ -1,7 +1,7 @@
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::const_folder::{fold_binary_op, fold_cmp_op};
-use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
+use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred, InstMutator};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -95,6 +95,45 @@ impl<'ctx> Builder {
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.basic_blocks_mut().push(block_ref.skey);
     block_ref
+  }
+
+  /// Split a block A into two blocks.
+  /// A.0 ... value ... jmp A.rest
+  /// A.rest ... rest of A
+  pub fn split_block(&mut self, value: &ValueRef) -> ValueRef {
+    // Restore them later.
+    let old_block = self.get_current_block();
+    let old_idx = self.get_insert_before();
+    let old_func = self.get_current_function();
+
+    let inst = value.as_ref::<Instruction>(&self.module.context).unwrap();
+    let block_ref = inst.get_parent();
+    let block = block_ref.as_super();
+    let idx = block_ref.inst_iter().position(|i| i.get_skey() == value.skey).unwrap();
+    let name = block_ref.get_name();
+    let rest_slice = ((idx+1)..block_ref.get_num_insts())
+      .map(|i| block_ref.get_inst(i).unwrap().as_super())
+      .collect::<Vec<_>>();
+    let res = self.create_block(format!("{}.rest", name));
+    for inst in rest_slice.into_iter() {
+      let mut mutator = InstMutator::new(self.context(), &inst);
+      mutator.move_to_block(&res, None);
+    }
+    self.set_current_block(block);
+    self.create_unconditional_branch(res.clone());
+
+    // TODO(@were): Make this a function later.
+    // Restore the old insert points.
+    if old_block.is_some() {
+      self.set_current_block(old_block.unwrap());
+    }
+    if old_idx.is_some() {
+      self.set_insert_before(old_idx.unwrap());
+    }
+    if old_func.is_some() {
+      self.set_current_function(old_func.unwrap());
+    }
+    res
   }
 
   /// Add a struct declaration to the context.
@@ -555,12 +594,14 @@ impl<'ctx> Builder {
     self.add_instruction(inst)
   }
 
-  pub fn create_phi(&mut self, ty: TypeRef, operands: Vec<ValueRef>) -> ValueRef {
+  pub fn create_phi(&mut self, ty: TypeRef, values: Vec<ValueRef>, blocks: Vec<ValueRef>)
+    -> ValueRef {
+    let operands = values.into_iter().zip(blocks.into_iter()).flat_map(|(v, b)| vec![v, b]);
     let inst = instruction::Instruction::new(
       ty,
       instruction::InstOpcode::Phi,
       "phi".to_string(),
-      operands,
+      operands.collect::<Vec<_>>(),
     );
     self.add_instruction(inst)
   }
