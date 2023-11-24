@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use super::Instruction;
 // use super::Instruction;
 use super::block::BlockRef;
-use super::instruction::InstMutator;
+use super::instruction::{InstMutator, InstructionRef};
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::functype::FunctionTypeRef;
 use crate::ir::types::{TypeRef, FunctionType};
@@ -50,6 +50,21 @@ impl Function {
 }
 
 impl <'ctx>FunctionRef<'ctx> {
+
+  /// The iterator traverses all the function callers.
+  pub fn user_iter(&self) -> impl Iterator<Item=InstructionRef<'ctx>> {
+    let f = |u:&usize| {
+      Instruction::from_skey(*u).as_ref::<Instruction>(self.ctx).unwrap()
+    };
+    self.instance().unwrap().callers.iter().map(f)
+  }
+
+  /// The iterator traverses all the function arguments.
+  pub fn arg_iter(&'ctx self) -> impl Iterator<Item=ArgumentRef<'ctx>> {
+    self.instance().unwrap().args.iter().map(|skey| {
+      Argument::from_skey(*skey).as_ref::<Argument>(self.ctx).unwrap()
+    })
+  }
 
   pub fn get_name(&self) -> String {
     if let Some(skey) = self.is_invalid() {

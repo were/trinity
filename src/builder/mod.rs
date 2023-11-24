@@ -88,7 +88,7 @@ impl<'ctx> Builder {
   }
 
   /// Add a block to the current function.
-  pub fn add_block(&mut self, name: String) -> ValueRef {
+  pub fn create_block(&mut self, name: String) -> ValueRef {
     let func_ref = self.func.clone().unwrap();
     let block = Block::new(name, &func_ref);
     let block_ref = self.context().add_instance(block);
