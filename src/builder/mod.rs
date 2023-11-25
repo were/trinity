@@ -567,9 +567,6 @@ impl<'ctx> Builder {
       vec![bb.clone()],
     );
     let res = self.add_instruction(inst);
-    if metadata != BranchMetadata::None {
-      self.module.metadata.push(res.skey);
-    }
     res
   }
 
@@ -597,9 +594,6 @@ impl<'ctx> Builder {
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
     let res = self.add_instruction(inst);
-    if loop_latch {
-      self.module.metadata.push(res.skey);
-    }
     res
   }
 

@@ -162,8 +162,10 @@ impl_sub_inst!(InstOpcode::Branch(_), BranchInst,
         _ => "".to_string()
       };
       format!("br {}, label {}, label {}{}", cond, true_label, false_label, metadata)
-    } else {
+    } else if self.inst.get_num_operands() == 1 {
       format!("br label {}", self.inst.get_operand(0).unwrap().to_string(ctx, false))
+    } else {
+      panic!("Ill-formed branch inst w/ {} operands", self.inst.get_num_operands());
     }
   }
 
@@ -403,6 +405,7 @@ pub struct BranchInst<'inst> {
 impl <'inst> BranchInst <'inst> {
 
   pub fn is_cond_br(&self) -> bool {
+    assert!(self.inst.get_num_operands() == 1 || self.inst.get_num_operands() == 3);
     self.inst.get_num_operands() == 3
   }
 
