@@ -562,11 +562,15 @@ impl<'ctx> Builder {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
       self.context().void_type(),
-      instruction::InstOpcode::Branch(metadata),
+      instruction::InstOpcode::Branch(metadata.clone()),
       "br".to_string(),
       vec![bb.clone()],
     );
-    self.add_instruction(inst)
+    let res = self.add_instruction(inst);
+    if metadata != BranchMetadata::None {
+      self.module.metadata.push(res.skey);
+    }
+    res
   }
 
   pub fn create_conditional_branch(
@@ -594,7 +598,7 @@ impl<'ctx> Builder {
     );
     let res = self.add_instruction(inst);
     if loop_latch {
-      self.module.llvm_loop.push(res.skey);
+      self.module.metadata.push(res.skey);
     }
     res
   }

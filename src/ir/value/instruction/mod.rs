@@ -168,6 +168,7 @@ pub enum InstOpcode {
   Select,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum BranchMetadata {
   LLVMLoop,
   ReturnJump,
