@@ -1,7 +1,7 @@
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::const_folder::{fold_binary_op, fold_cmp_op};
-use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred, InstMutator};
+use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred, InstMutator, BranchMetadata};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -120,7 +120,7 @@ impl<'ctx> Builder {
       mutator.move_to_block(&res, None);
     }
     self.set_current_block(block);
-    self.create_unconditional_branch(res.clone());
+    self.create_unconditional_branch(res.clone(), BranchMetadata::None);
 
     // TODO(@were): Make this a function later.
     // Restore the old insert points.
@@ -557,11 +557,12 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::NE, lhs, rhs, name)
   }
 
-  pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
+  pub fn create_unconditional_branch(&mut self, bb: ValueRef, metadata: BranchMetadata)
+    -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
       self.context().void_type(),
-      instruction::InstOpcode::Branch(None),
+      instruction::InstOpcode::Branch(metadata),
       "br".to_string(),
       vec![bb.clone()],
     );
@@ -576,14 +577,14 @@ impl<'ctx> Builder {
     loop_latch: bool) -> ValueRef {
 
     if true_bb == false_bb {
-      return self.create_unconditional_branch(true_bb);
+      assert!(!loop_latch);
+      return self.create_unconditional_branch(true_bb, BranchMetadata::None);
     }
     let metadata = if loop_latch {
-      let res = Some(self.module.llvm_loop);
-      self.module.llvm_loop += 1;
+      let res = instruction::BranchMetadata::LLVMLoop;
       res
     } else {
-      None
+      instruction::BranchMetadata::None
     };
     let inst = instruction::Instruction::new(
       self.context().void_type(),
@@ -591,7 +592,11 @@ impl<'ctx> Builder {
       "br".to_string(),
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
-    self.add_instruction(inst)
+    let res = self.add_instruction(inst);
+    if loop_latch {
+      self.module.llvm_loop.push(res.skey);
+    }
+    res
   }
 
   pub fn create_phi(&mut self, ty: TypeRef, values: Vec<ValueRef>, blocks: Vec<ValueRef>)

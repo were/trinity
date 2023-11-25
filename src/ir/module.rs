@@ -24,8 +24,8 @@ pub struct Module {
   pub(crate) structs: Vec<usize>,
   /// The global values in this module.
   pub(crate) global_values: Vec<ValueRef>,
-  /// The number of loop metadata.
-  pub(crate) llvm_loop: usize,
+  /// LLVM loop latches.
+  pub(crate) llvm_loop: Vec<usize>,
 }
 
 impl<'ctx> Module {
@@ -43,7 +43,7 @@ impl<'ctx> Module {
       functions: Vec::new(),
       structs: Vec::new(),
       global_values: Vec::new(),
-      llvm_loop: 0
+      llvm_loop: Vec::new()
     }
   }
 
@@ -147,7 +147,7 @@ impl fmt::Display for Module {
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
     }
-    for i in 0..self.llvm_loop {
+    for i in self.llvm_loop {
       write!(f, "!{} = !{{ !{} }}\n", i, i).unwrap();
     }
     Ok(())

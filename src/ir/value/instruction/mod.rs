@@ -161,11 +161,17 @@ pub enum InstOpcode {
   /// Int value comparison.
   ICompare(CmpPred),
   /// Branch instruction.
-  Branch(Option<usize>),
+  Branch(BranchMetadata),
   /// Phi node for SSA.
   Phi,
   /// Select instruction.
   Select,
+}
+
+pub enum BranchMetadata {
+  LLVMLoop,
+  ReturnJump,
+  None
 }
 
 impl ToString for InstOpcode {
