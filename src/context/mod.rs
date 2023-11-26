@@ -1,5 +1,3 @@
-use core::panic;
-
 use slab::Slab;
 
 pub mod component;
@@ -8,7 +6,7 @@ pub use component::*;
 
 mod pod;
 
-use crate::ir::{ types::TypeRef, value::ValueRef, Instruction, Block, Function };
+use crate::ir::{types::TypeRef, value::ValueRef};
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
@@ -95,35 +93,55 @@ impl<'ctx> Context {
     pod::Cache::undef(self, ty)
   }
 
-
   /// `src` uses these `operands`.
   pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: Vec<(ValueRef, usize)>) {
     for (operand, idx) in operands.iter() {
-      if let Some(operand) = operand.as_mut::<Instruction>(self) {
-        operand.add_user(src.clone(), *idx);
-      }
-      if let Some(block) = operand.as_mut::<Block>(self) {
-        block.add_user(src, *idx);
-      }
-      if let Some(func) = operand.as_mut::<Function>(self) {
-        func.add_caller(src);
+      match self.slab.get_mut(operand.skey).unwrap() {
+        Component::Instruction(inst) => inst.add_user(src, *idx),
+        Component::Block(block) => block.add_user(src, *idx),
+        Component::Function(func) => func.add_user(src, *idx),
+        _ => {}
       }
     }
   }
 
-  pub(crate) fn remove_user_redundancy(&mut self, operand: ValueRef, user: ValueRef, idx: usize) {
-    let tuple = (user, idx);
-    if let Some(operand) = operand.as_mut::<Instruction>(self) {
-      operand.instance.users.retain(|u| *u != tuple);
-    }
-    if let Some(block) = operand.as_mut::<Block>(self) {
-      block.instance.users.retain(|u| *u != tuple);
-    }
-    if let Some(func) = operand.as_mut::<Function>(self) {
-      func.instance.callers.retain(|u| *u != tuple.0.skey);
+  /// Remove operand's (user, idx)
+  pub(crate) fn remove_user_redundancy(
+    &mut self,
+    operand: ValueRef,
+    user: ValueRef, idx: Option<usize>) {
+    // let tuple = (user, idx);
+    match self.slab.get_mut(operand.skey).unwrap() {
+      Component::Instruction(inst) => inst.remove_user(&user, idx),
+      Component::Block(block) => block.remove_user(&user, idx),
+      Component::Function(func) => func.remove_user(&user, idx),
+      _ => {}
     }
   }
 
+  /// Calibrate the user list of `src` to `operands`.
+  pub(crate) fn calibrate_user_redundancy(
+    &mut self,
+    operand: &ValueRef,
+    user: &ValueRef,
+    old_idx: usize,
+    new_idx: usize) {
+    match self.slab.get_mut(operand.skey).unwrap() {
+      Component::Instruction(inst) => {
+        let iter = inst.instance.users.iter().position(|(x, y)| (x == user && *y == old_idx));
+        inst.instance.users[iter.unwrap()].1 = new_idx;
+      }
+      Component::Block(block) => {
+        let iter = block.instance.users.iter().position(|(x, y)| (x == user && *y == old_idx));
+        block.instance.users[iter.unwrap()].1 = new_idx;
+      }
+      Component::Function(_) => {
+        // let iter = func.instance.callers.iter().position(|x| *x == user.skey);
+        // func.instance.callers[iter.unwrap()] = new_idx;
+      }
+      _ => {}
+    }
+  }
 
 
 }

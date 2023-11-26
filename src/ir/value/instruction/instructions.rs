@@ -1,6 +1,6 @@
 use crate::ir::{
     PointerType, ValueRef, VoidType, TypeRef, Block, Function,
-    value::{instruction::InstOpcode, block::BlockRef, function::FunctionRef},
+    value::{instruction::{InstOpcode, BranchMetadata}, block::BlockRef, function::FunctionRef},
 };
 
 use super::{CmpPred, InstructionRef, BinaryOp};
@@ -63,7 +63,9 @@ impl_sub_inst!(InstOpcode::Store(_), Store,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
-    format!("store {}, {}, align {}", self.get_value().to_string(ctx, true), self.get_ptr().to_string(ctx, true), self.get_align())
+    let value = self.get_value().to_string(ctx, true);
+    let ptr = self.get_ptr().to_string(ctx, true);
+    format!("store {}, {}, align {}", value, ptr, self.get_align())
   }
 
 );
@@ -122,6 +124,7 @@ impl_sub_inst!(InstOpcode::Return, Return,
 );
 
 impl_sub_inst!(InstOpcode::Phi, PhiNode,
+
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
     let ty = self.inst.get_type().to_string(ctx);
@@ -137,6 +140,7 @@ impl_sub_inst!(InstOpcode::Phi, PhiNode,
     }
     res
   }
+
 );
 
 impl_sub_inst!(InstOpcode::Branch(_), BranchInst,
@@ -150,14 +154,20 @@ impl_sub_inst!(InstOpcode::Branch(_), BranchInst,
       let true_label = true_label.to_string(ctx, false);
       let false_label = self.inst.get_operand(2).unwrap();
       let false_label = false_label.to_string(ctx, false);
-      let metadata = if let InstOpcode::Branch(Some(loop_metadata)) = self.inst.get_opcode() {
-        format!(", !llvm.loop !{}", loop_metadata)
-      } else {
-        String::new()
+      let metadata = match self.inst.get_opcode() {
+        InstOpcode::Branch(BranchMetadata::LLVMLoop) => {
+          format!(", !llvm.loop !{}", self.inst.get_skey())
+        }
+        InstOpcode::Branch(BranchMetadata::ReturnJump) => {
+          format!(", !inlined.return !{}", self.inst.get_skey())
+        }
+        _ => "".to_string()
       };
       format!("br {}, label {}, label {}{}", cond, true_label, false_label, metadata)
-    } else {
+    } else if self.inst.get_num_operands() == 1 {
       format!("br label {}", self.inst.get_operand(0).unwrap().to_string(ctx, false))
+    } else {
+      panic!("Ill-formed branch inst w/ {} operands", self.inst.get_num_operands());
     }
   }
 
@@ -167,11 +177,11 @@ impl_sub_inst!(InstOpcode::BinaryOp(_), BinaryInst,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
-    let lhs = self.lhs();
-    let rhs = self.rhs();
+    let lhs = self.lhs().to_string(ctx, false);
+    let rhs = self.rhs().to_string(ctx, false);
     let op = self.inst.get_opcode().to_string();
     let ty = self.inst.get_type().to_string(ctx);
-    format!("%{} = {} {} {}, {}", self.inst.get_name(), op, ty, lhs.to_string(ctx, false), rhs.to_string(ctx, false))
+    format!("%{} = {} {} {}, {}", self.inst.get_name(), op, ty, lhs, rhs)
   }
 
 
@@ -183,7 +193,8 @@ impl_sub_inst!(InstOpcode::CastInst(_), CastInst,
     let ctx = self.inst.ctx;
     let operand = self.inst.get_operand(0).unwrap().to_string(ctx, true);
     let dest_type = self.dest_ty().to_string(ctx);
-    format!("%{} = {} {} to {}", self.inst.get_name(), self.inst.get_opcode().to_string(), operand, dest_type)
+    let opcode = self.inst.get_opcode().to_string();
+    format!("%{} = {} {} to {}", self.inst.get_name(), opcode, operand, dest_type)
   }
 
 );
@@ -296,6 +307,7 @@ pub struct Call<'inst> {
 
 impl <'inst> Call<'inst> {
 
+  // TODO(@were): Make a callable super-class to unify inlined asms and functions.
   pub fn get_callee(&self) -> FunctionRef<'inst> {
     let func = self.inst.get_operand(self.inst.get_num_operands() - 1).unwrap();
     func.as_ref::<Function>(self.inst.ctx).unwrap()
@@ -395,6 +407,7 @@ pub struct BranchInst<'inst> {
 impl <'inst> BranchInst <'inst> {
 
   pub fn is_cond_br(&self) -> bool {
+    assert!(self.inst.get_num_operands() == 1 || self.inst.get_num_operands() == 3);
     self.inst.get_num_operands() == 3
   }
 
@@ -447,8 +460,12 @@ impl <'inst> BranchInst <'inst> {
   }
 
   pub fn is_loop_latch(&self) -> bool {
-    if let InstOpcode::Branch(latch) = self.inst.get_opcode() {
-      latch.is_some()
+    if let InstOpcode::Branch(metadata) = self.inst.get_opcode() {
+      if let BranchMetadata::LLVMLoop = metadata {
+        true
+      } else {
+        false
+      }
     } else {
       panic!("Invalid opcode for Branch instruction.");
     }
@@ -470,10 +487,12 @@ impl <'inst>PhiNode<'inst> {
     self.inst.get_num_operands() / 2
   }
 
+  /// Odds are blocks.
   pub fn get_incoming_block(&'inst self, index: usize) -> Option<BlockRef<'inst>> {
     self.inst.get_operand(index * 2 + 1).map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
   }
 
+  /// Evens are values.
   pub fn get_incoming_value(&self, index: usize) -> Option<&ValueRef> {
     self.inst.get_operand(index * 2 + 0)
   }
@@ -505,3 +524,4 @@ impl <'inst>SelectInst<'inst> {
   }
 
 }
+

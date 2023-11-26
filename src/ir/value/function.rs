@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use super::Instruction;
 // use super::Instruction;
 use super::block::BlockRef;
-use super::instruction::InstMutator;
+use super::instruction::{InstMutator, InstructionRef};
 use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::functype::FunctionTypeRef;
 use crate::ir::types::{TypeRef, FunctionType};
@@ -35,22 +35,36 @@ impl Function {
     Function::from(instance)
   }
 
-  pub(crate) fn add_caller(&mut self, caller: &ValueRef) {
-    self.instance.callers.insert(caller.skey);
-  }
-
-  pub(crate) fn remove_caller(&mut self, caller: ValueRef) {
-    self.instance.callers.remove(&caller.skey);
-  }
-
   pub fn basic_blocks_mut(&mut self) -> &mut Vec<usize> {
     &mut self.instance.blocks
   }
 
+  pub(crate) fn add_user(&mut self, caller: &ValueRef, _: usize) {
+    self.instance.callers.insert(caller.skey);
+  }
+
+  pub(crate) fn remove_user(&mut self, caller: &ValueRef, _: Option<usize>) {
+    self.instance.callers.remove(&caller.skey);
+  }
 
 }
 
 impl <'ctx>FunctionRef<'ctx> {
+
+  /// The iterator traverses all the function callers.
+  pub fn user_iter(&self) -> impl Iterator<Item=InstructionRef<'ctx>> {
+    let f = |u:&usize| {
+      Instruction::from_skey(*u).as_ref::<Instruction>(self.ctx).unwrap()
+    };
+    self.instance().unwrap().callers.iter().map(f)
+  }
+
+  /// The iterator traverses all the function arguments.
+  pub fn arg_iter(&'ctx self) -> impl Iterator<Item=ArgumentRef<'ctx>> {
+    self.instance().unwrap().args.iter().map(|skey| {
+      Argument::from_skey(*skey).as_ref::<Argument>(self.ctx).unwrap()
+    })
+  }
 
   pub fn get_name(&self) -> String {
     if let Some(skey) = self.is_invalid() {
@@ -105,10 +119,10 @@ impl <'ctx>FunctionRef<'ctx> {
     let instance = self.instance().unwrap();
     let ctx = self.ctx;
     let mut res = String::new();
-    // for elem in instance.callers.iter() {
-    //   let caller = Instruction::from_skey(*elem);
-    //   res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
-    // }
+    for elem in instance.callers.iter() {
+      let caller = Instruction::from_skey(*elem);
+      res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
+    }
     let fty = instance.fty.as_ref::<FunctionType>(ctx).unwrap();
     let prefix = if self.is_declaration() {
       "declare"

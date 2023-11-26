@@ -1,13 +1,14 @@
 pub mod instructions;
 pub mod const_folder;
 
+
 pub use instructions::*;
 use types::TypeRef;
 
 use crate::context::component::GetSlabKey;
 use crate::context::{SlabEntry, Reference, Context};
 use crate::ir::value::ValueRef;
-use crate::ir::{types, Function};
+use crate::ir::types;
 
 use super::Block;
 use super::block::BlockRef;
@@ -28,14 +29,6 @@ pub struct InstructionImpl {
 
 pub type Instruction = SlabEntry<InstructionImpl>;
 
-impl Instruction {
-
-  pub(crate) fn add_user(&mut self, user: ValueRef, idx: usize) {
-    self.instance.users.push((user, idx));
-  }
-
-}
-
 pub struct InstMutator<'ctx> {
   ctx: &'ctx mut Context,
   skey: usize
@@ -54,21 +47,30 @@ impl <'ctx> InstMutator <'ctx> {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     assert!(index < inst.instance.operands.len());
-    let old = inst.instance.operands[index].clone();
+    let old = inst.set_operand(index, operand.clone());
     if old == operand {
       return;
     }
-    inst.set_operand(index, operand.clone());
     self.ctx.add_user_redundancy(&inst_value, vec![(operand, index)]);
-    self.ctx.remove_user_redundancy(old, inst_value, index);
+    self.ctx.remove_user_redundancy(old, inst_value, Some(index));
   }
 
   pub fn remove_operand(&mut self, index: usize) {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
-    assert!(index < inst.instance.operands.len());
-    let old = inst.instance.operands.remove(index);
-    self.ctx.remove_user_redundancy(old, inst_value, index);
+    let n = inst.instance.operands.len();
+    assert!(index < n);
+    let old = inst.instance.operands[index].clone();
+    let mut to_calibrate = Vec::new();
+    for i in index+1..n {
+      inst.instance.operands[i - 1] = inst.instance.operands[i].clone();
+      to_calibrate.push(inst.instance.operands[i - 1].clone());
+    }
+    inst.instance.operands.pop();
+    for (i, operand) in to_calibrate.into_iter().enumerate() {
+      self.ctx.calibrate_user_redundancy(&operand, &inst_value, index + 1 + i, index + i);
+    }
+    self.ctx.remove_user_redundancy(old, inst_value, Some(index));
   }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
@@ -103,16 +105,7 @@ impl <'ctx> InstMutator <'ctx> {
       (operands, block)
     };
     for operand in operands {
-      if let Some(operand_inst) = operand.as_mut::<Instruction>(self.ctx) {
-        operand_inst.instance.users.retain(|x| x.0.skey != self.skey);
-      }
-      if let Some(operand_block) = operand.as_mut::<Block>(self.ctx) {
-        operand_block.instance.users.retain(|x| x.0.skey != self.skey);
-      }
-      let value = self.value();
-      if let Some(operand_func) = operand.as_mut::<Function>(self.ctx) {
-        operand_func.remove_caller(value);
-      }
+      self.ctx.remove_user_redundancy(operand, self.value(), None);
     }
     // Maintain the block redundancy.
     let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
@@ -179,11 +172,18 @@ pub enum InstOpcode {
   /// Int value comparison.
   ICompare(CmpPred),
   /// Branch instruction.
-  Branch(Option<usize>),
+  Branch(BranchMetadata),
   /// Phi node for SSA.
   Phi,
   /// Select instruction.
   Select,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum BranchMetadata {
+  LLVMLoop,
+  ReturnJump,
+  None
 }
 
 impl ToString for InstOpcode {
@@ -316,6 +316,19 @@ impl InstructionImpl {
 }
 
 impl Instruction {
+
+  pub(crate) fn add_user(&mut self, user: &ValueRef, idx: usize) {
+    self.instance.users.push((user.clone(), idx));
+  }
+
+  pub(crate) fn remove_user(&mut self, user: &ValueRef, idx: Option<usize>) {
+    if let Some(idx) = idx {
+      let tuple = (user.clone(), idx);
+      self.instance.users.retain(|x| *x != tuple);
+    } else {
+      self.instance.users.retain(|x| x.0 != *user);
+    }
+  }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
     self.instance.opcode = opcode;

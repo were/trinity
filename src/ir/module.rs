@@ -5,7 +5,10 @@ use crate::context::Context;
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::Function;
-use super::value::consts::ConstObject;
+use super::value::{
+  consts::ConstObject,
+  instruction::{InstOpcode, BranchMetadata}
+};
 use super::{value::function, ValueRef, ConstArray};
 use super::types::{StructType, StructTypeRef};
 
@@ -24,8 +27,6 @@ pub struct Module {
   pub(crate) structs: Vec<usize>,
   /// The global values in this module.
   pub(crate) global_values: Vec<ValueRef>,
-  /// The number of loop metadata.
-  pub(crate) llvm_loop: usize,
 }
 
 impl<'ctx> Module {
@@ -43,7 +44,6 @@ impl<'ctx> Module {
       functions: Vec::new(),
       structs: Vec::new(),
       global_values: Vec::new(),
-      llvm_loop: 0
     }
   }
 
@@ -106,6 +106,13 @@ impl<'ctx> Module {
     })
   }
 
+  pub fn remove_unused_functions(&mut self) {
+    self.functions.retain(|x| {
+      let func = Function::from_skey(*x).as_ref::<Function>(&self.context).unwrap();
+      func.user_iter().next().is_some() || func.is_declaration() || func.get_name().eq("main")
+    })
+  }
+
 }
 
 /// Make the name emission ready.
@@ -147,8 +154,20 @@ impl fmt::Display for Module {
       // TODO(@were): More linkage policies
       write!(f, "\n\n").unwrap();
     }
-    for i in 0..self.llvm_loop {
-      write!(f, "!{} = !{{ !{} }}\n", i, i).unwrap();
+    write!(f, "\n!inlined.return = !{{ }}\n").unwrap();
+    // TODO(@were): Do I really want a redundant data structure for this?
+    for func in self.func_iter() {
+      for bb in func.block_iter() {
+        for inst in bb.inst_iter() {
+          match inst.get_opcode() {
+            InstOpcode::Branch(BranchMetadata::ReturnJump) |
+            InstOpcode::Branch(BranchMetadata::LLVMLoop) => {
+              write!(f, "!{} = !{{ !{} }}\n", inst.get_skey(), inst.get_skey()).unwrap();
+            }
+            _ => ()
+          }
+        }
+      }
     }
     Ok(())
   }

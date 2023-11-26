@@ -42,6 +42,15 @@ impl Block {
     self.instance.users.push((inst.clone(), idx));
   }
 
+  pub fn remove_user(&mut self, inst: &ValueRef, idx: Option<usize>) {
+    if let Some(idx) = idx {
+      let tuple = (inst.clone(), idx);
+      self.instance.users.retain(|u| *u != tuple);
+    } else {
+      self.instance.users.retain(|u| u.0 != *inst);
+    }
+  }
+
 }
 
 impl <'ctx> BlockRef<'ctx> {
@@ -162,16 +171,13 @@ impl <'ctx> BlockRef<'ctx> {
 
   /// Filter out non-branch instructions.
   pub fn pred_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
-    self.instance().unwrap().users.iter()
-      .map(|(user, _)| {
-        user.as_ref::<Instruction>(self.ctx).unwrap()
-      }).filter(|inst| {
-        if let InstOpcode::Branch(_) = inst.get_opcode() {
-          true
-        } else {
-          false
-        }
-      })
+    self
+      .instance()
+      .unwrap()
+      .users
+      .iter()
+      .map(|(user, _)| { user.as_ref::<Instruction>(self.ctx).unwrap() })
+      .filter(|inst| { if let InstOpcode::Branch(_) = inst.get_opcode() { true } else { false } })
   }
 
 }

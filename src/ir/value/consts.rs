@@ -71,7 +71,9 @@ impl <'ctx>ConstScalarRef<'ctx> {
     if let Some(skey) = self.is_invalid() {
       return format!("{{invalid.constscalar.{}}}", skey)
     }
-    format!("{} = {}", self.instance().unwrap().ty.to_string(self.ctx), self.instance().unwrap().value)
+    let lhs = self.instance().unwrap().ty.to_string(self.ctx);
+    let rhs = self.instance().unwrap().value;
+    format!("{} = {}", lhs, rhs)
   }
 
   pub fn get_value(&self) -> u64 {
@@ -127,9 +129,11 @@ impl <'ctx> ConstArrayRef<'ctx> {
       return self.get_name()
     }
     let ctx = self.ctx;
-    let literal = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
+    let raw = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>();
+    let literal = raw.join(", ");
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
-    format!("@{} = private unnamed_addr constant {} [{}], align 1", self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
+    format!("@{} = private unnamed_addr constant {} [{}], align 1",
+            self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
   }
 
 }
@@ -180,7 +184,8 @@ impl <'ctx> ConstExprRef<'ctx> {
         let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
         let ptr_scalar = ptr_ty.get_pointee_ty();
         let opcode = inst.get_opcode();
-        format!("{} {} ( {}, {} )", ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
+        format!("{} {} ( {}, {} )",
+                ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
       }
       _ => {
         panic!("ConstExpr::to_string: not a constant opcode {:?}", inst.get_opcode().to_string());
@@ -234,12 +239,21 @@ impl <'ctx> ConstObjectRef<'ctx> {
     }
     let ctx = self.ctx;
     let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
+    let literal = self
+      .instance()
+      .unwrap()
+      .value
+      .iter()
+      .map(|x| x.to_string(ctx, true))
+      .collect::<Vec<String>>()
+      .join(", ");
     let initializer = if self.instance().unwrap().value.len() != 0 {
-      format!("{{ {} }}", self.instance().unwrap().value.iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", "))
+      format!("{{ {} }}", literal)
     } else {
       "zeroinitializer".to_string()
     };
-    format!("@{} = dso_local global {} {}, align 8", self.get_name(), pty.get_pointee_ty().to_string(ctx), initializer)
+    let ty = pty.get_pointee_ty().to_string(ctx);
+    format!("@{} = dso_local global {} {}, align 8", self.get_name(), ty, initializer)
   }
 
 }
@@ -293,7 +307,14 @@ impl <'ctx> InlineAsmRef<'ctx> {
     }
     let ctx = self.ctx;
     let ty = if let Some(sty) = self.get_type().as_ref::<StructType>(ctx) {
-      sty.instance().unwrap().attrs.iter().map(|attr| attr.to_string(ctx)).collect::<Vec<_>>().join(", ")
+      sty
+        .instance()
+        .unwrap()
+        .attrs
+        .iter()
+        .map(|attr| attr.to_string(ctx))
+        .collect::<Vec<_>>()
+        .join(", ")
     } else {
       self.get_type().to_string(ctx)
     };

@@ -1,7 +1,7 @@
 use crate::ir::types::{VoidType, TKindCode};
 use crate::ir::value::consts::InlineAsm;
 use crate::ir::value::instruction::const_folder::{fold_binary_op, fold_cmp_op};
-use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred};
+use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred, InstMutator, BranchMetadata, PhiNode};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -51,7 +51,7 @@ impl<'ctx> Builder {
   }
 
   /// Add a function to the module
-  pub fn create_function(&mut self, name: String, fty: TypeRef) -> ValueRef {
+  pub fn create_function(&mut self, name: &String, fty: &TypeRef) -> ValueRef {
     // Generate the arguments.
     let fty_ref = fty.as_mut::<FunctionType>(self.context()).unwrap();
     let fargs = Argument::from_fty(fty_ref);
@@ -60,7 +60,7 @@ impl<'ctx> Builder {
       arg_ptrs.push(self.context().add_instance(arg).skey);
     }
     // Create the function.
-    let func = function::Function::new(name, fty, arg_ptrs);
+    let func = function::Function::new(name.clone(), fty.clone(), arg_ptrs);
     // Add the function to module.
     let func_ref = self.context().add_instance(func);
     self.module.functions.push(func_ref.skey);
@@ -68,7 +68,10 @@ impl<'ctx> Builder {
     {
       let func = func_ref.as_ref::<Function>(&self.module.context).unwrap();
       let args = (0..func.get_num_args()).map(|i| { func.get_arg(i) }).collect::<Vec<_>>();
-      args.iter().for_each(|arg| arg.as_mut::<Argument>(self.context()).unwrap().instance.parent = func_ref.skey);
+      let set_key = |arg: &ValueRef| {
+        arg.as_mut::<Argument>(self.context()).unwrap().instance.parent = func_ref.skey;
+      };
+      args.iter().for_each(set_key);
     }
     func_ref
   }
@@ -85,13 +88,76 @@ impl<'ctx> Builder {
   }
 
   /// Add a block to the current function.
-  pub fn add_block(&mut self, name: String) -> ValueRef {
+  pub fn create_block(&mut self, name: String) -> ValueRef {
     let func_ref = self.func.clone().unwrap();
     let block = Block::new(name, &func_ref);
     let block_ref = self.context().add_instance(block);
     let func = func_ref.as_mut::<Function>(self.context()).unwrap();
     func.basic_blocks_mut().push(block_ref.skey);
     block_ref
+  }
+
+  /// Split a block A into two blocks.
+  /// A.0 ... value ... jmp A.rest
+  /// A.rest ... rest of A
+  pub fn split_block(&mut self, value: &ValueRef) -> ValueRef {
+    // Restore them later.
+    let old_block = self.get_current_block();
+    let old_idx = self.get_insert_before();
+    let old_func = self.get_current_function();
+
+    let inst = value.as_ref::<Instruction>(&self.module.context).unwrap();
+    let block_ref = inst.get_parent();
+    let block = block_ref.as_super();
+    let idx = block_ref.inst_iter().position(|i| i.get_skey() == value.skey).unwrap();
+    let name = block_ref.get_name();
+    let rest_slice = ((idx+1)..block_ref.get_num_insts())
+      .map(|i| block_ref.get_inst(i).unwrap().as_super())
+      .collect::<Vec<_>>();
+    let res = self.create_block(format!("{}.rest", name));
+    for inst in rest_slice.into_iter() {
+      let mut mutator = InstMutator::new(self.context(), &inst);
+      mutator.move_to_block(&res, None);
+    }
+    self.set_current_block(block.clone());
+    self.create_unconditional_branch(res.clone(), BranchMetadata::None);
+
+    // Maintain those A-related phi predecessors.
+    {
+      let mut replace_phi_blocks = Vec::new();
+      let new_bb = res.as_ref::<Block>(&self.module.context).unwrap();
+      for succ in new_bb.succ_iter() {
+        for inst in succ.inst_iter() {
+          if let Some(phi) = inst.as_sub::<PhiNode>() {
+            for (idx, (in_block, _)) in phi.iter().enumerate() {
+              if in_block.get_skey() == block.skey {
+                eprintln!("[SPLIT] {}\n  {} -> {}",
+                          inst.to_string(false), in_block.get_name(),
+                          res.to_string(&self.module.context, true));
+                replace_phi_blocks.push((inst.as_super(), idx * 2 + 1));
+              }
+            }
+          }
+        }
+      }
+      for (phi, idx) in replace_phi_blocks {
+        let mut mutator = InstMutator::new(self.context(), &phi);
+        mutator.set_operand(idx, res.clone());
+      }
+    }
+
+    // TODO(@were): Make this a function later.
+    // Restore the old insert points.
+    if old_block.is_some() {
+      self.set_current_block(old_block.unwrap());
+    }
+    if old_idx.is_some() {
+      self.set_insert_before(old_idx.unwrap());
+    }
+    if old_func.is_some() {
+      self.set_current_function(old_func.unwrap());
+    }
+    res
   }
 
   /// Add a struct declaration to the context.
@@ -104,7 +170,7 @@ impl<'ctx> Builder {
   /// Set the current block to insert.
   pub fn set_current_block(&mut self, block: ValueRef) {
     assert!(block.kind == VKindCode::Block, "Given value is not a block");
-    self.block = Some(block.clone());
+    self.block = Some(block);
     self.inst = None;
   }
 
@@ -193,7 +259,8 @@ impl<'ctx> Builder {
     let size = val.len();
     let array_ty = self.context().int_type(8).array_type(self.context(), size);
     let i8ty = self.context().int_type(8);
-    let init = val.chars().map(|x| { self.context().const_value(i8ty.clone(), x as u64) }).collect::<Vec<_>>();
+    let f = |x| { self.context().const_value(i8ty.clone(), x as u64) };
+    let init = val.chars().map(f).collect::<Vec<_>>();
     let name = "str".to_string();
     let res = array_ty.const_array(self.context(), name, init);
     self.module.global_values.push(res.clone());
@@ -201,7 +268,11 @@ impl<'ctx> Builder {
   }
 
   /// Return the pointer to the struct field.
-  pub fn get_struct_field(&mut self, value: ValueRef, idx: usize, name: &str) -> Result<ValueRef, String> {
+  pub fn get_struct_field(
+    &mut self,
+    value: ValueRef,
+    idx: usize,
+    name: &str) -> Result<ValueRef, String> {
     let ty = value.get_type(&self.module.context);
     let (attr_ty, name) = if let Some(ty) = ty.as_ref::<PointerType>(&self.module.context) {
       if let Some(sty) = ty.get_pointee_ty().as_ref::<StructType>(&self.module.context) {
@@ -215,7 +286,8 @@ impl<'ctx> Builder {
         return Err(format!("Expect a pointer to struct, but got {}", ty.to_string()));
       }
     } else {
-      return Err(format!("Only pointer type supported for now, but got {}", ty.to_string(&self.module.context)));
+      let ty_str = ty.to_string(&self.module.context);
+      return Err(format!("Only pointer type supported for now, but got {}", ty_str));
     };
     let i32ty = self.context().int_type(32);
     let zero = self.context().const_value(i32ty.clone(), 0);
@@ -232,7 +304,12 @@ impl<'ctx> Builder {
 
   /// This interface is not recommended to use, because its excessive parameters are error-prone.
   /// Please use `get_struct_field`, and `index_array` above instead.
-  pub fn create_gep(&mut self, ty: TypeRef, ptr: ValueRef, indices: Vec<ValueRef>, inbounds: bool, name: String) -> ValueRef {
+  pub fn create_gep(
+    &mut self, ty: TypeRef,
+    ptr: ValueRef,
+    indices: Vec<ValueRef>,
+    inbounds: bool,
+    name: String) -> ValueRef {
     let name = if name.is_empty() {
       "gep".to_string()
     } else {
@@ -256,7 +333,10 @@ impl<'ctx> Builder {
     }
   }
 
-  pub fn create_inbounds_gep(&mut self, ptr: ValueRef, indices: Vec<ValueRef>, name: String) -> ValueRef {
+  pub fn create_inbounds_gep(
+    &mut self,
+    ptr: ValueRef,
+    indices: Vec<ValueRef>, name: String) -> ValueRef {
     let ty = ptr.get_type(self.context());
     let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
     let res_ty = pty.get_pointee_ty();
@@ -288,7 +368,10 @@ impl<'ctx> Builder {
     }
   }
 
-  pub fn create_typed_call(&mut self, ty: TypeRef, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
+  pub fn create_typed_call(
+    &mut self, ty: TypeRef,
+    callee: ValueRef,
+    args: Vec<ValueRef>) -> ValueRef {
     let mut args = args.clone();
     args.push(callee);
     let inst = instruction::Instruction::new(
@@ -326,17 +409,6 @@ impl<'ctx> Builder {
     );
     self.add_instruction(inst)
   }
-
-  // fn fold_constant(&mut self, lhs: &ValueRef, rhs: &ValueRef, f: fn(u64, u64) -> u64) -> Option<ValueRef> {
-  //   if let Some(const_lhs) = lhs.as_ref::<ConstScalar>(&self.module.context) {
-  //     if let Some(const_rhs) = rhs.as_ref::<ConstScalar>(&self.module.context) {
-  //       let ty = lhs.get_type(&self.module.context);
-  //       let value = f(const_lhs.get_value(), const_rhs.get_value());
-  //       return Some(self.context().const_value(ty, value))
-  //     }
-  //   }
-  //   return None
-  // }
 
   pub fn create_xor(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
     return self.create_binary_op(BinaryOp::Xor, lhs, rhs, "xor".to_string())
@@ -460,7 +532,9 @@ impl<'ctx> Builder {
       }
     } else if (src_ty.kind == TKindCode::IntType && dest.kind == TKindCode::PointerType) ||
               (src_ty.kind == TKindCode::PointerType && dest.kind == TKindCode::IntType) {
-      assert_eq!(src_ty.get_scalar_size_in_bits(&self.module), dest.get_scalar_size_in_bits(&self.module));
+      let src_bits = src_ty.get_scalar_size_in_bits(&self.module);
+      let dst_bits = dest.get_scalar_size_in_bits(&self.module);
+      assert_eq!(src_bits, dst_bits);
       CastOp::Bitcast
     } else {
       panic!("Not supported casting!");
@@ -507,27 +581,35 @@ impl<'ctx> Builder {
     return self.create_compare(CmpPred::NE, lhs, rhs, name)
   }
 
-  pub fn create_unconditional_branch(&mut self, bb: ValueRef) -> ValueRef {
+  pub fn create_unconditional_branch(&mut self, bb: ValueRef, metadata: BranchMetadata)
+    -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
     let inst = instruction::Instruction::new(
       self.context().void_type(),
-      instruction::InstOpcode::Branch(None),
+      instruction::InstOpcode::Branch(metadata.clone()),
       "br".to_string(),
       vec![bb.clone()],
     );
-    self.add_instruction(inst)
+    let res = self.add_instruction(inst);
+    res
   }
 
-  pub fn create_conditional_branch(&mut self, cond: ValueRef, true_bb: ValueRef, false_bb: ValueRef, loop_latch: bool) -> ValueRef {
+  pub fn create_conditional_branch(
+    &mut self,
+    cond: ValueRef,
+    true_bb: ValueRef,
+    false_bb: ValueRef,
+    loop_latch: bool) -> ValueRef {
+
     if true_bb == false_bb {
-      return self.create_unconditional_branch(true_bb);
+      assert!(!loop_latch);
+      return self.create_unconditional_branch(true_bb, BranchMetadata::None);
     }
     let metadata = if loop_latch {
-      let res = Some(self.module.llvm_loop);
-      self.module.llvm_loop += 1;
+      let res = instruction::BranchMetadata::LLVMLoop;
       res
     } else {
-      None
+      instruction::BranchMetadata::None
     };
     let inst = instruction::Instruction::new(
       self.context().void_type(),
@@ -535,15 +617,18 @@ impl<'ctx> Builder {
       "br".to_string(),
       vec![cond, true_bb.clone(), false_bb.clone()],
     );
-    self.add_instruction(inst)
+    let res = self.add_instruction(inst);
+    res
   }
 
-  pub fn create_phi(&mut self, ty: TypeRef, operands: Vec<ValueRef>) -> ValueRef {
+  pub fn create_phi(&mut self, ty: TypeRef, values: Vec<ValueRef>, blocks: Vec<ValueRef>)
+    -> ValueRef {
+    let operands = values.into_iter().zip(blocks.into_iter()).flat_map(|(v, b)| vec![v, b]);
     let inst = instruction::Instruction::new(
       ty,
       instruction::InstOpcode::Phi,
       "phi".to_string(),
-      operands,
+      operands.collect::<Vec<_>>(),
     );
     self.add_instruction(inst)
   }
