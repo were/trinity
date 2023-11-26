@@ -124,6 +124,7 @@ impl_sub_inst!(InstOpcode::Return, Return,
 );
 
 impl_sub_inst!(InstOpcode::Phi, PhiNode,
+
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
     let ty = self.inst.get_type().to_string(ctx);
@@ -139,6 +140,7 @@ impl_sub_inst!(InstOpcode::Phi, PhiNode,
     }
     res
   }
+
 );
 
 impl_sub_inst!(InstOpcode::Branch(_), BranchInst,
@@ -485,10 +487,12 @@ impl <'inst>PhiNode<'inst> {
     self.inst.get_num_operands() / 2
   }
 
+  /// Odds are blocks.
   pub fn get_incoming_block(&'inst self, index: usize) -> Option<BlockRef<'inst>> {
     self.inst.get_operand(index * 2 + 1).map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
   }
 
+  /// Evens are values.
   pub fn get_incoming_value(&self, index: usize) -> Option<&ValueRef> {
     self.inst.get_operand(index * 2 + 0)
   }

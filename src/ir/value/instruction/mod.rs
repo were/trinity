@@ -1,6 +1,7 @@
 pub mod instructions;
 pub mod const_folder;
 
+
 pub use instructions::*;
 use types::TypeRef;
 
@@ -104,7 +105,6 @@ impl <'ctx> InstMutator <'ctx> {
       (operands, block)
     };
     for operand in operands {
-      eprintln!("remove user of {}", operand.to_string(self.ctx, true));
       self.ctx.remove_user_redundancy(operand, self.value(), None);
     }
     // Maintain the block redundancy.
