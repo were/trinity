@@ -211,6 +211,7 @@ impl <'ctx>FuncMutator<'ctx> {
   }
 
   pub fn replace_all_uses_with(&mut self, old: ValueRef, new: ValueRef) -> bool {
+    eprintln!("[replace] {} -> {}", old.to_string(self.ctx, true), new.to_string(self.ctx, true));
     let func = self.func.as_ref::<Function>(self.ctx).unwrap();
     let mut to_replace = Vec::new();
     func.block_iter().for_each(|block| {

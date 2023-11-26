@@ -62,6 +62,7 @@ impl <'ctx, T> Reference <'ctx, T> {
     if self.instance.is_left() {
       Some(&self.instance.left().unwrap().instance)
     } else {
+      eprintln!("{}", self.instance.right().unwrap());
       None
     }
   }

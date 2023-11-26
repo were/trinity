@@ -57,8 +57,18 @@ impl <'ctx> InstMutator <'ctx> {
   pub fn remove_operand(&mut self, index: usize) {
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
-    assert!(index < inst.instance.operands.len());
-    let old = inst.instance.operands.remove(index);
+    let n = inst.instance.operands.len();
+    assert!(index < n);
+    let old = inst.instance.operands[index].clone();
+    let mut to_calibrate = Vec::new();
+    for i in index+1..n {
+      inst.instance.operands[i - 1] = inst.instance.operands[i].clone();
+      to_calibrate.push(inst.instance.operands[i - 1].clone());
+    }
+    inst.instance.operands.pop();
+    for (i, operand) in to_calibrate.into_iter().enumerate() {
+      self.ctx.calibrate_user_redundancy(&operand, &inst_value, index + 1 + i, index + i);
+    }
     self.ctx.remove_user_redundancy(old, inst_value, Some(index));
   }
 
@@ -94,6 +104,7 @@ impl <'ctx> InstMutator <'ctx> {
       (operands, block)
     };
     for operand in operands {
+      eprintln!("remove user of {}", operand.to_string(self.ctx, true));
       self.ctx.remove_user_redundancy(operand, self.value(), None);
     }
     // Maintain the block redundancy.

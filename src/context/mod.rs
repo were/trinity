@@ -119,6 +119,29 @@ impl<'ctx> Context {
     }
   }
 
+  /// Calibrate the user list of `src` to `operands`.
+  pub(crate) fn calibrate_user_redundancy(
+    &mut self,
+    operand: &ValueRef,
+    user: &ValueRef,
+    old_idx: usize,
+    new_idx: usize) {
+    match self.slab.get_mut(operand.skey).unwrap() {
+      Component::Instruction(inst) => {
+        let iter = inst.instance.users.iter().position(|(x, y)| (x == user && *y == old_idx));
+        inst.instance.users[iter.unwrap()].1 = new_idx;
+      }
+      Component::Block(block) => {
+        let iter = block.instance.users.iter().position(|(x, y)| (x == user && *y == old_idx));
+        block.instance.users[iter.unwrap()].1 = new_idx;
+      }
+      Component::Function(_) => {
+        // let iter = func.instance.callers.iter().position(|x| *x == user.skey);
+        // func.instance.callers[iter.unwrap()] = new_idx;
+      }
+      _ => {}
+    }
+  }
 
 
 }
