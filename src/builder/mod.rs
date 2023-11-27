@@ -131,9 +131,9 @@ impl<'ctx> Builder {
           if let Some(phi) = inst.as_sub::<PhiNode>() {
             for (idx, (in_block, _)) in phi.iter().enumerate() {
               if in_block.get_skey() == block.skey {
-                eprintln!("[SPLIT] {}\n  {} -> {}",
-                          inst.to_string(false), in_block.get_name(),
-                          res.to_string(&self.module.context, true));
+                // eprintln!("[SPLIT] {}\n  {} -> {}",
+                //           inst.to_string(false), in_block.get_name(),
+                //           res.to_string(&self.module.context, true));
                 replace_phi_blocks.push((inst.as_super(), idx * 2 + 1));
               }
             }
