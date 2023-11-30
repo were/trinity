@@ -23,6 +23,14 @@ pub fn verify(m: &Module) {
               }
             }
           }
+          &InstOpcode::BinaryOp(_) => {
+            let lhs_type = inst.get_operand(0).unwrap().get_type(&m.context);
+            let rhs_type = inst.get_operand(1).unwrap().get_type(&m.context);
+            if lhs_type != rhs_type {
+              panic!("Binary operations should have exactly the same types!\n{}",
+                     inst.to_string(false));
+            }
+          }
           _ => {}
         }
       }
