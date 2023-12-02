@@ -176,6 +176,8 @@ impl<'ctx> Builder {
 
   /// Set the instruction as the insert point.
   pub fn set_insert_before(&mut self, inst_ref: ValueRef) {
+    let inst = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
+    self.block = Some(inst.get_parent().as_super());
     assert!(inst_ref.kind == VKindCode::Instruction, "Given value is not a instruction");
     self.inst = Some(inst_ref);
   }
