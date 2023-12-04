@@ -62,10 +62,8 @@ impl <'ctx> InstMutator <'ctx> {
     let n = inst.instance.operands.len();
     assert!(index < n);
     let old = inst.instance.operands.remove(index);
-    let edge = self.ctx.get_value_ref::<Edge>(old).unwrap();
-    let skey = edge.get_skey();
-    self.ctx.remove_user_redundancy(skey);
-    self.ctx.dispose(skey);
+    self.ctx.remove_user_redundancy(old);
+    self.ctx.dispose(old);
   }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {

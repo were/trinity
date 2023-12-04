@@ -59,16 +59,14 @@ impl<'ctx> Context {
   }
 
   pub(crate) fn edge(&mut self, def: ValueRef, user: ValueRef) -> usize {
-    let res = self.slab.insert(Edge::from(EdgeImpl::new(def, user)).into());
-    match self.slab.get_mut(res) {
-      Some(Component::Edge(e)) => e.set_skey(res),
-      _ => {}
-    }
-    res
+    let instance = Edge::from(EdgeImpl::new(def, user)).into();
+    self.add_edge(instance)
   }
 
   pub(super) fn add_edge(&mut self, edge: Edge) -> usize {
-    self.slab.insert(edge.into())
+    let res = self.slab.insert(edge.into());
+    self.get_value_mut::<Edge>(res).set_skey(res);
+    res
   }
 
   // TODO(@were): Move these to the context.
