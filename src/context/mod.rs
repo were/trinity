@@ -107,7 +107,7 @@ impl<'ctx> Context {
   }
 
   /// `src` uses these `operands`.
-  pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: Vec<usize>) {
+  pub(crate) fn add_user_redundancy(&mut self, operands: Vec<usize>) {
     for edge_skey in operands.into_iter() {
       let edge = self.get_value_ref::<Edge>(edge_skey).unwrap();
       let def = edge.def().clone();

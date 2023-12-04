@@ -6,8 +6,8 @@ use super::ValueRef;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct EdgeImpl {
-  def: ValueRef,
-  user: ValueRef,
+  pub(crate) def: ValueRef,
+  pub(crate) user: ValueRef,
 }
 
 impl EdgeImpl {

@@ -10,7 +10,7 @@ use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::consts::{ConstScalar, ConstArray, InlineAsm};
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct ValueRef {
   pub skey: usize,
   pub kind: VKindCode
@@ -168,7 +168,7 @@ impl<'ctx> ValueRef {
   }
 }
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum VKindCode {
   Argument,
   Instruction,

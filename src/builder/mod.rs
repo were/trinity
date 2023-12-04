@@ -219,8 +219,11 @@ impl<'ctx> Builder {
       let edges = inst.instance.operands.clone();
       let inst_ref = self.context().add_instance(inst);
       let inst_value = Instruction::from_skey(inst_ref.skey);
+      edges.iter().for_each(|e| {
+        self.context().get_value_mut::<Edge>(*e).instance.user = inst_value.clone();
+      });
       // Maintain the instruction redundancy.
-      self.module.context.add_user_redundancy(&inst_value, edges);
+      self.module.context.add_user_redundancy(edges);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
       block.instance.insts.insert(insert_idx, inst_value.skey);
       inst_value.clone()

@@ -489,7 +489,9 @@ impl <'inst>PhiNode<'inst> {
 
   /// Odds are blocks.
   pub fn get_incoming_block(&'inst self, index: usize) -> Option<BlockRef<'inst>> {
-    self.inst.get_operand(index * 2 + 1).map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
+    self.inst.get_operand(index * 2 + 1).map(|x| {
+      x.as_ref::<Block>(self.inst.ctx).unwrap()
+    })
   }
 
   /// Evens are values.

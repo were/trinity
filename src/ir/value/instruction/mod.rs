@@ -52,7 +52,7 @@ impl <'ctx> InstMutator <'ctx> {
     assert!(idx < inst.instance.operands.len());
     let old = inst.instance.operands[idx];
     inst.instance.operands[idx] = edge;
-    self.ctx.add_user_redundancy(&inst_value, vec![edge]);
+    self.ctx.add_user_redundancy(vec![edge]);
     self.ctx.remove_user_redundancy(old);
   }
 
@@ -75,11 +75,11 @@ impl <'ctx> InstMutator <'ctx> {
   }
 
   pub fn add_operand(&mut self, operand: ValueRef) {
-    let edge = self.ctx.edge(self.value(), operand);
+    let edge = self.ctx.edge(operand, self.value());
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     inst.instance.operands.push(edge);
-    self.ctx.add_user_redundancy(&inst_value, vec![edge]);
+    self.ctx.add_user_redundancy(vec![edge]);
   }
 
   pub fn value(&self) -> ValueRef {
