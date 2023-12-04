@@ -8,7 +8,7 @@ use super::{ValueRef, VKindCode, block::Block};
 use crate::ir::types::functype::FunctionTypeRef;
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
-use crate::context::{SlabEntry, Reference, Context};
+use crate::context::{SlabEntry, Reference, Context, WithSuperType};
 
 pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,

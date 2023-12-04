@@ -6,7 +6,7 @@ pub use component::*;
 
 mod pod;
 
-use crate::ir::{types::TypeRef, value::ValueRef};
+use crate::ir::{types::TypeRef, value::ValueRef, ddg::{Edge, EdgeImpl}};
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
@@ -30,7 +30,7 @@ impl<'ctx> Context {
   }
 
   pub fn get_value_ref<T>(&'ctx self, skey: usize) -> Option<&'ctx T>
-    where T: ComponentToRef<T> + GetSlabKey {
+    where T: ComponentToRef<T> + WithSlabKey {
     if !self.slab.get(skey).is_some() {
       None
     } else {
@@ -39,7 +39,7 @@ impl<'ctx> Context {
   }
 
   pub fn get_value_mut<T>(&'ctx mut self, skey: usize) -> &'ctx mut T
-    where T: ComponentToMut<T> + GetSlabKey {
+    where T: ComponentToMut<T> + WithSlabKey {
     if !self.slab.get(skey).is_some() {
       panic!("Invalid slab key: {}", skey);
     }
@@ -50,12 +50,25 @@ impl<'ctx> Context {
     self.slab.capacity()
   }
 
-  pub(super) fn add_instance<T>(&mut self, instance: T) -> T::SuperType
-    where T: Into<Component> + AsSuper + ComponentToRef<T> + ComponentToMut<T> + GetSlabKey + SetSlabKey {
+  pub(super) fn add_instance<T, U>(&mut self, instance: T) -> T::SuperType
+    where T: Into<Component> + WithSuperType<U> + ComponentToRef<T> + ComponentToMut<T> + WithSlabKey {
     let skey = self.slab.insert(instance.into());
     let instance_mut = self.get_value_mut::<T>(skey);
     instance_mut.set_skey(skey);
     instance_mut.as_super()
+  }
+
+  pub(crate) fn edge(&mut self, def: ValueRef, user: ValueRef) -> usize {
+    let res = self.slab.insert(Edge::from(EdgeImpl::new(def, user)).into());
+    match self.slab.get_mut(res) {
+      Some(Component::Edge(e)) => e.set_skey(res),
+      _ => {}
+    }
+    res
+  }
+
+  pub(super) fn add_edge(&mut self, edge: Edge) -> usize {
+    self.slab.insert(edge.into())
   }
 
   // TODO(@were): Move these to the context.
@@ -94,55 +107,31 @@ impl<'ctx> Context {
   }
 
   /// `src` uses these `operands`.
-  pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: Vec<(ValueRef, usize)>) {
-    for (operand, idx) in operands.iter() {
-      match self.slab.get_mut(operand.skey).unwrap() {
-        Component::Instruction(inst) => inst.add_user(src, *idx),
-        Component::Block(block) => block.add_user(src, *idx),
-        Component::Function(func) => func.add_user(src, *idx),
+  pub(crate) fn add_user_redundancy(&mut self, src: &ValueRef, operands: Vec<usize>) {
+    for edge_skey in operands.into_iter() {
+      let edge = self.get_value_ref::<Edge>(edge_skey).unwrap();
+      let def = edge.def().clone();
+      match self.slab.get_mut(def.skey).unwrap() {
+        Component::Instruction(inst) => inst.instance.users.push(edge_skey),
+        Component::Block(block) => block.instance.users.push(edge_skey),
+        Component::Function(func) => { func.instance.callers.insert(edge_skey); }
         _ => {}
       }
     }
   }
 
-  /// Remove operand's (user, idx)
-  pub(crate) fn remove_user_redundancy(
-    &mut self,
-    operand: ValueRef,
-    user: ValueRef, idx: Option<usize>) {
+  /// Remove operand's user whose edge is `edge_skey`.
+  pub(crate) fn remove_user_redundancy(&mut self, edge_skey: usize) {
     // let tuple = (user, idx);
+    let edge = self.get_value_ref::<Edge>(edge_skey).unwrap();
+    let operand = edge.def().clone();
     match self.slab.get_mut(operand.skey).unwrap() {
-      Component::Instruction(inst) => inst.remove_user(&user, idx),
-      Component::Block(block) => block.remove_user(&user, idx),
-      Component::Function(func) => func.remove_user(&user, idx),
+      Component::Instruction(inst) => inst.instance.users.retain(|x| *x != edge_skey),
+      Component::Block(block) => block.instance.users.retain(|x| *x != edge_skey),
+      Component::Function(func) => func.instance.callers.retain(|x| *x != edge_skey),
       _ => {}
     }
   }
-
-  /// Calibrate the user list of `src` to `operands`.
-  pub(crate) fn calibrate_user_redundancy(
-    &mut self,
-    operand: &ValueRef,
-    user: &ValueRef,
-    old_idx: usize,
-    new_idx: usize) {
-    match self.slab.get_mut(operand.skey).unwrap() {
-      Component::Instruction(inst) => {
-        let iter = inst.instance.users.iter().position(|(x, y)| (x == user && *y == old_idx));
-        inst.instance.users[iter.unwrap()].1 = new_idx;
-      }
-      Component::Block(block) => {
-        let iter = block.instance.users.iter().position(|(x, y)| (x == user && *y == old_idx));
-        block.instance.users[iter.unwrap()].1 = new_idx;
-      }
-      Component::Function(_) => {
-        // let iter = func.instance.callers.iter().position(|x| *x == user.skey);
-        // func.instance.callers[iter.unwrap()] = new_idx;
-      }
-      _ => {}
-    }
-  }
-
 
 }
 

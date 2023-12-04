@@ -1,7 +1,7 @@
 use crate::{context::{SlabEntry, Reference}, ir::types::{PointerType, StructType}};
 
 use crate::ir::types::TypeRef;
-use super::{ValueRef, instruction::InstOpcode, Instruction};
+use super::{ValueRef, instruction::InstOpcode};
 
 pub struct ConstScalarImpl {
   pub(crate) ty: TypeRef,
@@ -139,7 +139,9 @@ impl <'ctx> ConstArrayRef<'ctx> {
 }
 
 pub struct ConstExprImpl {
-  pub(crate) inst: Instruction,
+  pub(crate) ty: TypeRef,
+  pub(crate) opcode: InstOpcode,
+  pub(crate) operands: Vec<ValueRef>
 }
 
 pub type ConstExpr = SlabEntry<ConstExprImpl>;
@@ -149,7 +151,7 @@ impl ConstExpr {
 
   pub fn new(ty: TypeRef, opcode: InstOpcode, operands: Vec<ValueRef>) -> Self {
     Self::from(ConstExprImpl {
-      inst: Instruction::new(ty, opcode, "globalobj.".to_string(), operands)
+      ty, opcode, operands
     })
   }
 
@@ -157,8 +159,12 @@ impl ConstExpr {
 
 impl <'ctx> ConstExprRef<'ctx> {
 
-  pub fn get_inst(&self) -> &Instruction {
-    &self.instance().unwrap().inst
+  pub fn get_opcode(&self) -> InstOpcode {
+    self.instance().unwrap().opcode.clone()
+  }
+
+  pub fn get_operand(&self, idx: usize) -> Option<ValueRef> {
+    self.instance().unwrap().operands.get(idx).map(|v| v.clone())
   }
 
   pub fn to_string(&self) -> String {
@@ -166,29 +172,23 @@ impl <'ctx> ConstExprRef<'ctx> {
       return format!("{{invalid.constexpr.{}}}", skey)
     }
     let ctx = self.ctx;
-    let operands = self
-      .instance()
-      .unwrap()
-      .inst
-      .instance
+    let instance = self.instance().unwrap();
+    let operands = instance
       .operands
       .iter()
       .map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
-    // Wow, this instruction has no slab key!
-    let inst = Reference::new(ctx, &self.instance().unwrap().inst);
-    match inst.get_opcode() {
+    let opcode = &instance.opcode;
+    match opcode {
       InstOpcode::GetElementPtr(_) => {
-        let ty = inst.get_type();
-        let ptr_inst = &self.instance().unwrap().inst.instance;
-        let ptr_ty = ptr_inst.operands[0].get_type(ctx);
+        let ty = &instance.ty;
+        let ptr_ty = instance.operands[0].get_type(ctx);
         let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
         let ptr_scalar = ptr_ty.get_pointee_ty();
-        let opcode = inst.get_opcode();
         format!("{} {} ( {}, {} )",
                 ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
       }
       _ => {
-        panic!("ConstExpr::to_string: not a constant opcode {:?}", inst.get_opcode().to_string());
+        panic!("ConstExpr::to_string: not a constant opcode {:?}", opcode.to_string());
       }
     }
   }

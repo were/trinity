@@ -1,7 +1,10 @@
+use crate::ir::ddg::{EdgeImpl, Edge};
 use crate::ir::types::{VoidType, TKindCode};
-use crate::ir::value::consts::InlineAsm;
+use crate::ir::value::consts::{InlineAsm, Undef};
 use crate::ir::value::instruction::const_folder::{fold_binary_op, fold_cmp_op};
-use crate::ir::value::instruction::{CastOp, InstOpcode, CmpPred, InstMutator, BranchMetadata, PhiNode};
+use crate::ir::value::instruction::{
+  CastOp, InstOpcode, CmpPred, InstMutator, BranchMetadata, PhiNode
+};
 use crate::ir::{
   module::Module,
   value::{ValueRef, VKindCode},
@@ -14,7 +17,7 @@ use crate::ir::{
   value::consts::{ConstExpr, ConstObject}
 };
 
-use crate::context::Context;
+use crate::context::{Context, WithSuperType};
 
 pub struct Builder {
   pub module: Module,
@@ -213,14 +216,11 @@ impl<'ctx> Builder {
       eprintln!("Instruction abandoned, because the block already has an end, branch instruction");
       ValueRef { skey: 0, kind: VKindCode::Unknown }
     } else {
+      let edges = inst.instance.operands.clone();
       let inst_ref = self.context().add_instance(inst);
       let inst_value = Instruction::from_skey(inst_ref.skey);
       // Maintain the instruction redundancy.
-      let inst_ref = inst_ref.as_ref::<Instruction>(&self.module.context).unwrap();
-      let operands = inst_ref.operand_iter().map(|v| v.clone()).collect::<Vec<_>>();
-      self.module.context.add_user_redundancy(
-        &inst_value,
-        operands.iter().enumerate().map(|(i, v)| (v.clone(), i)).collect::<Vec<_>>());
+      self.module.context.add_user_redundancy(&inst_value, edges);
       let block = block_ref.as_mut::<Block>(&mut self.module.context).unwrap();
       block.instance.insts.insert(insert_idx, inst_value.skey);
       inst_value.clone()
@@ -229,19 +229,19 @@ impl<'ctx> Builder {
 
   pub fn create_instruction(
     &mut self, ty: TypeRef, op: InstOpcode, operands: Vec<ValueRef>, name: String) -> ValueRef {
-    let inst = instruction::Instruction::new(ty, op, name, operands);
+    let edge = self.operand_to_edge(&operands);
+    let inst = instruction::Instruction::new(ty, op, name, edge);
     self.add_instruction(inst)
   }
 
   pub fn create_return(&mut self, val: Option<ValueRef>) -> ValueRef {
     let ret_ty = self.context().void_type();
-    let inst = instruction::Instruction::new(
+    self.create_instruction(
       ret_ty,
       instruction::InstOpcode::Return,
-      "ret".to_string(),
       if let None = val { vec![] } else {vec![val.unwrap()]},
-    );
-    self.add_instruction(inst)
+      "ret".to_string(),
+    )
   }
 
   pub fn create_alloca(&mut self, ty: types::TypeRef, name: String) -> ValueRef {
@@ -322,16 +322,16 @@ impl<'ctx> Builder {
     // All constants
     if operands[0].is_const() && operands.iter().fold(true, |acc, val| acc && val.is_const()) {
       let res = ConstExpr::new(ty, instruction::InstOpcode::GetElementPtr(inbounds), operands);
-      let expr = self.context().add_instance::<ConstExpr>(res);
+      let expr = self.context().add_instance::<ConstExpr, _>(res);
       return expr
     } else {
-      let inst = instruction::Instruction::new(
+      let inst = self.create_instruction(
         ty,
         instruction::InstOpcode::GetElementPtr(inbounds),
-        name,
         operands,
+        name,
       );
-      self.add_instruction(inst)
+      return inst
     }
   }
 
@@ -358,13 +358,14 @@ impl<'ctx> Builder {
           value_ty.to_string(&self.module.context),
           value_ty.skey))
       }
-      let inst = instruction::Instruction::new(
-        self.context().void_type(),
+      let vty = self.context().void_type();
+      let inst = self.create_instruction(
+        vty,
         instruction::InstOpcode::Store(8),
-        "store".to_string(),
         vec![value, ptr],
+        "store".to_string(),
       );
-      Ok(self.add_instruction(inst))
+      Ok(inst)
     } else {
       Err(format!("Value: {} is not a pointer", ptr.to_string(&self.module.context, true)))
     }
@@ -376,13 +377,12 @@ impl<'ctx> Builder {
     args: Vec<ValueRef>) -> ValueRef {
     let mut args = args.clone();
     args.push(callee);
-    let inst = instruction::Instruction::new(
+    self.create_instruction(
       ty,
       instruction::InstOpcode::Call,
-      "call".to_string(),
       args,
-    );
-    self.add_instruction(inst)
+      "call".to_string(),
+    )
   }
 
   pub fn create_func_call(&mut self, callee: ValueRef, args: Vec<ValueRef>) -> ValueRef {
@@ -403,13 +403,12 @@ impl<'ctx> Builder {
     if let Some(folded) = fold_binary_op(&op, self.context(), &lhs, &rhs) {
       return folded;
     }
-    let inst = instruction::Instruction::new(
+    self.create_instruction(
       lty,
       instruction::InstOpcode::BinaryOp(op),
-      name,
       vec![lhs, rhs],
-    );
-    self.add_instruction(inst)
+      name,
+    )
   }
 
   pub fn create_xor(&mut self, lhs: ValueRef, rhs: ValueRef) -> ValueRef {
@@ -461,13 +460,12 @@ impl<'ctx> Builder {
 
   // TODO(@were): Add alignment
   pub fn create_typed_load(&mut self, ty: TypeRef, ptr: ValueRef) -> ValueRef {
-    let inst = instruction::Instruction::new(
+    self.create_instruction(
       ty,
       instruction::InstOpcode::Load(8),
-      "load".to_string(),
       vec![ptr],
-    );
-    self.add_instruction(inst)
+      "load".to_string(),
+    )
   }
 
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
@@ -502,13 +500,7 @@ impl<'ctx> Builder {
       return val;
     }
     let op = InstOpcode::CastInst(cast_op);
-    let inst = instruction::Instruction::new(
-      dest,
-      op,
-      "cast".to_string(),
-      vec![val],
-    );
-    self.add_instruction(inst)
+    self.create_instruction(dest, op, vec![val], "cast".to_string(),)
   }
 
   pub fn create_bitcast(&mut self, val: ValueRef, dest: TypeRef) -> ValueRef {
@@ -550,13 +542,9 @@ impl<'ctx> Builder {
     if let Some(folded) = fold_cmp_op(&pred, self.context(), &lhs, &rhs) {
       return folded;
     }
-    let inst = instruction::Instruction::new(
-      self.context().int_type(1),
-      instruction::InstOpcode::ICompare(pred),
-      name,
-      vec![lhs, rhs],
-    );
-    self.add_instruction(inst)
+    let i1ty = self.context().int_type(1);
+    let cmp = instruction::InstOpcode::ICompare(pred);
+    self.create_instruction(i1ty, cmp, vec![lhs, rhs], name)
   }
 
   pub fn create_slt(&mut self, lhs: ValueRef, rhs: ValueRef, name: String) -> ValueRef {
@@ -586,14 +574,13 @@ impl<'ctx> Builder {
   pub fn create_unconditional_branch(&mut self, bb: ValueRef, metadata: BranchMetadata)
     -> ValueRef {
     assert!(bb.get_type(self.context()).kind == TKindCode::BlockType);
-    let inst = instruction::Instruction::new(
-      self.context().void_type(),
+    let vty = self.context().void_type();
+    self.create_instruction(
+      vty,
       instruction::InstOpcode::Branch(metadata.clone()),
-      "br".to_string(),
       vec![bb.clone()],
-    );
-    let res = self.add_instruction(inst);
-    res
+      "br".to_string(),
+    )
   }
 
   pub fn create_conditional_branch(
@@ -613,26 +600,33 @@ impl<'ctx> Builder {
     } else {
       instruction::BranchMetadata::None
     };
-    let inst = instruction::Instruction::new(
-      self.context().void_type(),
+    let vty = self.context().void_type();
+    self.create_instruction(
+      vty,
       instruction::InstOpcode::Branch(metadata),
-      "br".to_string(),
       vec![cond, true_bb.clone(), false_bb.clone()],
-    );
-    let res = self.add_instruction(inst);
-    res
+      "br".to_string(),
+    )
   }
 
   pub fn create_phi(&mut self, ty: TypeRef, values: Vec<ValueRef>, blocks: Vec<ValueRef>)
     -> ValueRef {
     let operands = values.into_iter().zip(blocks.into_iter()).flat_map(|(v, b)| vec![v, b]);
-    let inst = instruction::Instruction::new(
+    self.create_instruction(
       ty,
       instruction::InstOpcode::Phi,
-      "phi".to_string(),
       operands.collect::<Vec<_>>(),
-    );
-    self.add_instruction(inst)
+      "phi".to_string(),
+    )
+  }
+
+  fn operand_to_edge(&mut self, operands: &Vec<ValueRef>) -> Vec<usize> {
+    let edge_impl = operands.iter().map(|x| {
+      let edge_impl = EdgeImpl::new(x.clone(), Undef::from_skey(0));
+      let edge_instance = Edge::from(edge_impl);
+      edge_instance
+    });
+    edge_impl.into_iter().map(|x| self.context().add_edge(x)).collect()
   }
 
 }

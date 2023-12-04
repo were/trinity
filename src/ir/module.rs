@@ -1,7 +1,7 @@
 use std::fmt;
 
 
-use crate::context::Context;
+use crate::context::{Context, WithSuperType};
 use crate::machine::{TargetTriple, DataLayout, TargetMachine};
 
 use super::Function;

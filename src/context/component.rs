@@ -12,6 +12,7 @@ use crate::ir::{
     ConstScalar, ConstArray, ConstExpr, ConstObject, InlineAsm, Undef,
     ConstScalarImpl, ConstArrayImpl, ConstExprImpl, ConstObjectImpl, InlineAsmImpl, UndefImpl
   },
+  ddg::{EdgeImpl, Edge},
   ValueRef,
 };
 use crate::ir::value::VKindCode;
@@ -73,15 +74,11 @@ impl <'ctx, T> Reference <'ctx, T> {
 
 }
 
-impl<T>GetSlabKey for SlabEntry<T> {
+impl<T>WithSlabKey for SlabEntry<T> {
 
   fn get_skey(&self) -> usize {
     self.skey.unwrap()
   }
-
-}
-
-impl<T>SetSlabKey for SlabEntry<T> {
 
   fn set_skey(&mut self, skey: usize) {
     self.skey = Some(skey);
@@ -117,22 +114,19 @@ pub enum Component {
   ConstObject(ConstObject),
   InlineAsm(InlineAsm),
   Undef(Undef),
+  // Use
+  Edge(Edge),
 }
 
-pub trait WithKindCode<T> {
-  fn kind_code() -> T;
-}
-
-pub trait AsSuper {
+pub trait WithSuperType<KindCode> {
   type SuperType;
   fn as_super(&self) -> Self::SuperType;
+  fn kind_code() -> KindCode;
+  fn from_skey(skey: usize) -> Self::SuperType;
 }
 
-pub trait GetSlabKey {
+pub trait WithSlabKey {
   fn get_skey(&self) -> usize;
-}
-
-pub(crate) trait SetSlabKey {
   fn set_skey(&mut self, skey: usize);
 }
 
@@ -144,15 +138,8 @@ pub trait ComponentToMut<T> {
   fn instance_to_self_mut<'ctx>(value: &'ctx mut Component) -> &'ctx mut T;
 }
 
-macro_rules! impl_component {
-  ($super:tt, $code_type:tt, $type:tt, $impl: tt) => {
-
-    impl IsSlabEntry for $type {
-      type Impl = $impl;
-      fn to_slab_entry(&self) -> &SlabEntry<Self::Impl> {
-        self
-      }
-    }
+macro_rules! impl_super {
+  ($super:tt, $code_type:tt, $type: tt, $impl: tt) => {
 
     impl Reference<'_, $impl> {
       pub fn as_super(&self) -> $super {
@@ -160,8 +147,37 @@ macro_rules! impl_component {
       }
     }
 
-    impl ComponentToRef<$type> for $type {
 
+    impl WithSuperType<$code_type> for $type {
+      type SuperType = $super;
+
+      fn as_super(&self) -> Self::SuperType {
+        $super{ skey: self.skey.unwrap(), kind: $code_type::$type }
+      }
+
+      fn kind_code() -> $code_type {
+        $code_type::$type
+      }
+
+      fn from_skey(skey: usize) -> Self::SuperType {
+        Self::SuperType { skey, kind: $code_type::$type }
+      }
+
+    }
+  }
+}
+
+macro_rules! impl_component {
+
+  ($type: tt, $impl: tt) => {
+    impl IsSlabEntry for $type {
+      type Impl = $impl;
+      fn to_slab_entry(&self) -> &SlabEntry<Self::Impl> {
+        self
+      }
+    }
+
+    impl ComponentToRef<$type> for $type {
       fn instance_to_ref<'ctx>(value: &'ctx Component) -> &'ctx $type {
         match value {
           Component::$type(v) => v,
@@ -180,33 +196,17 @@ macro_rules! impl_component {
       }
     }
 
-    impl AsSuper for $type {
-      type SuperType = $super;
-
-      fn as_super(&self) -> Self::SuperType {
-        $super{ skey: self.skey.unwrap(), kind: $code_type::$type }
-      }
-
-    }
-
-    impl $type {
-      pub fn from_skey(skey: usize) -> $super {
-        $super { skey, kind: $code_type::$type }
-      }
-    }
-
     impl From<$type> for Component {
       fn from(value: $type) -> Self {
         Component::$type(value)
       }
     }
+  };
 
-    impl WithKindCode<$code_type> for $type {
-      fn kind_code() -> $code_type {
-        $code_type::$type
-      }
-    }
 
+  ($super:tt, $code_type:tt, $type:tt, $impl: tt) => {
+    impl_component!($type, $impl);
+    impl_super!($super, $code_type, $type, $impl);
   };
 }
 
@@ -228,3 +228,5 @@ impl_component!(ValueRef, VKindCode, ConstExpr, ConstExprImpl);
 impl_component!(ValueRef, VKindCode, ConstObject, ConstObjectImpl);
 impl_component!(ValueRef, VKindCode, InlineAsm, InlineAsmImpl);
 impl_component!(ValueRef, VKindCode, Undef, UndefImpl);
+// Data Dependence Graph Edge
+impl_component!(Edge, EdgeImpl);

@@ -1,6 +1,7 @@
 pub mod value;
 pub mod types;
 pub mod module;
+pub mod ddg;
 
 pub use value::{ValueRef, VKindCode};
 pub use value::function::{Function, Argument};
