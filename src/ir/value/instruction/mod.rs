@@ -5,8 +5,9 @@ pub mod const_folder;
 pub use instructions::*;
 use types::TypeRef;
 
-use crate::context::component::GetSlabKey;
-use crate::context::{SlabEntry, Reference, Context};
+use crate::context::component::WithSlabKey;
+use crate::context::{SlabEntry, Reference, Context, WithSuperType};
+use crate::ir::ddg::Edge;
 use crate::ir::value::ValueRef;
 use crate::ir::types;
 
@@ -18,11 +19,12 @@ pub struct InstructionImpl {
   pub(crate) ty: types::TypeRef,
   pub(crate) opcode: InstOpcode,
   pub(crate) name_prefix: String,
-  pub(crate) operands: Vec<ValueRef>,
   pub(crate) parent: Option<usize>,
+  /// The skey of the ddg::Edge in the context.
+  pub(crate) operands: Vec<usize>,
   /// Instructions uses this instruction (inst, idx).
   /// It is inst's idx-th operand.
-  pub(crate) users: Vec<(ValueRef, usize)>,
+  pub(crate) users: Vec<usize>,
   /// Comment for this instruction.
   pub(crate) comment: String,
 }
@@ -43,16 +45,15 @@ impl <'ctx> InstMutator <'ctx> {
     }
   }
 
-  pub fn set_operand(&mut self, index: usize, operand: ValueRef) {
+  pub fn set_operand(&mut self, idx: usize, operand: ValueRef) {
+    let edge = self.ctx.edge(operand, self.value());
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
-    assert!(index < inst.instance.operands.len());
-    let old = inst.set_operand(index, operand.clone());
-    if old == operand {
-      return;
-    }
-    self.ctx.add_user_redundancy(&inst_value, vec![(operand, index)]);
-    self.ctx.remove_user_redundancy(old, inst_value, Some(index));
+    assert!(idx < inst.instance.operands.len());
+    let old = inst.instance.operands[idx];
+    inst.instance.operands[idx] = edge;
+    self.ctx.add_user_redundancy(vec![edge]);
+    self.ctx.remove_user_redundancy(old);
   }
 
   pub fn remove_operand(&mut self, index: usize) {
@@ -60,17 +61,9 @@ impl <'ctx> InstMutator <'ctx> {
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
     let n = inst.instance.operands.len();
     assert!(index < n);
-    let old = inst.instance.operands[index].clone();
-    let mut to_calibrate = Vec::new();
-    for i in index+1..n {
-      inst.instance.operands[i - 1] = inst.instance.operands[i].clone();
-      to_calibrate.push(inst.instance.operands[i - 1].clone());
-    }
-    inst.instance.operands.pop();
-    for (i, operand) in to_calibrate.into_iter().enumerate() {
-      self.ctx.calibrate_user_redundancy(&operand, &inst_value, index + 1 + i, index + i);
-    }
-    self.ctx.remove_user_redundancy(old, inst_value, Some(index));
+    let old = inst.instance.operands.remove(index);
+    self.ctx.remove_user_redundancy(old);
+    self.ctx.dispose(old);
   }
 
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
@@ -80,11 +73,11 @@ impl <'ctx> InstMutator <'ctx> {
   }
 
   pub fn add_operand(&mut self, operand: ValueRef) {
+    let edge = self.ctx.edge(operand, self.value());
     let inst_value = Instruction::from_skey(self.skey);
     let inst = inst_value.as_mut::<Instruction>(self.ctx).unwrap();
-    let idx = inst.instance.operands.len();
-    inst.add_operand(operand.clone());
-    self.ctx.add_user_redundancy(&inst_value, vec![(operand, idx)]);
+    inst.instance.operands.push(edge);
+    self.ctx.add_user_redundancy(vec![edge]);
   }
 
   pub fn value(&self) -> ValueRef {
@@ -100,12 +93,12 @@ impl <'ctx> InstMutator <'ctx> {
       let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
       let mut user_iter = inst.user_iter();
       assert!(user_iter.next().is_none());
-      let operands = inst.operand_iter().map(|x| x.clone()).collect::<Vec<_>>();
+      let operands = inst.instance().unwrap().operands.clone();
       let block = inst.get_parent().as_super();
       (operands, block)
     };
     for operand in operands {
-      self.ctx.remove_user_redundancy(operand, self.value(), None);
+      self.ctx.remove_user_redundancy(operand);
     }
     // Maintain the block redundancy.
     let block = block.as_mut::<Block>(&mut self.ctx).unwrap();
@@ -301,7 +294,8 @@ impl CmpPred {
 }
 
 impl InstructionImpl {
-  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
+
+  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<usize>) -> Self {
     InstructionImpl {
       ty,
       opcode,
@@ -313,48 +307,29 @@ impl InstructionImpl {
     }
   }
 
+  fn user_iter<'ctx>(&'ctx self, ctx: &'ctx Context) -> impl Iterator<Item=InstructionRef<'ctx>>{
+    self.users.iter().map(|x| {
+      ctx.get_value_ref::<Edge>(*x).unwrap().user().as_ref::<Instruction>(ctx).unwrap()
+    })
+  }
+
 }
 
 impl Instruction {
 
-  pub(crate) fn add_user(&mut self, user: &ValueRef, idx: usize) {
-    self.instance.users.push((user.clone(), idx));
-  }
-
-  pub(crate) fn remove_user(&mut self, user: &ValueRef, idx: Option<usize>) {
-    if let Some(idx) = idx {
-      let tuple = (user.clone(), idx);
-      self.instance.users.retain(|x| *x != tuple);
-    } else {
-      self.instance.users.retain(|x| x.0 != *user);
-    }
-  }
-
   pub fn set_opcode(&mut self, opcode: InstOpcode) {
     self.instance.opcode = opcode;
-  }
-
-  pub(super) fn set_operand(&mut self, idx: usize, new_value: ValueRef) -> ValueRef {
-    if idx >= self.instance.operands.len() {
-      panic!("Index out of bound.");
-    }
-    let old = self.instance.operands[idx].clone();
-    self.instance.operands[idx] = new_value;
-    old
   }
 
   pub fn set_comment(&mut self, comment: String) {
     self.instance.comment = comment;
   }
 
-  fn add_operand(&mut self, new_value: ValueRef) {
-    self.instance.operands.push(new_value);
-  }
 }
 
 impl Instruction {
 
-  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<ValueRef>) -> Self {
+  pub fn new(ty: TypeRef, opcode: InstOpcode, name_prefix: String, operands: Vec<usize>) -> Self {
     let instance = InstructionImpl::new(ty, opcode, name_prefix, operands);
     Instruction::from(instance)
   }
@@ -384,12 +359,10 @@ impl <'ctx>InstructionRef<'ctx> {
     self.instance().unwrap().operands.len()
   }
 
-  pub fn get_operand(&self, idx: usize) -> Option<&ValueRef> {
-    if idx < self.instance().unwrap().operands.len() {
-      Some(&self.instance().unwrap().operands[idx])
-    } else {
-      None
-    }
+  pub fn get_operand(&self, idx: usize) -> Option<ValueRef> {
+    self.instance().unwrap().operands.get(idx).map(|x| {
+      self.ctx().get_value_ref::<Edge>(*x).unwrap().def().clone()
+    })
   }
 
   pub fn get_parent(&self) -> BlockRef<'ctx> {
@@ -428,8 +401,7 @@ impl <'ctx>InstructionRef<'ctx> {
       if self.instance().unwrap().comment.len() != 0 {
         res = format!("; {}\n  {}", self.instance().unwrap().comment, res)
       }
-      for (user, _) in self.instance().unwrap().users.iter() {
-        let user = user.as_ref::<Instruction>(self.ctx).unwrap();
+      for user in self.instance().unwrap().user_iter(self.ctx) {
         res = format!("; user: {}\n  {}", user.to_string(false), res);
       }
     }
@@ -437,11 +409,13 @@ impl <'ctx>InstructionRef<'ctx> {
   }
 
   pub fn operand_iter(&'ctx self) -> impl Iterator<Item=&'ctx ValueRef> {
-    self.instance().unwrap().operands.iter()
+    self.instance().unwrap().operands.iter().map(|x| {
+      self.ctx().get_value_ref::<Edge>(*x).unwrap().def()
+    })
   }
 
   pub fn user_iter(&self) -> impl Iterator<Item=InstructionRef<'ctx>> {
-    self.instance().unwrap().users.iter().map(|(u, _)| u.as_ref::<Instruction>(self.ctx).unwrap())
+    self.instance().unwrap().user_iter(self.ctx)
   }
 
   pub fn as_sub<T: SubInst<'ctx, T>>(&'ctx self) -> Option<T> {

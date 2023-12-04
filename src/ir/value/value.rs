@@ -1,5 +1,5 @@
 use crate::context::{Context, Reference, IsSlabEntry};
-use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
+use crate::context::component::{ComponentToRef, ComponentToMut, WithSlabKey, WithSuperType};
 use crate::ir::ConstExpr;
 use crate::ir::types::{TypeRef, TKindCode};
 use crate::ir::module::{Module, namify};
@@ -10,7 +10,7 @@ use super::function::{Function, Argument};
 use super::instruction::Instruction;
 use super::consts::{ConstScalar, ConstArray, InlineAsm};
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct ValueRef {
   pub skey: usize,
   pub kind: VKindCode
@@ -19,7 +19,7 @@ pub struct ValueRef {
 impl<'ctx> ValueRef {
 
   pub fn as_ref<T>(&self, context: &'ctx Context) -> Option<Reference<'ctx, T::Impl>> 
-    where T: WithKindCode<VKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
+    where T: WithSuperType<VKindCode> + ComponentToRef<T> + WithSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
       match context.get_value_ref::<T>(self.skey) {
         Some(instance) => Some(Reference::new(context, instance.to_slab_entry())),
@@ -31,7 +31,7 @@ impl<'ctx> ValueRef {
   }
 
   pub fn as_mut<T>(&self, context: &'ctx mut Context) -> Option<&'ctx mut T> 
-    where T: WithKindCode<VKindCode> + ComponentToMut<T> + GetSlabKey {
+    where T: WithSuperType<VKindCode> + ComponentToMut<T> + WithSlabKey {
     if self.kind == T::kind_code() {
       Some(context.get_value_mut::<T>(self.skey))
     } else {
@@ -127,9 +127,7 @@ impl<'ctx> ValueRef {
       },
       VKindCode::ConstExpr => {
         let const_expr = self.as_ref::<ConstExpr>(ctx).unwrap();
-        let inst = &const_expr.instance().unwrap().inst;
-        let inst = Reference::new(ctx, inst);
-        inst.get_type().clone()
+        const_expr.instance().unwrap().ty.clone()
       },
       VKindCode::ConstObject => {
         let const_object = self.as_ref::<ConstObject>(ctx).unwrap();
@@ -170,7 +168,7 @@ impl<'ctx> ValueRef {
   }
 }
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum VKindCode {
   Argument,
   Instruction,

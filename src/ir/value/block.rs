@@ -1,4 +1,7 @@
-use crate::{context::{SlabEntry, Reference, Context}, ir::value::instruction::InstructionRef};
+use crate::{
+  context::{SlabEntry, Reference, Context, WithSuperType},
+  ir::{value::instruction::InstructionRef, ddg::Edge}
+};
 
 use super::{
   ValueRef, instruction::{Instruction, InstOpcode, BranchInst},
@@ -13,7 +16,7 @@ pub struct BlockImpl {
   /// The slab key of the parent function.
   pub(crate) parent: usize,
   /// The slab keys of the branch instructions target this block.
-  pub(crate) users: Vec<(ValueRef, usize)>,
+  pub(crate) users: Vec<usize>,
 }
 
 pub type Block = SlabEntry<BlockImpl>;
@@ -36,19 +39,6 @@ impl Block {
 
   pub fn new(name_prefix: String, parent: &ValueRef) -> Self {
     Block::from(BlockImpl::new(name_prefix, parent.skey))
-  }
-
-  pub fn add_user(&mut self, inst: &ValueRef, idx: usize) {
-    self.instance.users.push((inst.clone(), idx));
-  }
-
-  pub fn remove_user(&mut self, inst: &ValueRef, idx: Option<usize>) {
-    if let Some(idx) = idx {
-      let tuple = (inst.clone(), idx);
-      self.instance.users.retain(|u| *u != tuple);
-    } else {
-      self.instance.users.retain(|u| u.0 != *inst);
-    }
   }
 
 }
@@ -164,20 +154,27 @@ impl <'ctx> BlockRef<'ctx> {
 
   /// Iterate over each branch instruction destinated to this block.
   pub fn user_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
-    self.instance().unwrap().users.iter().map(|(user, _)| {
-      user.as_ref::<Instruction>(self.ctx).unwrap()
+    self.instance().unwrap().users.iter().map(|edge| {
+      self.ctx
+        .get_value_ref::<Edge>(*edge)
+        .unwrap()
+        .user()
+        .as_ref::<Instruction>(self.ctx)
+        .unwrap()
     })
   }
 
   /// Filter out non-branch instructions.
   pub fn pred_iter(&'ctx self) -> impl Iterator<Item = InstructionRef<'ctx>> {
     self
-      .instance()
-      .unwrap()
-      .users
-      .iter()
-      .map(|(user, _)| { user.as_ref::<Instruction>(self.ctx).unwrap() })
-      .filter(|inst| { if let InstOpcode::Branch(_) = inst.get_opcode() { true } else { false } })
+      .user_iter()
+      .filter_map(|inst| {
+        if let InstOpcode::Branch(_) = inst.get_opcode() {
+          Some(inst)
+        } else {
+          None
+        }
+      })
   }
 
 }

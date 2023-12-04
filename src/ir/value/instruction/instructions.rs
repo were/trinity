@@ -251,8 +251,8 @@ pub struct Load<'inst> {
 
 impl <'inst> Load <'inst> {
 
-  pub fn get_ptr(&self) -> &ValueRef {
-    &self.inst.get_operand(0).unwrap()
+  pub fn get_ptr(&self) -> ValueRef {
+    self.inst.get_operand(0).unwrap()
   }
 
   pub fn get_align(&self) -> usize {
@@ -273,12 +273,12 @@ pub struct Store<'inst> {
 
 impl <'inst> Store <'inst> {
 
-  pub fn get_value(&self) -> &ValueRef {
-    &self.inst.get_operand(0).unwrap()
+  pub fn get_value(&self) -> ValueRef {
+    self.inst.get_operand(0).unwrap()
   }
 
-  pub fn get_ptr(&self) -> &ValueRef {
-    &self.inst.get_operand(1).unwrap()
+  pub fn get_ptr(&self) -> ValueRef {
+    self.inst.get_operand(1).unwrap()
   }
 
   pub fn get_align(&self) -> usize {
@@ -317,8 +317,8 @@ impl <'inst> Call<'inst> {
     self.inst.get_num_operands() - 1
   }
 
-  pub fn get_arg(&self, idx: usize) -> &ValueRef {
-    &self.inst.get_operand(idx).unwrap()
+  pub fn get_arg(&self, idx: usize) -> ValueRef {
+    self.inst.get_operand(idx).unwrap()
   }
 
   pub fn arg_iter(&self) -> impl Iterator<Item=&ValueRef> {
@@ -334,9 +334,9 @@ pub struct Return <'inst> {
 
 impl <'inst> Return <'inst> {
 
-  pub fn get_ret_val(&self) -> Option<&ValueRef> {
+  pub fn get_ret_val(&self) -> Option<ValueRef> {
     if let Some(ret) = self.inst.get_operand(0) {
-      Some(&ret)
+      Some(ret)
     } else {
       None
     }
@@ -363,11 +363,11 @@ impl<'inst> BinaryInst <'inst> {
     return self.get_op() == op;
   }
 
-  pub fn lhs(&self) -> &ValueRef {
+  pub fn lhs(&self) -> ValueRef {
     self.inst.get_operand(0).unwrap()
   }
 
-  pub fn rhs(&self) -> &ValueRef {
+  pub fn rhs(&self) -> ValueRef {
     self.inst.get_operand(1).unwrap()
   }
 
@@ -411,7 +411,7 @@ impl <'inst> BranchInst <'inst> {
     self.inst.get_num_operands() == 3
   }
 
-  pub fn cond(&self) -> Option<&ValueRef> {
+  pub fn cond(&self) -> Option<ValueRef> {
     if self.is_cond_br() {
       self.inst.get_operand(0)
     } else {
@@ -489,15 +489,17 @@ impl <'inst>PhiNode<'inst> {
 
   /// Odds are blocks.
   pub fn get_incoming_block(&'inst self, index: usize) -> Option<BlockRef<'inst>> {
-    self.inst.get_operand(index * 2 + 1).map(|x| x.as_ref::<Block>(self.inst.ctx).unwrap())
+    self.inst.get_operand(index * 2 + 1).map(|x| {
+      x.as_ref::<Block>(self.inst.ctx).unwrap()
+    })
   }
 
   /// Evens are values.
-  pub fn get_incoming_value(&self, index: usize) -> Option<&ValueRef> {
+  pub fn get_incoming_value(&self, index: usize) -> Option<ValueRef> {
     self.inst.get_operand(index * 2 + 0)
   }
 
-  pub fn iter(&'inst self) -> impl Iterator<Item = (BlockRef<'inst>, &ValueRef)> {
+  pub fn iter(&'inst self) -> impl Iterator<Item = (BlockRef<'inst>, ValueRef)> {
     (0..self.get_num_incomings()).map(|i|
       (self.get_incoming_block(i).unwrap(), self.get_incoming_value(i).unwrap())
     )
@@ -511,15 +513,15 @@ pub struct SelectInst<'inst> {
 
 impl <'inst>SelectInst<'inst> {
 
-  pub fn get_condition(&self) -> &ValueRef {
+  pub fn get_condition(&self) -> ValueRef {
     self.inst.get_operand(0).unwrap()
   }
 
-  pub fn get_true_value(&self) -> &ValueRef {
+  pub fn get_true_value(&self) -> ValueRef {
     self.inst.get_operand(1).unwrap()
   }
 
-  pub fn get_false_value(&self) -> &ValueRef {
+  pub fn get_false_value(&self) -> ValueRef {
     self.inst.get_operand(2).unwrap()
   }
 

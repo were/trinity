@@ -5,10 +5,11 @@ use super::Instruction;
 use super::block::BlockRef;
 use super::instruction::{InstMutator, InstructionRef};
 use super::{ValueRef, VKindCode, block::Block};
+use crate::ir::ddg::Edge;
 use crate::ir::types::functype::FunctionTypeRef;
 use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
-use crate::context::{SlabEntry, Reference, Context};
+use crate::context::{SlabEntry, Reference, Context, WithSuperType};
 
 pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
@@ -38,23 +39,19 @@ impl Function {
   pub fn basic_blocks_mut(&mut self) -> &mut Vec<usize> {
     &mut self.instance.blocks
   }
-
-  pub(crate) fn add_user(&mut self, caller: &ValueRef, _: usize) {
-    self.instance.callers.insert(caller.skey);
-  }
-
-  pub(crate) fn remove_user(&mut self, caller: &ValueRef, _: Option<usize>) {
-    self.instance.callers.remove(&caller.skey);
-  }
-
 }
 
 impl <'ctx>FunctionRef<'ctx> {
 
   /// The iterator traverses all the function callers.
   pub fn user_iter(&self) -> impl Iterator<Item=InstructionRef<'ctx>> {
-    let f = |u:&usize| {
-      Instruction::from_skey(*u).as_ref::<Instruction>(self.ctx).unwrap()
+    let f = |u: &usize| {
+      self.ctx
+        .get_value_ref::<Edge>(*u)
+        .unwrap()
+        .user()
+        .as_ref::<Instruction>(self.ctx)
+        .unwrap()
     };
     self.instance().unwrap().callers.iter().map(f)
   }
@@ -119,8 +116,8 @@ impl <'ctx>FunctionRef<'ctx> {
     let instance = self.instance().unwrap();
     let ctx = self.ctx;
     let mut res = String::new();
-    for elem in instance.callers.iter() {
-      let caller = Instruction::from_skey(*elem);
+    for elem in self.user_iter() {
+      let caller = elem.as_super();
       res.push_str(format!("; caller: {}\n", caller.to_string(ctx, true)).as_str());
     }
     let fty = instance.fty.as_ref::<FunctionType>(ctx).unwrap();
@@ -129,7 +126,8 @@ impl <'ctx>FunctionRef<'ctx> {
     } else {
       "define dso_local"
     };
-    res.push_str(format!("{} {} @{}(", prefix, fty.ret_ty().to_string(&ctx), namify(&self.get_name())).as_str());
+    let rty = fty.ret_ty().to_string(&ctx);
+    res.push_str(format!("{} {} @{}(", prefix, rty, namify(&self.get_name())).as_str());
     for i in 0..self.get_num_args() {
       if i != 0 {
         res.push_str(", ");

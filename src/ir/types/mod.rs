@@ -7,7 +7,7 @@ pub use arraytype::{PointerType, ArrayType, PointerImpl, ArrayTypeImpl};
 pub use functype::{FunctionType, FuncTypeImpl};
 
 use crate::context::{Context, SlabEntry, Reference, IsSlabEntry};
-use crate::context::component::{ComponentToRef, ComponentToMut, WithKindCode, GetSlabKey};
+use crate::context::component::{ComponentToRef, ComponentToMut, WithSuperType, WithSlabKey};
 use crate::ir::value::consts::ConstArray;
 
 use super::module::Module;
@@ -180,7 +180,7 @@ impl<'ctx> TypeRef {
   }
 
   pub fn as_ref<T>(&self, ctx: &'ctx Context) -> Option<Reference<'ctx, T::Impl>>
-    where T: WithKindCode<TKindCode> + ComponentToRef<T> + GetSlabKey + IsSlabEntry + 'ctx {
+    where T: WithSuperType<TKindCode> + ComponentToRef<T> + WithSlabKey + IsSlabEntry + 'ctx {
     if self.kind == T::kind_code() {
       let instance_ref = ctx.get_value_ref::<T>(self.skey);
       match instance_ref {
@@ -193,7 +193,7 @@ impl<'ctx> TypeRef {
   }
 
   pub fn as_mut<T>(&'ctx self, ctx: &'ctx mut Context) -> Option<&'ctx mut T>
-    where T: WithKindCode<TKindCode> + ComponentToMut<T> + GetSlabKey {
+    where T: WithSuperType<TKindCode> + ComponentToMut<T> + WithSlabKey {
     if self.kind == T::kind_code() {
       Some(ctx.get_value_mut::<T>(self.skey))
     } else {
