@@ -129,8 +129,12 @@ impl fmt::Display for Module {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "; ModuleID = '{}'\n", self.mod_name).unwrap();
     write!(f, "source_filename = \"{}\"\n", self.src_name).unwrap();
-    write!(f, "target triple = \"{}\"\n", self.tm.target_triple.to_string()).unwrap();
-    write!(f, "target datalayout = \"{}\"\n", self.tm.data_layout.to_string()).unwrap();
+    if let Some(tt) = self.tm.target_triple.to_string() {
+      write!(f, "target triple = \"{}\"\n", tt).unwrap();
+    }
+    if let Some(dl) = self.tm.data_layout.to_string() {
+      write!(f, "target datalayout = \"{}\"\n", dl).unwrap();
+    }
     write!(f, "\n").unwrap();
     for elem in self.struct_iter() {
       write!(f, "{}\n", elem.to_string()).unwrap();

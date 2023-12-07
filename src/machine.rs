@@ -48,14 +48,21 @@ impl TargetTriple {
   }
 
   /// Dump it to text.
-  pub fn to_string(&self) -> String {
-    format!("{}-{}-{}", self.isa, self.vendor, self.os)
+  pub fn to_string(&self) -> Option<String> {
+    let res = format!("{}-{}-{}", self.isa, self.vendor, self.os);
+    if res.len() == 2 {
+      None
+    } else {
+      Some(res)
+    }
   }
 
 }
 
 /// The data layout of the target machine.
 pub struct DataLayout {
+  /// The raw stirng of data layout
+  raw: String,
   /// The endian of the machine
   big_endian: bool,
   /// The pointer alignment
@@ -70,6 +77,7 @@ impl DataLayout {
 
   pub fn new(layout: String) -> Self {
     let mut res = DataLayout {
+      raw: layout.clone(),
       big_endian: false,
       pointer_alignment: HashMap::new(),
       mangling: 'e',
@@ -126,7 +134,11 @@ impl DataLayout {
   }
 
   /// Dump it to string.
-  pub fn to_string(&self) -> String {
+  pub fn to_string(&self) -> Option<String> {
+    if self.raw.is_empty() {
+      return None;
+    }
+
     let endian = if self.big_endian { 'E' } else { 'e' };
 
     let mut res = format!("{}-m:{}-S{}", endian, self.mangling, self.stack_alignment);
@@ -138,7 +150,7 @@ impl DataLayout {
       res = format!("{}-{}", res, pointers)
     }
 
-    res
+    Some(res)
   }
 
 }
