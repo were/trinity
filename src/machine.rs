@@ -70,7 +70,11 @@ pub struct DataLayout {
   /// LLVM naming mangling
   mangling: char,
   /// The value alignment in bits on the stack
-  stack_alignment: usize
+  stack_alignment: usize,
+  /// Native int sizes.
+  native_int_sizes: Vec<usize>,
+  /// Int size in bits.
+  int_sizes: HashMap<usize, usize>
 }
 
 impl DataLayout {
@@ -81,7 +85,9 @@ impl DataLayout {
       big_endian: false,
       pointer_alignment: HashMap::new(),
       mangling: 'e',
-      stack_alignment: 64
+      stack_alignment: 64,
+      native_int_sizes: Vec::new(),
+      int_sizes: HashMap::new()
     };
     for elem in layout.split(r"-") {
       // TODO(@were): Support i, v, f, a, F, n, ni
@@ -125,6 +131,19 @@ impl DataLayout {
           };
           res.pointer_alignment.insert(n, (psize, pabi, ppref, pidx));
         }
+        'n' => {
+          // n[bits:...]
+          res.native_int_sizes = elem[1..].split(":").into_iter().map(|x| {
+            x.parse::<usize>().unwrap()
+          }).collect::<Vec<_>>();
+        }
+        'i' => {
+          // i[ty]:[size]
+          let raw = elem[1..].split(":").into_iter().collect::<Vec<_>>();
+          let ty = raw[0].parse::<usize>().unwrap();
+          let size = raw[1].parse::<usize>().unwrap();
+          res.int_sizes.insert(ty, size);
+        }
         _ => {
           panic!("{} is not valid", elem)
         }
@@ -139,16 +158,34 @@ impl DataLayout {
       return None;
     }
 
+    // return Some(self.raw.clone());
+
     let endian = if self.big_endian { 'E' } else { 'e' };
 
-    let mut res = format!("{}-m:{}-S{}", endian, self.mangling, self.stack_alignment);
+    let mut raw = vec![format!("{}-m:{}-S{}", endian, self.mangling, self.stack_alignment)];
 
-    if self.pointer_alignment.len() != 0 {
-      let pointers = self.pointer_alignment.iter().map(|x| {
-        format!("p{}:{}:{}:{}:{}", x.0, x.1.0, x.1.1, x.1.2, x.1.3)
-      }).collect::<Vec<_>>().join("-");
-      res = format!("{}-{}", res, pointers)
+    let pointers = self.pointer_alignment.iter().map(|x| {
+      format!("p{}:{}:{}:{}:{}", x.0, x.1.0, x.1.1, x.1.2, x.1.3)
+    }).collect::<Vec<_>>().join("-");
+    if !pointers.is_empty() {
+      raw.push(pointers);
     }
+    let ints = self.int_sizes.iter().map(|x| {
+      format!("i{}:{}", x.0, x.1)
+    }).collect::<Vec<_>>().join("-");
+    if !ints.is_empty() {
+      raw.push(ints);
+    }
+    let natives = {
+      let list =
+        self.native_int_sizes.iter().map(|x| { x.to_string() }).collect::<Vec<_>>().join(":");
+      format!("n{}", list)
+    };
+    if !natives.is_empty() {
+      raw.push(natives);
+    }
+
+    let res = raw.join("-");
 
     Some(res)
   }

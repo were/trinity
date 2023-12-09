@@ -1,4 +1,4 @@
-use crate::{context::{SlabEntry, Reference}, ir::TKindCode};
+use crate::context::{SlabEntry, Reference};
 
 use super::TypeRef;
 
@@ -25,10 +25,7 @@ impl <'ctx>PointerTypeRef<'ctx> {
     if let Some(skey) = self.is_invalid() {
       return format!("<invalid pointer type: {}>", skey);
     }
-    if self.get_pointee_ty().kind == TKindCode::VoidType {
-      return "ptr".to_string();
-    }
-    format!("{}*", self.get_pointee_ty().to_string(self.ctx))
+    return String::from("ptr");
   }
 
   pub fn get_pointee_ty(&self) -> TypeRef {

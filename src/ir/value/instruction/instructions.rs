@@ -52,9 +52,9 @@ impl_sub_inst!(InstOpcode::Load(_), Load,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
-    format!("%{} = load {}, {}, align {}",
+    format!("%{} = load {}, ptr {}, align {}",
       self.inst.get_name(), self.inst.get_type().to_string(ctx),
-      self.get_ptr().to_string(ctx, true), self.get_align())
+      self.get_ptr().to_string(ctx, false), self.get_align())
   }
 
 );
@@ -64,8 +64,8 @@ impl_sub_inst!(InstOpcode::Store(_), Store,
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
     let value = self.get_value().to_string(ctx, true);
-    let ptr = self.get_ptr().to_string(ctx, true);
-    format!("store {}, {}, align {}", value, ptr, self.get_align())
+    let ptr = self.get_ptr().to_string(ctx, false);
+    format!("store {}, ptr {}, align {}", value, ptr, self.get_align())
   }
 
 );
