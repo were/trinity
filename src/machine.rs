@@ -181,7 +181,7 @@ impl DataLayout {
         self.native_int_sizes.iter().map(|x| { x.to_string() }).collect::<Vec<_>>().join(":");
       format!("n{}", list)
     };
-    if !natives.is_empty() {
+    if !self.native_int_sizes.is_empty() {
       raw.push(natives);
     }
 
