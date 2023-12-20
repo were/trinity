@@ -272,45 +272,11 @@ impl<'ctx> Builder {
     res
   }
 
-  /// Return the pointer to the struct field.
-  pub fn get_struct_field(
-    &mut self,
-    value: ValueRef,
-    idx: usize,
-    name: &str) -> Result<ValueRef, String> {
-    let ty = value.get_type(&self.module.context);
-    let (attr_ty, name) = if let Some(ty) = ty.as_ref::<PointerType>(&self.module.context) {
-      if let Some(sty) = ty.get_pointee_ty().as_ref::<StructType>(&self.module.context) {
-        let res_ty = sty.get_attr(idx);
-        if name.is_empty() {
-          (res_ty, format!("{}.{}", sty.get_name(), idx))
-        } else {
-          (res_ty, name.to_string())
-        }
-      } else {
-        return Err(format!("Expect a pointer to struct, but got {}", ty.to_string()));
-      }
-    } else {
-      let ty_str = ty.to_string(&self.module.context);
-      return Err(format!("Only pointer type supported for now, but got {}", ty_str));
-    };
-    let i32ty = self.context().int_type(32);
-    let zero = self.context().const_value(i32ty.clone(), 0);
-    let idx = self.context().const_value(i32ty, idx as u64);
-    let ptr_ty = self.context().pointer_type(attr_ty);
-    return Ok(self.create_gep(ptr_ty, value, vec![zero, idx], true, name));
-  }
-
-  /// Return the pointer to a[i]
-  pub fn index_array(&mut self, a: ValueRef, i: ValueRef) -> Result<ValueRef, String> {
-    let ty = a.get_type(&self.module.context);
-    return Ok(self.create_gep(ty, a, vec![i], true, "a.i".to_string()));
-  }
-
   /// This interface is not recommended to use, because its excessive parameters are error-prone.
   /// Please use `get_struct_field`, and `index_array` above instead.
   pub fn create_gep(
-    &mut self, ty: TypeRef,
+    &mut self,
+    ty: TypeRef,
     ptr: ValueRef,
     indices: Vec<ValueRef>,
     inbounds: bool,
@@ -320,17 +286,20 @@ impl<'ctx> Builder {
     } else {
       name
     };
+    let vty = self.context().void_type();
+    let ptr_ty = self.context().pointer_type(vty);
     let mut operands = vec![ptr];
     operands.extend(indices);
     // All constants
     if operands[0].is_const() && operands.iter().fold(true, |acc, val| acc && val.is_const()) {
-      let res = ConstExpr::new(ty, instruction::InstOpcode::GetElementPtr(inbounds), operands);
+      let opcode = instruction::InstOpcode::GetElementPtr((ty, inbounds));
+      let res = ConstExpr::new(ptr_ty, opcode, operands);
       let expr = self.context().add_instance::<ConstExpr, _>(res);
       return expr
     } else {
       let inst = self.create_instruction(
-        ty,
-        instruction::InstOpcode::GetElementPtr(inbounds),
+        ptr_ty,
+        instruction::InstOpcode::GetElementPtr((ty, inbounds)),
         operands,
         name,
       );
@@ -338,29 +307,11 @@ impl<'ctx> Builder {
     }
   }
 
-  pub fn create_inbounds_gep(
-    &mut self,
-    ptr: ValueRef,
-    indices: Vec<ValueRef>, name: String) -> ValueRef {
-    let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
-    let res_ty = pty.get_pointee_ty();
-    self.create_gep(res_ty, ptr, indices, true, name)
-  }
-
   // TODO(@were): Add alignment
   pub fn create_store(&mut self, value: ValueRef, ptr: ValueRef) -> Result<ValueRef, String> {
     let ptr_ty = ptr.get_type(&self.module.context);
-    if let Some(ptr_ty) = ptr_ty.as_ref::<PointerType>(&self.module.context) {
-      let pointee_ty = ptr_ty.get_pointee_ty();
-      let value_ty = value.get_type(&self.context());
-      if pointee_ty != value_ty {
-        return Err(format!("PointerType: {} ({}) mismatches ValueType: {} ({})",
-          pointee_ty.to_string(&self.module.context),
-          pointee_ty.skey,
-          value_ty.to_string(&self.module.context),
-          value_ty.skey))
-      }
+    if let Some(_) = ptr_ty.as_ref::<PointerType>(&self.module.context) {
+      // For now, we disable store's semantic enforcement.
       let vty = self.context().void_type();
       let inst = self.create_instruction(
         vty,
@@ -454,10 +405,7 @@ impl<'ctx> Builder {
     return self.create_binary_op(BinaryOp::SRem, lhs, rhs, "srem".to_string())
   }
 
-  pub fn create_load(&mut self, ptr: ValueRef) -> ValueRef {
-    let ty = ptr.get_type(self.context());
-    let pty = ty.as_ref::<PointerType>(&self.module.context).unwrap();
-    let res_ty = pty.get_pointee_ty();
+  pub fn create_load(&mut self, res_ty: TypeRef, ptr: ValueRef) -> ValueRef {
     self.create_typed_load(res_ty, ptr)
   }
 

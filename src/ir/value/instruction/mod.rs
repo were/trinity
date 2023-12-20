@@ -154,8 +154,8 @@ pub enum InstOpcode {
   Store(usize),
   /// Return instruction.
   Return,
-  /// GetElementPtr instruction (inbound).
-  GetElementPtr(bool),
+  /// GetElementPtr instruction (pointee type, inbound).
+  GetElementPtr((TypeRef, bool)),
   /// Call a callable value.
   Call,
   /// Binary operation.

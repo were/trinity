@@ -15,7 +15,7 @@ use super::value::ValueRef;
 
 // Register all the types here.
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub enum TKindCode {
   IntType,
   VoidType,
@@ -137,7 +137,7 @@ impl <'ctx>StructTypeRef<'ctx> {
 
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct TypeRef {
   pub(crate) skey: usize,
   pub(crate) kind: TKindCode

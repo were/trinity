@@ -74,24 +74,15 @@ impl_sub_inst!(InstOpcode::GetElementPtr(_), GetElementPtr,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
-    let inbounds = if let InstOpcode::GetElementPtr(inbounds) = self.inst.get_opcode() {
-      if *inbounds { "inbounds" } else { "" }
-    } else {
-      ""
-    };
     // TODO(@were): What if this is not a pointer?
-    let ptr_ty = self.inst.get_operand(0).unwrap().get_type(ctx);
-    let ty_str = if let Some(ptr_ty) = ptr_ty.as_ref::<PointerType>(ctx) {
-      ptr_ty.get_pointee_ty().to_string(ctx)
-    } else {
-      format!("{} [error!]", ptr_ty.to_string(ctx))
-    };
-
+    let ty_str = self.get_pointee_ty().to_string(ctx);
     let operands = (0..self.inst.get_num_operands()).map(|i| {
       format!("{}", &self.inst.get_operand(i).unwrap().to_string(ctx, true))
     }).collect::<Vec<_>>().join(", ");
+    let inbounds = if self.inbounds() { "inbounds" } else { "" };
     format!("%{} = getelementptr {} {}, {}", self.inst.get_name(), inbounds, ty_str, operands)
   }
+
 );
 
 impl_sub_inst!(InstOpcode::Call, Call,
@@ -297,6 +288,22 @@ pub struct GetElementPtr<'inst> {
 }
 
 impl <'inst>GetElementPtr<'inst> {
+
+  fn get_pointee_ty(&self) -> TypeRef {
+    if let InstOpcode::GetElementPtr((pointee, _)) = self.inst.get_opcode() {
+      return pointee.clone();
+    } else {
+      panic!("Not a GEP opcode!")
+    }
+  }
+
+  fn inbounds(&self) -> bool {
+    if let InstOpcode::GetElementPtr((_, inbounds)) = self.inst.get_opcode() {
+      return *inbounds;
+    } else {
+      panic!("Not a GEP opcode!")
+    }
+  }
 
 }
 

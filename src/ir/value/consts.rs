@@ -150,9 +150,7 @@ pub type ConstExprRef<'ctx> = Reference<'ctx, ConstExprImpl>;
 impl ConstExpr {
 
   pub fn new(ty: TypeRef, opcode: InstOpcode, operands: Vec<ValueRef>) -> Self {
-    Self::from(ConstExprImpl {
-      ty, opcode, operands
-    })
+    Self::from(ConstExprImpl { ty, opcode, operands })
   }
 
 }
@@ -179,13 +177,12 @@ impl <'ctx> ConstExprRef<'ctx> {
       .map(|x| x.to_string(ctx, true)).collect::<Vec<String>>().join(", ");
     let opcode = &instance.opcode;
     match opcode {
-      InstOpcode::GetElementPtr(_) => {
-        let ty = &instance.ty;
+      InstOpcode::GetElementPtr((pointee, _)) => {
         let ptr_ty = instance.operands[0].get_type(ctx);
         let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
         let ptr_scalar = ptr_ty.get_pointee_ty();
         format!("{} {} ( {}, {} )",
-                ty.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
+                pointee.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
       }
       _ => {
         panic!("ConstExpr::to_string: not a constant opcode {:?}", opcode.to_string());
