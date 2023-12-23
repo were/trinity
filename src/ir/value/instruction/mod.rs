@@ -147,8 +147,8 @@ impl <'ctx> InstMutator <'ctx> {
 /// these sub-instructions.
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InstOpcode {
-  /// Memory allocation (alignment).
-  Alloca(usize),
+  /// Memory allocation (pointee, alignment).
+  Alloca((TypeRef, usize)),
   /// Load instruction (alignment).
   Load(usize),
   /// Store instruction (alignment).

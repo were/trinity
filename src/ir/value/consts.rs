@@ -1,4 +1,4 @@
-use crate::{context::{SlabEntry, Reference}, ir::types::{PointerType, StructType}};
+use crate::{context::{SlabEntry, Reference}, ir::types::StructType};
 
 use crate::ir::types::TypeRef;
 use super::{ValueRef, instruction::InstOpcode};
@@ -88,7 +88,7 @@ impl <'ctx>ConstScalarRef<'ctx> {
 
 pub struct ConstArrayImpl {
   pub(crate) name_prefix: String,
-  pub(crate) ty: TypeRef,
+  pub(crate) scalar_ty: TypeRef,
   pub(crate) value: Vec<ValueRef>
 }
 
@@ -97,10 +97,10 @@ pub type ConstArrayRef<'ctx> = Reference<'ctx, ConstArrayImpl>;
 
 impl ConstArray {
 
-  pub fn new(name_prefix: String, ty: TypeRef, value: Vec<ValueRef>) -> Self {
+  pub fn new(name_prefix: String, scalar_ty: TypeRef, value: Vec<ValueRef>) -> Self {
     Self::from(ConstArrayImpl {
       name_prefix,
-      ty,
+      scalar_ty,
       value
     })
   }
@@ -116,8 +116,8 @@ impl <'ctx> ConstArrayRef<'ctx> {
     format!("{}.{}", self.instance().unwrap().name_prefix, self.get_skey())
   }
 
-  pub fn get_type(&self) -> &TypeRef {
-    &self.instance().unwrap().ty
+  pub fn get_scalar_type(&self) -> &TypeRef {
+    &self.instance().unwrap().scalar_ty
   }
 
   pub fn get_value(&self) -> &Vec<ValueRef> {
@@ -131,9 +131,8 @@ impl <'ctx> ConstArrayRef<'ctx> {
     let ctx = self.ctx;
     let raw = self.get_value().iter().map(|x| x.to_string(ctx, true)).collect::<Vec<String>>();
     let literal = raw.join(", ");
-    let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
     format!("@{} = private unnamed_addr constant {} [{}], align 1",
-            self.get_name(), pty.get_pointee_ty().to_string(ctx), literal)
+            self.get_name(), self.get_scalar_type().to_string(ctx), literal)
   }
 
 }
@@ -178,11 +177,8 @@ impl <'ctx> ConstExprRef<'ctx> {
     let opcode = &instance.opcode;
     match opcode {
       InstOpcode::GetElementPtr((pointee, _)) => {
-        let ptr_ty = instance.operands[0].get_type(ctx);
-        let ptr_ty = ptr_ty.as_ref::<PointerType>(ctx).unwrap();
-        let ptr_scalar = ptr_ty.get_pointee_ty();
-        format!("{} {} ( {}, {} )",
-                pointee.to_string(ctx), opcode.to_string(), ptr_scalar.to_string(ctx) , operands)
+        format!("{} {} ( ptr {} )",
+                pointee.to_string(ctx), opcode.to_string(), operands)
       }
       _ => {
         panic!("ConstExpr::to_string: not a constant opcode {:?}", opcode.to_string());
@@ -222,7 +218,7 @@ impl <'ctx> ConstObjectRef<'ctx> {
     format!("{}.{}", self.instance().unwrap().name_prefix, self.get_skey())
   }
 
-  pub fn get_type(&self) -> &TypeRef {
+  pub fn get_value_type(&self) -> &TypeRef {
     &self.instance().unwrap().ty
   }
 
@@ -235,7 +231,6 @@ impl <'ctx> ConstObjectRef<'ctx> {
       return self.get_name();
     }
     let ctx = self.ctx;
-    let pty = self.get_type().as_ref::<PointerType>(ctx).unwrap();
     let literal = self
       .instance()
       .unwrap()
@@ -249,7 +244,7 @@ impl <'ctx> ConstObjectRef<'ctx> {
     } else {
       "zeroinitializer".to_string()
     };
-    let ty = pty.get_pointee_ty().to_string(ctx);
+    let ty = self.get_value_type().to_string(ctx);
     format!("@{} = dso_local global {} {}, align 8", self.get_name(), ty, initializer)
   }
 

@@ -40,7 +40,6 @@ impl<'ctx> ValueRef {
   }
 
   fn type_to_string(&self, ctx: &'ctx Context, with_type: bool) -> String {
-    self.get_type(ctx).to_string(ctx);
     if with_type {
       format!("{} ", self.get_type(ctx).to_string(ctx))
     } else {
@@ -122,16 +121,14 @@ impl<'ctx> ValueRef {
         func.instance().unwrap().fty.clone()
       },
       VKindCode::ConstArray => {
-        let const_array = self.as_ref::<ConstArray>(ctx).unwrap();
-        const_array.get_type().clone()
+        ctx.pointer_type()
       },
       VKindCode::ConstExpr => {
         let const_expr = self.as_ref::<ConstExpr>(ctx).unwrap();
         const_expr.instance().unwrap().ty.clone()
       },
       VKindCode::ConstObject => {
-        let const_object = self.as_ref::<ConstObject>(ctx).unwrap();
-        const_object.get_type().clone()
+        ctx.pointer_type()
       },
       VKindCode::InlineAsm => {
         let inline_asm = self.as_ref::<InlineAsm>(ctx).unwrap();

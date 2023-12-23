@@ -1,5 +1,5 @@
 use crate::ir::{
-    PointerType, ValueRef, VoidType, TypeRef, Block, Function,
+    ValueRef, VoidType, TypeRef, Block, Function,
     value::{instruction::{InstOpcode, BranchMetadata}, block::BlockRef, function::FunctionRef},
 };
 
@@ -41,8 +41,7 @@ impl_sub_inst!(InstOpcode::Alloca(_), Alloca,
 
   fn to_string(&self) -> String {
     let ctx = self.inst.ctx;
-    let ptr_ty = self.inst.get_type().as_ref::<PointerType>(ctx).unwrap();
-    let ptr_str = ptr_ty.get_pointee_ty().to_string(ctx);
+    let ptr_str = self.get_pointee_ty().to_string(ctx);
     return format!("%{} = alloca {}, align {}", self.inst.get_name(), ptr_str, self.get_align());
   }
 
@@ -226,10 +225,18 @@ impl_sub_inst!(InstOpcode::Select, SelectInst,
 impl<'inst> Alloca <'inst> {
 
   pub fn get_align(&self) -> usize {
-    if let InstOpcode::Alloca(align) = self.inst.get_opcode() {
+    if let InstOpcode::Alloca((_, align)) = self.inst.get_opcode() {
       *align
     } else {
       panic!("Invalid opcode for Alloca instruction.");
+    }
+  }
+
+  pub fn get_pointee_ty(&self) -> TypeRef {
+    if let InstOpcode::Alloca((pointee, _)) = self.inst.get_opcode() {
+      return pointee.clone();
+    } else {
+      panic!("Not an Alloca opcode!")
     }
   }
 

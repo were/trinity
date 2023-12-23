@@ -248,11 +248,11 @@ impl<'ctx> Builder {
   }
 
   pub fn create_alloca(&mut self, ty: types::TypeRef, name: String) -> ValueRef {
-    let ptr_ty = ty.ptr_type(self.context());
+    let ptr_ty = self.context().pointer_type();
     let inst = instruction::Instruction::new(
       ptr_ty,
       // TODO(@were): Make this alignment better
-      instruction::InstOpcode::Alloca(8),
+      instruction::InstOpcode::Alloca((ty, 8)),
       name,
       Vec::new(),
     );
@@ -286,8 +286,7 @@ impl<'ctx> Builder {
     } else {
       name
     };
-    let vty = self.context().void_type();
-    let ptr_ty = self.context().pointer_type(vty);
+    let ptr_ty = self.context().pointer_type();
     let mut operands = vec![ptr];
     operands.extend(indices);
     // All constants
@@ -422,7 +421,7 @@ impl<'ctx> Builder {
   pub fn create_global_struct(&mut self, ty: TypeRef, init: Vec<ValueRef>) -> ValueRef {
     let gvs = ConstObject::new(
       "globalobj".to_string(),
-      ty.ptr_type(self.context()),
+      ty,
       init);
     let gvs_ref = self.context().add_instance(gvs);
     self.module.global_values.push(gvs_ref.clone());

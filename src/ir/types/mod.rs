@@ -202,7 +202,7 @@ impl<'ctx> TypeRef {
   }
 
   pub fn ptr_type(&self, ctx: &mut Context) -> TypeRef {
-    ctx.pointer_type(self.clone())
+    ctx.pointer_type()
   }
 
   pub fn fn_type(&self, ctx: &mut Context, args: Vec<TypeRef>) -> TypeRef {
@@ -222,6 +222,10 @@ impl<'ctx> TypeRef {
         st.instance().unwrap().attrs.iter()
           .map(|x| x.get_scalar_size_in_bits(module))
           .fold(0, |x, acc| std::cmp::max(x, acc))
+      }
+      TKindCode::ArrayType => {
+        let at = self.as_ref::<ArrayType>(ctx).unwrap();
+        at.get_elem_ty().get_align_in_bits(module)
       }
       _ => {
         self.get_scalar_size_in_bits(module)
@@ -261,10 +265,11 @@ impl<'ctx> TypeRef {
     }
   }
 
-  pub fn const_array(&self, ctx: &mut Context, name_prefix: String, value: Vec<ValueRef>) -> ValueRef {
+  pub fn const_array(&self, ctx: &mut Context, name_prefix: String, value: Vec<ValueRef>)
+    -> ValueRef {
     assert!(self.kind == TKindCode::ArrayType);
     // TODO(@were): Check the types.
-    let const_array = ConstArray::new(name_prefix, self.ptr_type(ctx), value);
+    let const_array = ConstArray::new(name_prefix, self.clone(), value);
     ctx.add_instance(const_array)
   }
 

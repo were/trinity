@@ -4,17 +4,15 @@ use super::TypeRef;
 
 /// Pointer type
 #[derive(Clone)]
-pub struct PointerImpl {
-  pub(super) scalar_ty: TypeRef,
-}
+pub struct PointerImpl { }
 
 pub type PointerType = SlabEntry<PointerImpl>;
 pub type PointerTypeRef<'ctx> = Reference<'ctx, PointerImpl>;
 
 impl PointerType {
 
-  pub(crate) fn new(scalar_ty: TypeRef) -> Self {
-    Self::from(PointerImpl { scalar_ty, })
+  pub(crate) fn new() -> Self {
+    Self::from(PointerImpl { })
   }
 
 }
@@ -26,10 +24,6 @@ impl <'ctx>PointerTypeRef<'ctx> {
       return format!("<invalid pointer type: {}>", skey);
     }
     return String::from("ptr");
-  }
-
-  pub fn get_pointee_ty(&self) -> TypeRef {
-    self.instance().unwrap().scalar_ty.clone()
   }
 
 }
