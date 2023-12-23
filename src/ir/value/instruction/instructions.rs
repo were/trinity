@@ -289,7 +289,7 @@ pub struct GetElementPtr<'inst> {
 
 impl <'inst>GetElementPtr<'inst> {
 
-  fn get_pointee_ty(&self) -> TypeRef {
+  pub fn get_pointee_ty(&self) -> TypeRef {
     if let InstOpcode::GetElementPtr((pointee, _)) = self.inst.get_opcode() {
       return pointee.clone();
     } else {
@@ -297,7 +297,7 @@ impl <'inst>GetElementPtr<'inst> {
     }
   }
 
-  fn inbounds(&self) -> bool {
+  pub fn inbounds(&self) -> bool {
     if let InstOpcode::GetElementPtr((_, inbounds)) = self.inst.get_opcode() {
       return *inbounds;
     } else {
