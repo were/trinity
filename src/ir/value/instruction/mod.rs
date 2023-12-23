@@ -91,6 +91,7 @@ impl <'ctx> InstMutator <'ctx> {
   pub fn erase_from_parent(&mut self) {
     let (operands, block) = {
       let inst = self.value().as_ref::<Instruction>(&self.ctx).unwrap();
+      dbg!(inst.to_string(true));
       let mut user_iter = inst.user_iter();
       assert!(user_iter.next().is_none());
       let operands = inst.instance().unwrap().operands.clone();
@@ -146,16 +147,16 @@ impl <'ctx> InstMutator <'ctx> {
 /// these sub-instructions.
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InstOpcode {
-  /// Memory allocation (alignment).
-  Alloca(usize),
+  /// Memory allocation (pointee, alignment).
+  Alloca((TypeRef, usize)),
   /// Load instruction (alignment).
   Load(usize),
   /// Store instruction (alignment).
   Store(usize),
   /// Return instruction.
   Return,
-  /// GetElementPtr instruction (inbound).
-  GetElementPtr(bool),
+  /// GetElementPtr instruction (pointee type, inbound).
+  GetElementPtr((TypeRef, bool)),
   /// Call a callable value.
   Call,
   /// Binary operation.

@@ -6,23 +6,32 @@ pub use component::*;
 
 mod pod;
 
-use crate::ir::{types::TypeRef, value::ValueRef, ddg::{Edge, EdgeImpl}};
+use crate::ir::{types::TypeRef, value::ValueRef, ddg::{Edge, EdgeImpl}, TKindCode};
 
 pub struct Context {
   /// All the instance of the IR components managed by the slab.
   slab: Slab<Component>,
   /// The cache of Plain Old Data (POD) related objects.
   pod_cache: pod::Cache,
+  /// Redundant data structure for caching pointer type.
+  ptr_ty: TypeRef,
+  /// Redundant data structure for caching void type.
+  vty: TypeRef,
 }
 
 impl<'ctx> Context {
 
   /// Create a new context.
   pub fn new() -> Context {
-    Context {
+    let mut res = Context {
       slab: Slab::new(),
       pod_cache: pod::Cache::new(),
-    }
+      ptr_ty: TypeRef { skey: 0, kind: TKindCode::VoidType },
+      vty: TypeRef { skey: 0, kind: TKindCode::VoidType }
+    };
+    res.ptr_ty = pod::Cache::ptr_type(&mut res);
+    res.vty = pod::Cache::void_type(&mut res);
+    res
   }
 
   pub fn dispose(&mut self, skey: usize) {
@@ -81,8 +90,8 @@ impl<'ctx> Context {
   }
 
   /// Get a pointer type
-  pub fn pointer_type(&mut self, pointee: TypeRef) -> TypeRef {
-    pod::Cache::pointer_type(self, pointee)
+  pub fn pointer_type(&self) -> TypeRef {
+    self.ptr_ty.clone()
   }
 
   /// Get an array type

@@ -17,9 +17,7 @@ struct IntType {
 struct VoidType {}
 
 #[derive(Hash, PartialEq, Eq)]
-struct PointerType {
-  pointee: TypeRef,
-}
+struct PointerType {}
 
 #[derive(Hash, PartialEq, Eq)]
 struct ArrayType {
@@ -110,6 +108,19 @@ impl Cache {
     }
   }
 
+  // TODO(@were): Later merge these two.
+  pub fn ptr_type(ctx: &mut Context) -> TypeRef {
+    let key = TypeHash::PointerType(PointerType{});
+    if let Some(res) = ctx.pod_cache.get_type(&key) {
+      res.clone()
+    } else {
+      let instance = types::PointerType::new();
+      let res = ctx.add_instance(instance);
+      ctx.pod_cache.insert_type(key, res.clone());
+      res
+    }
+  }
+
   pub fn void_type(ctx: &mut Context) -> TypeRef {
     let key = TypeHash::VoidType(VoidType{});
     if let Some(res) = ctx.pod_cache.get_type(&key) {
@@ -134,24 +145,12 @@ impl Cache {
     }
   }
 
-  pub fn pointer_type(ctx: &mut Context, pointee: TypeRef) -> TypeRef {
-    let key = TypeHash::PointerType(PointerType{ pointee: pointee.clone() });
-    if let Some(res) = ctx.pod_cache.get_type(&key) {
-      res.clone()
-    } else {
-      let instance = types::PointerType::new(pointee);
-      let res = ctx.add_instance(instance);
-      ctx.pod_cache.insert_type(key, res.clone());
-      res
-    }
-  }
-
   pub fn array_type(ctx: &mut Context, element: TypeRef, num_elements: usize) -> TypeRef {
     let key = TypeHash::ArrayType(ArrayType{ element: element.clone(), num_elements });
     if let Some(res) = ctx.pod_cache.get_type(&key) {
       res.clone()
     } else {
-      let ptr_ty = Self::pointer_type(ctx, element.clone());
+      let ptr_ty = ctx.pointer_type();
       let instance = types::ArrayType::new(element, ptr_ty, num_elements);
       let res = ctx.add_instance(instance);
       ctx.pod_cache.insert_type(key, res.clone());

@@ -110,13 +110,6 @@ impl<'ctx> Module {
     self.functions.retain(|x| *x != func.skey)
   }
 
-  pub fn remove_unused_functions(&mut self) {
-    self.functions.retain(|x| {
-      let func = Function::from_skey(*x).as_ref::<Function>(&self.context).unwrap();
-      func.user_iter().next().is_some() || func.is_declaration() || func.get_name().eq("main")
-    })
-  }
-
 }
 
 /// Make the name emission ready.
