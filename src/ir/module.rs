@@ -158,6 +158,10 @@ impl fmt::Display for Module {
     write!(f, "\n!inlined.return = !{{ }}\n").unwrap();
     // TODO(@were): Do I really want a redundant data structure for this?
     for func in self.func_iter() {
+      let attrs = func.attr_iter().map(|attr| attr.to_string()).collect::<Vec<_>>().join(", ");
+      if !attrs.is_empty() {
+        write!(f, "attributes #{} = {{ {} }}\n", func.get_skey(), attrs).unwrap();
+      }
       for bb in func.block_iter() {
         for inst in bb.inst_iter() {
           match inst.get_opcode() {

@@ -11,6 +11,21 @@ use crate::ir::types::{TypeRef, FunctionType};
 use crate::ir::module::namify;
 use crate::context::{SlabEntry, Reference, Context, WithSuperType};
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FuncAttr {
+  NoInline,
+  Other(String),
+}
+
+impl ToString for FuncAttr {
+  fn to_string(&self) -> String {
+    match self {
+      FuncAttr::NoInline => "noinline".to_string(),
+      FuncAttr::Other(s) => format!("\"{}\"", s.clone()),
+    }
+  }
+}
+
 pub struct ArgumentImpl {
   pub(crate) ty: TypeRef,
   pub(crate) parent: usize
@@ -22,6 +37,7 @@ pub struct FunctionImpl {
   pub(crate) fty: TypeRef,
   pub(crate) blocks: Vec<usize>,
   pub(crate) callers: HashSet<usize>,
+  pub(crate) attrs: HashSet<FuncAttr>,
 }
 
 pub type Argument = SlabEntry<ArgumentImpl>;
@@ -32,7 +48,14 @@ pub type FunctionRef<'ctx> = Reference<'ctx, FunctionImpl>;
 impl Function {
 
   pub(crate) fn new(name: String, fty: TypeRef, args: Vec<usize>) -> Self {
-    let instance = FunctionImpl{name, args, fty, blocks: Vec::new(), callers: HashSet::new()};
+    let instance = FunctionImpl{
+      name,
+      args,
+      fty,
+      blocks: Vec::new(),
+      callers: HashSet::new(),
+      attrs: HashSet::new(),
+    };
     Function::from(instance)
   }
 
@@ -61,6 +84,10 @@ impl <'ctx>FunctionRef<'ctx> {
     self.instance().unwrap().args.iter().map(|skey| {
       Argument::from_skey(*skey).as_ref::<Argument>(self.ctx).unwrap()
     })
+  }
+
+  pub fn attr_iter(&'ctx self) -> impl Iterator<Item=&FuncAttr> {
+    self.instance().unwrap().attrs.iter()
   }
 
   pub fn get_name(&self) -> String {
@@ -138,6 +165,9 @@ impl <'ctx>FunctionRef<'ctx> {
     }
     res.push_str(")");
     if !self.is_declaration() {
+      if !self.instance().unwrap().attrs.is_empty() {
+        res.push_str(format!(" #{}", self.get_skey()).as_str());
+      }
       res.push_str(" {\n");
       for block in self.block_iter() {
         res.push_str(block.to_string(false).as_str());
@@ -231,6 +261,11 @@ impl <'ctx>FuncMutator<'ctx> {
       block.instance.users.clear();
     }
     return !to_replace.is_empty();
+  }
+
+  pub fn add_attr(&mut self, attr: FuncAttr) {
+    let func = self.func.as_mut::<Function>(self.ctx).unwrap();
+    func.instance.attrs.insert(attr);
   }
 
 }
